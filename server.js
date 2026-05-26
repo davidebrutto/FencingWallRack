@@ -23,6 +23,12 @@ const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 5000);
 const SERIAL_PORT = process.env.SERIAL_PORT || '/dev/ttyUSB0';
 const SERIAL_BAUD = Number(process.env.SERIAL_BAUD || 38400);
+const SERIAL_DATABITS = Number(process.env.SERIAL_DATABITS || 8);
+const SERIAL_PARITY = process.env.SERIAL_PARITY || 'none';
+const SERIAL_STOPBITS = Number(process.env.SERIAL_STOPBITS || 1);
+const SERIAL_RTSCTS = process.env.SERIAL_RTSCTS === '1';
+const SERIAL_XON = process.env.SERIAL_XON === '1';
+const SERIAL_XOFF = process.env.SERIAL_XOFF === '1';
 const DEBUG_SERIAL = process.env.DEBUG_SERIAL === '1';
 const SERIAL_IDLE_FLUSH_MS = Number(process.env.SERIAL_IDLE_FLUSH_MS || 1200);
 
@@ -479,6 +485,12 @@ function startSerialReader() {
   const port = new SerialPort({
     path: SERIAL_PORT,
     baudRate: SERIAL_BAUD,
+    dataBits: SERIAL_DATABITS,
+    parity: SERIAL_PARITY,
+    stopBits: SERIAL_STOPBITS,
+    rtscts: SERIAL_RTSCTS,
+    xon: SERIAL_XON,
+    xoff: SERIAL_XOFF,
     autoOpen: false,
   });
 
@@ -487,7 +499,11 @@ function startSerialReader() {
       console.error(`Serial open error (${SERIAL_PORT}):`, error.message);
       return;
     }
-    console.log(`Serial Start on ${SERIAL_PORT} @ ${SERIAL_BAUD}`);
+    console.log(
+      `Serial Start on ${SERIAL_PORT} @ ${SERIAL_BAUD} ` +
+      `${SERIAL_DATABITS}${SERIAL_PARITY[0]?.toUpperCase() || 'N'}${SERIAL_STOPBITS} ` +
+      `rtscts=${SERIAL_RTSCTS} xon=${SERIAL_XON} xoff=${SERIAL_XOFF}`
+    );
   });
 
   function emitFrame(frameBuf, source) {
