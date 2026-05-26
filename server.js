@@ -23,6 +23,7 @@ const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 5000);
 const SERIAL_PORT = process.env.SERIAL_PORT || '/dev/ttyUSB0';
 const SERIAL_BAUD = Number(process.env.SERIAL_BAUD || 38400);
+const DEBUG_SERIAL = process.env.DEBUG_SERIAL === '1';
 
 const DATA_FILE = path.join(__dirname, 'scores.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -373,6 +374,14 @@ function parseTabellone(serialString) {
   return tabellone;
 }
 
+function logSerialDebug(event, details = '') {
+  if (!DEBUG_SERIAL) {
+    return;
+  }
+  const ts = new Date().toISOString();
+  console.log(`[${ts}] ${event}${details ? ` ${details}` : ''}`);
+}
+
 function startSerialReader() {
   const delimiter = Buffer.from([0x02, 0x20, 0x20, 0x04]);
   let rxBuffer = Buffer.alloc(0);
@@ -392,6 +401,7 @@ function startSerialReader() {
   });
 
   port.on('data', (chunk) => {
+    logSerialDebug('serial_rx', `bytes=${chunk.length}`);
     rxBuffer = Buffer.concat([rxBuffer, chunk]);
 
     while (true) {
@@ -405,10 +415,13 @@ function startSerialReader() {
 
       const serialString = frame.toString('utf-8');
       if (!serialString || serialString.length < 50) {
+        logSerialDebug('frame_drop', `len=${serialString.length}`);
         continue;
       }
 
+      logSerialDebug('frame_complete', `len=${serialString.length}`);
       const tabellone = parseTabellone(serialString);
+      logSerialDebug('ws_emit', `XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`);
       io.volatile.emit('punti_emit', { tabellone });
     }
 
