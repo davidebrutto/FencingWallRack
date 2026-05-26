@@ -406,6 +406,37 @@ function mergeTabelloneState(partial) {
   return { ...lastTabelloneState };
 }
 
+function isValidTabelloneValue(key, value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  if (key === 'timer') {
+    const t = value.trim();
+    return /^(\d{1,2}[:.]\d{2})$/.test(t);
+  }
+
+  if (key === 'XX' || key === 'YY') {
+    return /^[ 0-9]{2}$/.test(value);
+  }
+
+  if (['R', 'G', 'W', 'w', 'A', 'B', 'b', 'C', 'D', 'd', 'P', 'PR'].includes(key)) {
+    return /^[0-9 ]$/.test(value);
+  }
+
+  return true;
+}
+
+function sanitizeTabellone(partial) {
+  const sanitized = {};
+  for (const [key, value] of Object.entries(partial)) {
+    if (isValidTabelloneValue(key, value)) {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
 function logSerialDebug(event, details = '') {
   if (!DEBUG_SERIAL) {
     return;
@@ -435,14 +466,19 @@ function startSerialReader() {
   });
 
   function emitFrame(frameBuf, source) {
-    const serialString = frameBuf.toString('utf-8');
+    const serialString = frameBuf.toString('latin1');
     if (!serialString || serialString.length < 8) {
       logSerialDebug('frame_drop', `source=${source} len=${serialString.length}`);
       return;
     }
 
     logSerialDebug('frame_complete', `source=${source} len=${serialString.length}`);
-    const partialTabellone = parseTabellone(serialString);
+    const parsedTabellone = parseTabellone(serialString);
+    const partialTabellone = sanitizeTabellone(parsedTabellone);
+    if (Object.keys(partialTabellone).length === 0) {
+      logSerialDebug('frame_drop', `source=${source} reason=no_valid_fields`);
+      return;
+    }
     const tabellone = mergeTabelloneState(partialTabellone);
     logSerialDebug('ws_emit', `XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`);
     io.volatile.emit('punti_emit', { tabellone });
