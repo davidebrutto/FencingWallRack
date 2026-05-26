@@ -374,6 +374,38 @@ function parseTabellone(serialString) {
   return tabellone;
 }
 
+const lastTabelloneState = {
+  R: '0',
+  G: '0',
+  W: '0',
+  w: '0',
+  timer: '3:00',
+  XX: ' 0',
+  YY: ' 0',
+  A: '0',
+  B: '0',
+  b: '0',
+  C: '0',
+  D: '0',
+  d: '0',
+  P: '0',
+  PR: '0',
+};
+
+function mergeTabelloneState(partial) {
+  for (const [key, value] of Object.entries(partial)) {
+    if (typeof value !== 'string') {
+      continue;
+    }
+    if (value.length === 0) {
+      continue;
+    }
+    lastTabelloneState[key] = value;
+  }
+
+  return { ...lastTabelloneState };
+}
+
 function logSerialDebug(event, details = '') {
   if (!DEBUG_SERIAL) {
     return;
@@ -385,6 +417,8 @@ function logSerialDebug(event, details = '') {
 function startSerialReader() {
   const delimiter = Buffer.from([0x02, 0x20, 0x20, 0x04]);
   let rxBuffer = Buffer.alloc(0);
+  let flushTimer = null;
+  const SERIAL_IDLE_FLUSH_MS = 25;
 
   const port = new SerialPort({
     path: SERIAL_PORT,
@@ -400,10 +434,21 @@ function startSerialReader() {
     console.log(`Serial Start on ${SERIAL_PORT} @ ${SERIAL_BAUD}`);
   });
 
-  port.on('data', (chunk) => {
-    logSerialDebug('serial_rx', `bytes=${chunk.length}`);
-    rxBuffer = Buffer.concat([rxBuffer, chunk]);
+  function emitFrame(frameBuf, source) {
+    const serialString = frameBuf.toString('utf-8');
+    if (!serialString || serialString.length < 8) {
+      logSerialDebug('frame_drop', `source=${source} len=${serialString.length}`);
+      return;
+    }
 
+    logSerialDebug('frame_complete', `source=${source} len=${serialString.length}`);
+    const partialTabellone = parseTabellone(serialString);
+    const tabellone = mergeTabelloneState(partialTabellone);
+    logSerialDebug('ws_emit', `XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`);
+    io.volatile.emit('punti_emit', { tabellone });
+  }
+
+  function flushFramesFromBuffer(source) {
     while (true) {
       const endIndex = rxBuffer.indexOf(delimiter);
       if (endIndex === -1) {
@@ -412,18 +457,30 @@ function startSerialReader() {
 
       const frame = rxBuffer.subarray(0, endIndex);
       rxBuffer = rxBuffer.subarray(endIndex + delimiter.length);
-
-      const serialString = frame.toString('utf-8');
-      if (!serialString || serialString.length < 50) {
-        logSerialDebug('frame_drop', `len=${serialString.length}`);
-        continue;
-      }
-
-      logSerialDebug('frame_complete', `len=${serialString.length}`);
-      const tabellone = parseTabellone(serialString);
-      logSerialDebug('ws_emit', `XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`);
-      io.volatile.emit('punti_emit', { tabellone });
+      emitFrame(frame, source);
     }
+  }
+
+  function scheduleIdleFlush() {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+    }
+
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      if (rxBuffer.length > 0) {
+        const frame = rxBuffer;
+        rxBuffer = Buffer.alloc(0);
+        emitFrame(frame, 'idle_flush');
+      }
+    }, SERIAL_IDLE_FLUSH_MS);
+  }
+
+  port.on('data', (chunk) => {
+    logSerialDebug('serial_rx', `bytes=${chunk.length}`);
+    rxBuffer = Buffer.concat([rxBuffer, chunk]);
+    flushFramesFromBuffer('delimiter');
+    scheduleIdleFlush();
 
     if (rxBuffer.length > 8192) {
       rxBuffer = rxBuffer.subarray(rxBuffer.length - 2048);
