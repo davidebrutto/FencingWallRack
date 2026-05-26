@@ -439,6 +439,7 @@ function logSerialDebug(event, details = '') {
 
 function startSerialReader() {
   const delimiter = Buffer.from([0x02, 0x20, 0x20, 0x04]);
+  const delimiterEot = Buffer.from([0x04]);
   let rxBuffer = Buffer.alloc(0);
   let flushTimer = null;
   const SERIAL_IDLE_FLUSH_MS = 25;
@@ -476,16 +477,28 @@ function startSerialReader() {
     io.volatile.emit('punti_emit', { tabellone });
   }
 
+  function findDelimiterIndex(buffer) {
+    const fullIdx = buffer.indexOf(delimiter);
+    if (fullIdx !== -1) {
+      return { index: fullIdx, length: delimiter.length, type: 'full' };
+    }
+    const eotIdx = buffer.indexOf(delimiterEot);
+    if (eotIdx !== -1) {
+      return { index: eotIdx, length: delimiterEot.length, type: 'eot' };
+    }
+    return null;
+  }
+
   function flushFramesFromBuffer(source) {
     while (true) {
-      const endIndex = rxBuffer.indexOf(delimiter);
-      if (endIndex === -1) {
+      const match = findDelimiterIndex(rxBuffer);
+      if (!match) {
         break;
       }
 
-      const frame = rxBuffer.subarray(0, endIndex);
-      rxBuffer = rxBuffer.subarray(endIndex + delimiter.length);
-      emitFrame(frame, source);
+      const frame = rxBuffer.subarray(0, match.index);
+      rxBuffer = rxBuffer.subarray(match.index + match.length);
+      emitFrame(frame, `${source}:${match.type}`);
     }
   }
 
