@@ -327,7 +327,7 @@ app.get('/api/scores', (req, res) => {
   res.json(loadScores());
 });
 
-function parseTabellone(serialString) {
+function parseTabelloneAtOffset(serialString) {
   const type = serialString.slice(2, 3);
   if (type !== 'N' && type !== 'R') {
     return null;
@@ -382,6 +382,19 @@ function parseTabellone(serialString) {
   }
 
   return tabellone;
+}
+
+function parseTabellone(serialString) {
+  // Auto-align: some frames arrive with leading bytes before the original Python layout.
+  const maxShift = Math.min(10, Math.max(0, serialString.length - 3));
+  for (let shift = 0; shift <= maxShift; shift += 1) {
+    const candidate = serialString.slice(shift);
+    const parsed = parseTabelloneAtOffset(candidate);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  return null;
 }
 
 const lastTabelloneState = {
