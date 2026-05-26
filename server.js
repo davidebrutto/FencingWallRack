@@ -9,7 +9,6 @@ const bcrypt = require('bcryptjs');
 const nunjucks = require('nunjucks');
 const { Server } = require('socket.io');
 const { SerialPort } = require('serialport');
-const { DelimiterParser } = require('@serialport/parser-delimiter');
 
 const app = express();
 const server = http.createServer(app);
@@ -375,6 +374,9 @@ function parseTabellone(serialString) {
 }
 
 function startSerialReader() {
+  const delimiter = Buffer.from([0x02, 0x20, 0x20, 0x04]);
+  let rxBuffer = Buffer.alloc(0);
+
   const port = new SerialPort({
     path: SERIAL_PORT,
     baudRate: SERIAL_BAUD,
@@ -389,18 +391,30 @@ function startSerialReader() {
     console.log(`Serial Start on ${SERIAL_PORT} @ ${SERIAL_BAUD}`);
   });
 
-  const parser = port.pipe(
-    new DelimiterParser({ delimiter: Buffer.from([0x02, 0x20, 0x20, 0x04]) })
-  );
+  port.on('data', (chunk) => {
+    rxBuffer = Buffer.concat([rxBuffer, chunk]);
 
-  parser.on('data', (chunk) => {
-    const serialString = chunk.toString('utf-8');
-    if (!serialString || serialString.length < 50) {
-      return;
+    while (true) {
+      const endIndex = rxBuffer.indexOf(delimiter);
+      if (endIndex === -1) {
+        break;
+      }
+
+      const frame = rxBuffer.subarray(0, endIndex);
+      rxBuffer = rxBuffer.subarray(endIndex + delimiter.length);
+
+      const serialString = frame.toString('utf-8');
+      if (!serialString || serialString.length < 50) {
+        continue;
+      }
+
+      const tabellone = parseTabellone(serialString);
+      io.emit('punti_emit', { tabellone });
     }
 
-    const tabellone = parseTabellone(serialString);
-    io.emit('punti_emit', { tabellone });
+    if (rxBuffer.length > 8192) {
+      rxBuffer = rxBuffer.subarray(rxBuffer.length - 2048);
+    }
   });
 
   port.on('error', (error) => {
