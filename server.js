@@ -385,11 +385,28 @@ function parseTabelloneAtOffset(serialString) {
 }
 
 function parseTabellone(serialString) {
-  // Auto-align: some frames arrive with leading bytes before the original Python layout.
-  const maxShift = Math.min(10, Math.max(0, serialString.length - 3));
-  for (let shift = 0; shift <= maxShift; shift += 1) {
+  // Auto-align: try every position where candidate[2] can be N/R.
+  for (let markerIdx = 0; markerIdx < serialString.length; markerIdx += 1) {
+    const ch = serialString[markerIdx];
+    if (ch !== 'N' && ch !== 'R') {
+      continue;
+    }
+
+    const shift = markerIdx - 2;
+    if (shift < 0) {
+      continue;
+    }
+
     const candidate = serialString.slice(shift);
     const parsed = parseTabelloneAtOffset(candidate);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  // Last chance: direct attempt at shift 0.
+  {
+    const parsed = parseTabelloneAtOffset(serialString);
     if (parsed) {
       return parsed;
     }
