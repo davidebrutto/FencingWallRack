@@ -24,6 +24,7 @@ const PORT = Number(process.env.PORT || 5000);
 const SERIAL_PORT = process.env.SERIAL_PORT || '/dev/ttyUSB0';
 const SERIAL_BAUD = Number(process.env.SERIAL_BAUD || 38400);
 const DEBUG_SERIAL = process.env.DEBUG_SERIAL === '1';
+const SERIAL_IDLE_FLUSH_MS = Number(process.env.SERIAL_IDLE_FLUSH_MS || 1200);
 
 const DATA_FILE = path.join(__dirname, 'scores.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -474,7 +475,6 @@ function startSerialReader() {
   const delimiterEot = Buffer.from([0x04]);
   let rxBuffer = Buffer.alloc(0);
   let flushTimer = null;
-  const SERIAL_IDLE_FLUSH_MS = 25;
 
   const port = new SerialPort({
     path: SERIAL_PORT,
@@ -549,6 +549,10 @@ function startSerialReader() {
   }
 
   function scheduleIdleFlush() {
+    if (SERIAL_IDLE_FLUSH_MS <= 0) {
+      return;
+    }
+
     if (flushTimer) {
       clearTimeout(flushTimer);
     }
@@ -564,7 +568,8 @@ function startSerialReader() {
   }
 
   port.on('data', (chunk) => {
-    logSerialDebug('serial_rx', `bytes=${chunk.length}`);
+    const hexHead = chunk.subarray(0, Math.min(8, chunk.length)).toString('hex');
+    logSerialDebug('serial_rx', `bytes=${chunk.length} hex=${hexHead}`);
     rxBuffer = Buffer.concat([rxBuffer, chunk]);
     flushFramesFromBuffer('delimiter');
     scheduleIdleFlush();
