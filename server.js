@@ -99,7 +99,10 @@ function urlFor(name, ...args) {
   return applyRouteParams(route, kwargs);
 }
 
-const nunjucksEnv = nunjucks.configure();
+const nunjucksEnv = nunjucks.configure(path.join(__dirname, 'templates'), {
+  autoescape: true,
+  express: app,
+});
 
 nunjucksEnv.addGlobal('url_for', urlFor);
 
