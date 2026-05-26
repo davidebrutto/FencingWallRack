@@ -435,13 +435,7 @@ function startSerialReader() {
   });
 
   function emitFrame(frameBuf, source) {
-    let serialString = '';
-    try {
-      serialString = new TextDecoder('utf-8', { fatal: true }).decode(frameBuf);
-    } catch (error) {
-      logSerialDebug('frame_drop', `source=${source} reason=invalid_utf8`);
-      return;
-    }
+    const serialString = frameBuf.toString('utf8');
 
     if (!serialString || serialString.length < 8) {
       logSerialDebug('frame_drop', `source=${source} len=${serialString.length}`);
