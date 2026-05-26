@@ -412,16 +412,15 @@ function isValidTabelloneValue(key, value) {
   }
 
   if (key === 'timer') {
-    const t = value.trim();
-    return /^(\d{1,2}[:.]\d{2})$/.test(t);
+    return /^[0-9 :.]{4,8}$/.test(value);
   }
 
   if (key === 'XX' || key === 'YY') {
-    return /^[ 0-9]{2}$/.test(value);
+    return /^[\x20-\x7E]{2}$/.test(value);
   }
 
   if (['R', 'G', 'W', 'w', 'A', 'B', 'b', 'C', 'D', 'd', 'P', 'PR'].includes(key)) {
-    return /^[0-9 ]$/.test(value);
+    return /^[\x20-\x7E]$/.test(value);
   }
 
   return true;
@@ -430,8 +429,15 @@ function isValidTabelloneValue(key, value) {
 function sanitizeTabellone(partial) {
   const sanitized = {};
   for (const [key, value] of Object.entries(partial)) {
-    if (isValidTabelloneValue(key, value)) {
-      sanitized[key] = value;
+    if (typeof value !== 'string') {
+      continue;
+    }
+    const printable = value.replace(/[^\x20-\x7E]/g, '');
+    if (printable.length === 0) {
+      continue;
+    }
+    if (isValidTabelloneValue(key, printable)) {
+      sanitized[key] = printable;
     }
   }
   return sanitized;
@@ -476,7 +482,8 @@ function startSerialReader() {
     const parsedTabellone = parseTabellone(serialString);
     const partialTabellone = sanitizeTabellone(parsedTabellone);
     if (Object.keys(partialTabellone).length === 0) {
-      logSerialDebug('frame_drop', `source=${source} reason=no_valid_fields`);
+      logSerialDebug('frame_keep_last', `source=${source} reason=no_valid_fields`);
+      io.volatile.emit('punti_emit', { tabellone: { ...lastTabelloneState } });
       return;
     }
     const tabellone = mergeTabelloneState(partialTabellone);
@@ -530,6 +537,11 @@ function startSerialReader() {
 
 ensureJsonFile(DATA_FILE, []);
 ensureJsonFile(USERS_FILE, []);
+
+io.on('connection', (socket) => {
+  socket.emit('punti_emit', { tabellone: { ...lastTabelloneState } });
+});
+
 startSerialReader();
 
 server.listen(PORT, HOST, () => {
