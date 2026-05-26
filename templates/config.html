@@ -1,0 +1,143 @@
+
+{% extends "baseb.html" %}
+
+{% block title %}dmb Score - Home{% endblock %}
+
+{% block content %}
+{#<h2>dmb SCORE</h2>#}
+
+{% if scores %}
+    {% for game in scores %}
+    <div class="game-card" style="margin-bottom: 50px">
+        <div class="row" style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; top: 10px; left: 20px">
+            <form method="post" action="{{ url_for('update_score', game_id=game.id) }}" style="display: inline;">
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        NOME DX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="text" name="team2" value="{{ game.team2 }}" style="width: 80%; margin-right: 5px;">
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        NOME SX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="text" name="team1" value="{{ game.team1 }}" style="width: 80%; margin-right: 5px;">
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        NAZIONE DX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="text" name="country2" value="{{ game.country2 }}" maxlength="3" style="margin-right: 5px;">
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        NAZIONE SX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="text" name="country1" value="{{ game.country1 }}" maxlength="3" style="margin-right: 5px;">
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        FLAG/LOGO DX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="text" readonly name="flag2img" id="flag2img" style="background-image: url('./static/flags/{{ game.flag2 }}'); margin-right: 5px; background-repeat: no-repeat; height: 50px; width:65px">
+                        <select onchange="flagDX()" name="flag2" id="flag2">
+                            {% for fileimg in files: %}
+                                {% if game.flag2 == fileimg %}
+                                	<option value="{{fileimg}}" selected>{{fileimg}}</option>
+                                {% else %}
+                                    <option value="{{fileimg}}")>{{fileimg}}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        FLAG/LOGO SX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="text" readonly name="flag1img" id="flag1img" style="background-image: url('./static/flags/{{ game.flag1 }}'); margin-right: 5px; background-repeat: no-repeat; height: 50px; width:65px">
+                        <select onchange="flagSX()" name="flag1" id="flag1">
+                            {% for fileimg in files: %}
+                                {% if game.flag1 == fileimg %}
+                                	<option value="{{fileimg}}" selected>{{fileimg}}</option>
+                                {% else %}
+                                    <option value="{{fileimg}}")>{{fileimg}}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        GRUPPO DX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="text" name="gruppo2" value="{{ game.gruppo2 }}" maxlength="5" style="margin-right: 5px;">
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        GRUPPO SX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="text" name="gruppo1" value="{{ game.gruppo1 }}" maxlength="5" style="margin-right: 5px;">
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        RANKING DX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="number" name="rank2" value="{{ game.rank2 }}" style="margin-right: 5px;">
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        RANKING SX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="number" name="rank1" value="{{ game.rank1 }}" style="margin-right: 5px;">
+                    </div>
+                </div>
+
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        CLASS. GIRONI DX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="number" name="classgir2" value="{{ game.classgir2 }}" style="margin-right: 5px;">
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-4 text-right">
+                        CLASS. GIRONI SX
+                    </div>
+                    <div class="col-8 text-left">
+                        <input type="number" name="classgir1" value="{{ game.classgir1 }}" style="margin-right: 5px;">
+                    </div>
+                </div>
+                <div class="row margin5 text-center">
+                    <button type="submit" onclick="return confirm('Sei sicuro di salvare questi valori?')" class="btn">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div style="text-align: center; padding: 40px;">
+        <h3>No games scheduled</h3>
+        <p>Add your first game to get started!</p>
+        <a href="{{ url_for('add_game') }}" class="btn">Add Game</a>
+    </div>
+{% endif %}
+{% endblock %}

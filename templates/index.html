@@ -1,0 +1,103 @@
+
+{% extends "base.html" %}
+
+{% block title %}dmb Score - Home{% endblock %}
+
+{% block content %}
+{#<h2>Live Sports Scores</h2>#}
+
+{% if scores %}
+    {% for game in scores %}
+    <div class="game-card">
+        {#<div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong>{{ game.sport }}</strong>
+                <span class="status {{ game.status.lower() }}">{{ game.status }}</span>
+            </div>
+            <small>{{ game.date }}</small>
+        </div>#}
+        <div class="row">
+            <div class="videoSX" id="videoSX" style="display: none">
+                <iframe width="1920" height="1080" src="https://www.youtube.com/embed/HNKV3PZBTfc?autoplay=1&mute=1&si=lRBSkVOrV4vVaqS&amp;controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+            </div>
+        </div>
+        <div class="row">
+            <div class="videoDX" id="videoDX" style="display: none">
+                <iframe width="1920" height="1080" src="https://www.youtube.com/embed/HNKV3PZBTfc?autoplay=1&mute=1&si=lRBSkVOrV4vVaqS&amp;controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+            </div>
+        </div>
+        <div class="row">
+            {#<div class="statoSX"><a href="{{ url_for('index') }}">Home</a></div>#}
+            <div class="gruppoSX">{{ game.gruppo1 }}</div>
+            <div class="rankSX" id="rankSX">R:{{ game.rank1 }}</div>
+            <div class="countrySX">{{ game.country1 }}</div>
+            <div class="flagSX"><img src="/static/flags/{{game.flag1}}" /></div>
+            <div class="flagDX"><img src="/static/flags/{{game.flag2}}" /></div>
+            <div class="countryDX">{{ game.country2 }}</div>
+            <div class="rankDX" id="rankDX">R:{{ game.rank2 }}</div>
+            <div class="gruppoDX">{{ game.gruppo2 }}</div>
+            {#<div class="statoDX"> </div>#}
+        </div>
+        <div class="row">
+            <div id="nomeSXCont" class="nomeSXCont"><div class="nomeSX" id="nomeSX">{{ game.team1 }}</div></div>
+            <div id="nomeDXCont" class="nomeDXCont"><div class="nomeDX" id="nomeDX">{{ game.team2 }}</div></div>
+        </div>
+        <div class="row">
+            <div class="scoreSX" id="YY"></div>
+            <div class="statoSXbig" id="statoSXbig" style="background-color: rgba(255,255,255,0%);"><a href="{{ url_for('index') }}">Home</a></div>
+
+            <div class="CGSX" id="CGSX" style="background-color: rgba(255,255,255,0%)"></div>
+            <div class="CRSX" id="CRSX" style="background-color: rgba(255,255,255,0%)"></div>
+
+            <div class="prioritaSX" id="prioritaSX"></div>
+
+            <div class="period" id="PR"></div>
+
+            <div class="timerCont"><div class="timerText" id="timerText">3:00</div></div>
+
+            <div class="prioritaDX" id="prioritaDX"></div>
+
+            <div class="CGDX" id="CGDX" style="background-color: rgba(255,255,255,0%)"></div>
+            <div class="CRDX" id="CRDX" style="background-color: rgba(255,255,255,0%)"></div>
+
+            <div class="scoreDX" id="XX"></div>
+            <div class="statoDXbig" id="statoDXbig" style="background-color: rgba(255,255,255,0%);"></div>
+        </div>
+        {#<div class="team-names">
+            <span style="font-size: 18px; font-weight: bold;">{{ game.team1 }}</span>
+            <span style="font-size: 14px; color: #666;">VS</span>
+            <span style="font-size: 18px; font-weight: bold;">{{ game.team2 }}</span>
+        </div>#}
+        
+        {#<div class="score-display">
+            {{ game.score1 }} - {{ game.score2 }}
+        </div>
+        
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; position: absolute; top: 850px; left: 2000px">
+            <form method="post" action="{{ url_for('update_score', game_id=game.id) }}" style="display: inline;">
+                <input type="number" name="score1" value="{{ game.score1 }}" style="width: 60px; margin-right: 5px;">
+                <input type="number" name="score2" value="{{ game.score2 }}" style="width: 60px; margin-right: 5px;">
+                <select name="status" style="width: 80px; margin-right: 5px;">
+                    <option value="Live" {% if game.status == 'Live' %}selected{% endif %}>Live</option>
+                    <option value="Final" {% if game.status == 'Final' %}selected{% endif %}>Final</option>
+                    <option value="Scheduled" {% if game.status == 'Scheduled' %}selected{% endif %}>Scheduled</option>
+                </select>
+                <button type="submit" class="btn">Update</button>
+            </form>
+            <a href="{{ url_for('delete_game', game_id=game.id) }}" class="btn btn-danger" 
+               onclick="return confirm('Are you sure you want to delete this game?')">Delete</a>
+        </div>#}
+    </div>
+    {% endfor %}
+{% else %}
+    <div style="text-align: center; padding: 40px;">
+        <h3>No games scheduled</h3>
+        <p>Add your first game to get started!</p>
+        <a href="{{ url_for('add_game') }}" class="btn">Add Game</a>
+    </div>
+{% endif %}
+
+{#<div style="text-align: center; margin-top: 30px;">
+    <a href="{{ url_for('add_game') }}" class="btn">Add New Game</a>
+</div>#}
+{% endblock %}

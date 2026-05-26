@@ -1,0 +1,524 @@
+.statoSX {
+    height: 200px !important;
+    width: 900px;
+    background-color: #220000;
+    position: absolute;
+    z-index: 1000;
+}
+.statoSXbig {
+    height: 570px !important;
+    width: 1910px;
+    background-color: #110000;
+    position: absolute;
+    z-index: 1100;
+    top: 500px;
+}
+.statoDX {
+    height: 200px !important;
+    width: 900px;
+    background-color: #002200;
+    position: absolute;
+    left: 2930px;
+    z-index: 1000;
+}
+.statoDXbig {
+    height: 570px !important;
+    width: 1900px;
+    /*background-color: #001100;*/
+    position: absolute;
+    z-index: 1100;
+    top: 500px;
+    left: 1930px;
+}
+
+.nomeSXCont {
+    height: 270px !important;
+    max-height: 270px !important;
+    width: 1800px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    top: 230px;
+    left: 0px;
+    overflow: hidden;
+
+}
+.nomeSX{
+    color: #C2AF03FF;
+    font-size: 320px;
+    line-height: 280px;
+    font-family: led2;
+    z-index: 800;
+    text-align: left;
+    white-space:nowrap;
+    overflow: hidden;
+    width: 1800px;
+}
+.nomeDXCont{
+    height: 270px !important;
+    max-height: 270px !important;
+    width: 1800px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    top: 230px;
+    left: 2020px;
+    overflow: hidden;
+}
+.nomeDX {
+    color: #C2AF03FF;
+    font-size: 320px;
+    line-height: 280px;
+    font-family: led2;
+    z-index: 800;
+    text-align: left;
+    white-space:nowrap;
+    overflow: hidden;
+    width: 1800px;
+}
+
+
+.gruppoSX {
+    height: 200px !important;
+    width: 600px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 610px;
+    top: 10px;
+    z-index: 900;
+    color: #036cc2;
+    font-size: 180px;
+    line-height: 200px;
+    text-align: center;
+    font-family: led2;
+    border-width: 5px;
+    border-style: groove;
+    border-color: #FFFFFF;
+    vertical-align: top;
+
+}
+.gruppoDX {
+    height: 200px !important;
+    width: 600px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 2620px;
+    top: 10px;
+    z-index: 900;
+    color: #036cc2;
+    font-size: 180px;
+    line-height: 200px;
+    font-family: led2;
+    text-align: center;
+    border-width: 5px;
+    border-style: groove;
+    border-color: #FFFFFF;
+    padding: 0px;
+}
+
+.rankSX {
+    height: 200px !important;
+    width: 595px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 0px;
+    top: 10px;
+    z-index: 900;
+    color: #c2b803;
+    font-size: 200px;
+    line-height: 200px;
+    text-align: center;
+    font-family: led2;
+    border-width: 5px;
+    border-style: groove;
+    border-color: #FFFFFF;
+
+}
+.rankDX {
+    height: 200px !important;
+    width: 595px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 3235px;
+    top: 10px;
+    z-index: 900;
+    color: #c2b803;
+    font-size: 200px;
+    line-height: 200px;
+    text-align: center;
+    font-family: led2;
+    border-width: 5px;
+    border-style: groove;
+    border-color: #FFFFFF;
+
+}
+
+.countrySX {
+    height: 200px !important;
+    width: 400px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 1507px;
+    top: 10px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 200px;
+    line-height: 200px;
+    text-align: center;
+    font-family: led2;
+    border-width: 5px;
+    border-style: groove;
+    border-color: #FFFFFF;
+
+}
+.countryDX {
+    height: 200px !important;
+    width: 400px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 1925px;
+    top: 10px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 200px;
+    line-height: 200px;
+    text-align: center;
+    font-family: led2;
+    border-width: 5px;
+    border-style: groove;
+    border-color: #FFFFFF;
+
+}
+
+.flagSX {
+    height: 200px !important;
+    width: 267px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 1225px;
+    top: 10px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 200px;
+    line-height: 220px;
+    text-align: center;
+    font-family: led2;
+    border-width: 5px;
+    border-style: groove;
+    border-color: #FFFFFF;
+    vertical-align: center;
+    overflow: hidden;
+
+}
+.flagDX {
+    height: 200px !important;
+    width: 267px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 2338px;
+    top: 10px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 200px;
+    line-height: 220px;
+    text-align: center;
+    font-family: led2;
+    border-width: 5px;
+    border-style: groove;
+    border-color: #FFFFFF;
+    vertical-align: center;
+    overflow: hidden;
+
+}
+
+.scoreSX{
+    height: 570px !important;
+    width: 750px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 0px;
+    top: 500px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 550px;
+    line-height: 650px;
+    font-family: seven;
+    text-align: center;
+    overflow-y: clip;
+    border-width: 0px;
+    border-style: groove;
+    border-color: #FF0000;
+}
+.scoreDX{
+    height: 570px !important;
+    width: 750px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 3085px;
+    top: 500px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 550px;
+    line-height: 650px;
+    font-family: seven;
+    text-align: center;
+    overflow-y: clip;
+    border-width: 0px;
+    border-style: groove;
+    border-color: #FFFFFF;
+}
+
+.CGPDX{
+    height: 230px !important;
+    width: 180px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 2735px;
+    top: 540px;
+    z-index: 900;
+    color: #000000;
+    font-size: 280px;
+    line-height: 250px;
+    font-family: led2;
+    text-align: center;
+}
+.CGDX{
+    height: 230px !important;
+    width: 130px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 2920px;
+    top: 540px;
+    z-index: 900;
+    color: #000000;
+    font-size: 280px;
+    line-height: 250px;
+    font-family: led2;
+    text-align: center;
+}
+.CRPDX{
+    height: 230px !important;
+    width: 180px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 2735px;
+    top: 790px;
+    z-index: 900;
+    color: #000000;
+    font-size: 280px;
+    line-height: 250px;
+    font-family: led2;
+    text-align: center;
+}
+.CRDX{
+    height: 230px !important;
+    width: 130px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 2920px;
+    top: 790px;
+    z-index: 900;
+    color: #000000;
+    font-size: 280px;
+    line-height: 250px;
+    font-family: led2;
+    text-align: center;
+}
+
+.prioritaDX {
+    height: 250px !important;
+    width: 100px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 2700px;
+    top: 790px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 250px;
+    line-height: 250px;
+    font-family: led2;
+    text-align: center;
+    overflow-y: clip;
+}
+.prioritaSX {
+    height: 250px !important;
+    width: 100px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 950px;
+    top: 790px;
+    z-index: 900;
+    color: #FFFFFF; /*#3EA5FAFF;*/
+    font-size: 250px;
+    line-height: 250px;
+    font-family: led2;
+    text-align: center;
+    overflow-y: clip;
+}
+
+.period {
+    height: 370px !important;
+    width: 250px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 1150px;
+    top: 670px; /*530px;*/
+    z-index: 900;
+    color: #036cc2;
+    font-size: 500px;
+    line-height: 500px;
+    font-family: led6;
+    text-align: center;
+    overflow-y: clip;
+}
+
+.CGSX{
+    height: 230px !important;
+    width: 130px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 790px;
+    top: 540px;
+    z-index: 900;
+    color: #000000;
+    font-size: 280px;
+    line-height: 250px;
+    font-family: led2;
+    text-align: center;
+}
+.CGPSX{
+    height: 230px !important;
+    width: 180px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 930px;
+    top: 540px;
+    z-index: 900;
+    color: #000000;
+    font-size: 280px;
+    line-height: 250px;
+    font-family: led2;
+    text-align: center;
+}
+.CRSX{
+    height: 230px !important;
+    width: 130px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 790px;
+    top: 790px;
+    z-index: 900;
+    color: #000000;
+    font-size: 280px;
+    line-height: 250px;
+    font-family: led2;
+    text-align: center;
+}
+.CRPSX{
+    height: 230px !important;
+    width: 180px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 930px;
+    top: 790px;
+    z-index: 900;
+    color: #000000;
+    font-size: 280px;
+    line-height: 250px;
+    font-family: led2;
+    text-align: center;
+}
+
+
+.timerCont{
+    height: 480px !important;
+    max-height: 480px !important;
+    width: 1200px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    top: 570px;
+    left: 1430px;
+    z-index: 800;
+    overflow-y: clip;
+    border-width: 5px;
+    border-style: groove;
+    border-color: #FFFFFF;
+    vertical-align: top;
+    text-align: right;
+}
+.timerText {
+    color: #00FF00;
+    font-size: 630px;
+    line-height: 580px;
+    font-family: led6;
+    z-index: 800;
+    text-align: center;
+    white-space:nowrap;
+    /*width: 1000px;*/
+    overflow-y: clip;
+}
+
+.text-right{
+    text-align: right;
+}
+
+.text-left{
+    text-align: left;
+}
+.text-center{
+    text-align: center;
+}
+.margin5{
+    margin: 5px !important;
+}
+
+.videoSX{
+    width: 1920px;
+    height: 1080px;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    z-index: 2000;
+
+}
+
+.videoDX{
+    width: 1920px;
+    height: 1080px;
+    position: absolute;
+    top: 0px;
+    left: 1921px;
+    z-index: 2000;
+
+}
+
+@font-face{
+    font-family: sofiaEC;
+    src: url('SofiaSansExtraCondensed-Regular.ttf');
+}
+@font-face{
+    font-family: seven;
+    src: url('LiquidCrystal-NormalItalic.otf');
+}
+@font-face{
+    font-family: led;
+    src: url('DotSpot-Regular.ttf');
+}
+@font-face{
+    font-family: led2;
+    src: url('GasFont.ttf');
+}
+@font-face{
+    font-family: led3;
+    src: url('LED-LCD-123.ttf');
+}
+@font-face{
+    font-family: led4;
+    src: url('Pixel-lcd-machine.ttf');
+}
+@font-face{
+    font-family: led5;
+    src: url('advanced_pixel_lcd-7.ttf');
+}
+@font-face{
+    font-family: led6;
+    src: url('LCDAT-TPhoneTimeDate.ttf');
+}

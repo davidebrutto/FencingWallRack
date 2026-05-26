@@ -1,0 +1,312 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Scherma Score App{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="/static/logo.jpg">
+    <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='mystyle.css')}}"/>
+{#    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js" integrity="sha384-c79GN5VsunZvi+Q/WObgk2in0CbZsHnjEqvFxC5DxHn9lTfNce2WW6h2pH6u/kF+" crossorigin="anonymous"></script>#}
+    <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #000000; /* linear-gradient(135deg, #667eea 0%, #764ba2 100%);*/
+            min-height: 100vh;
+            /*padding: 20px;*/
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            padding-right: 0px !important;
+            padding-left: 0px !important;
+        }
+        
+        .container {
+            /*max-width: 1200px;*/
+            margin: 0 0 0 0;
+            background: #000000;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            height: auto;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            display: none;
+        }
+        
+        .nav {
+            background: #34495e;
+            padding: 10px 20px;
+            display: none;
+        }
+        
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin-right: 20px;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .nav a:hover {
+            background: #3498db;
+        }
+        
+        .content {
+            padding: 0px !important;
+            background-color: #000000;
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .game-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 0px;
+            background: #000000;
+            height: 1080px;
+        }
+        
+        .score-display {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px 0;
+            color: #2c3e50;
+            position: absolute;
+            top: 800px;
+            left: 2000px;
+        }
+        
+        .team-names {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            position: absolute;
+            top: 800px;
+        }
+        
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status.live {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .status.final {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .status.scheduled {
+            background: #f39c12;
+            color: white;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 Sports Score Tracker</h1>
+        </div>
+        
+        <div class="nav">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('add_game') }}">Add Game</a>
+            <a href="{{ url_for('api_scores') }}" target="_blank">API</a>
+        </div>
+        
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</body>
+<script type="application/javascript">
+    const socket = io({autoConnect: false});
+    const container = document.querySelector('.nomeSX');
+    const containerDX = document.querySelector('.nomeDX');
+    let scrollAmount = 0;
+    let scrollAmountDX = 0;
+    let misuraTotale = 0;
+    let ranking = 0;
+
+    socket.connect();
+
+    socket.on("video_emit", function(video) {
+        console.log(video)
+        if (video.video == 'videoOn'){
+            document.getElementById("videoSX").style.display = 'block';
+            document.getElementById("videoDX").style.display = 'block';
+        }else{
+            document.getElementById("videoSX").style.display = 'none';
+            document.getElementById("videoDX").style.display = 'none';
+        }
+
+    })
+
+    socket.on("info_emit", function(info) {
+        console.log(info)
+        window.location.reload();
+    })
+
+    socket.on("punti_emit", function(tabellone) {
+            console.log(tabellone)
+            //STATO DX
+            if (tabellone.tabellone.G == 1){
+                document.getElementById('statoDXbig').style.backgroundColor='#009900';
+            }else if (tabellone.tabellone.W == 1) {
+                document.getElementById('statoDXbig').style.backgroundColor='#FFFFFF';
+            }else{
+                document.getElementById('statoDXbig').style.backgroundColor='rgba(255,255,255,0%)';
+            }
+            //STATO SX
+            if (tabellone.tabellone.R == 1){
+                document.getElementById('statoSXbig').style.backgroundColor='#990000';
+            }else if (tabellone.tabellone.w == 1) {
+                document.getElementById('statoSXbig').style.backgroundColor='#FFFFFF';
+            }else{
+                document.getElementById('statoSXbig').style.backgroundColor='rgba(255,255,255,0%)';
+            }
+            document.getElementById('timerText').innerHTML = tabellone.tabellone.timer.trim();
+            document.getElementById('XX').innerHTML = tabellone.tabellone.XX;
+            document.getElementById('YY').innerHTML = tabellone.tabellone.YY;
+            //DX CARDS
+            if (tabellone.tabellone.A >= 1){
+                document.getElementById('CGDX').style.backgroundColor='#FFFF00';
+            }else{
+                document.getElementById('CGDX').style.backgroundColor='rgba(255,255,255,0%)';
+            }
+            if (tabellone.tabellone.B >= 1){
+                document.getElementById('CRDX').style.backgroundColor='#FF0000';
+            }else{
+                document.getElementById('CRDX').style.backgroundColor='rgba(255,255,255,0%)';
+            }
+            //SX CARDS
+            if (tabellone.tabellone.C >= 1){
+                document.getElementById('CGSX').style.backgroundColor='#FFFF00';
+            }else{
+                document.getElementById('CGSX').style.backgroundColor='rgba(255,255,255,0%)';
+            }
+            if (tabellone.tabellone.D >= 1){
+                document.getElementById('CRSX').style.backgroundColor='#FF0000';
+            }else{
+                document.getElementById('CRSX').style.backgroundColor='rgba(255,255,255,0%)';
+            }
+            // PRIORIRY
+            if (tabellone.tabellone.P == 1){
+                document.getElementById('prioritaDX').innerHTML = 'P';
+                document.getElementById('prioritaSX').innerHTML = '';
+            }else if (tabellone.tabellone.P == 2){
+                document.getElementById('prioritaDX').innerHTML = '';
+                document.getElementById('prioritaSX').innerHTML = 'P';
+            }else{
+                document.getElementById('prioritaDX').innerHTML = '';
+                document.getElementById('prioritaSX').innerHTML = '';
+            }
+            document.getElementById('PR').innerHTML = tabellone.tabellone.PR;
+        })
+
+      setInterval(() => {
+
+          {#if (scrollAmount == 10){
+              wait(1000);
+          }#}
+            scrollAmount += 10;
+            container.scrollLeft = scrollAmount;
+            containerDX.scrollLeft = scrollAmount;
+            if(container.scrollWidth <= containerDX.scrollWidth){
+                misuraTotale = containerDX.scrollWidth;
+            }else{
+                misuraTotale = container.scrollWidth;
+            }
+            if (scrollAmount >= misuraTotale-1700) {
+              scrollAmount = 0;
+              container.scrollLeft = scrollAmount;
+            }
+      }, 50);
+
+        setInterval(cambiaRank, 5000);
+
+      function cambiaRank(){
+          if(ranking == 0){
+              document.getElementById('rankSX').innerHTML = 'R:'+{{ scores[0].rank1 }};
+              document.getElementById('rankDX').innerHTML = 'R:'+{{ scores[0].rank2 }};
+              ranking = 1;
+          }else{
+              document.getElementById('rankSX').innerHTML = 'C:'+{{ scores[0].classgir1 }};
+              document.getElementById('rankDX').innerHTML = 'C:'+{{ scores[0].classgir2 }};
+              ranking = 0;
+          }
+      }
+
+      function wait(ms){
+       var start = new Date().getTime();
+       var end = start;
+       while(end < start + ms) {
+         end = new Date().getTime();
+      }
+}
+
+</script>
+</html>

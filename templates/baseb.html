@@ -1,0 +1,199 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Scherma Score App{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="/static/logo.jpg">
+    <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='mystyle.css')}}"/>
+{#    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js" integrity="sha384-c79GN5VsunZvi+Q/WObgk2in0CbZsHnjEqvFxC5DxHn9lTfNce2WW6h2pH6u/kF+" crossorigin="anonymous"></script>#}
+    <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+    <link type="text/css" rel="stylesheet" href="/static/dist/css/bootstrap.css"/>
+    <script src="/static/dist/js/bootstrap.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #FFFFFF; /* linear-gradient(135deg, #667eea 0%, #764ba2 100%);*/
+            min-height: 100vh;
+            /*padding: 20px;*/
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            padding-right: 0px !important;
+            padding-left: 0px !important;
+        }
+        
+        .container {
+            /*max-width: 1200px;*/
+            margin: 0 0 0 0
+            background: #FFFFFF;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            height: auto;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .nav {
+            background: #34495e;
+            padding: 10px 20px;
+        }
+        
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin-right: 20px;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .nav a:hover {
+            background: #3498db;
+        }
+        
+        .content {
+            padding: 0px !important;
+            background-color: #FFFFFF;
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .game-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 0px;
+            background: #FFFFFF;
+        }
+        
+        .score-display {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px 0;
+            color: #2c3e50;
+            position: absolute;
+            top: 800px;
+            left: 2000px;
+        }
+        
+        .team-names {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            position: absolute;
+            top: 800px;
+        }
+        
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status.live {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .status.final {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .status.scheduled {
+            background: #f39c12;
+            color: white;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><img src="./static/logo.jpg" width="50px"> dmb SCORE</h1>
+        </div>
+        
+        <div class="nav">
+            <a href="{{ url_for('index') }}">Home</a>
+            {#<a href="{{ url_for('add_game') }}">Add Game</a>#}
+            {#<a href="{{ url_for('api_scores') }}" target="_blank">Controllo Config</a>#}
+            <a href="/config">Config</a>
+            <a href="/video">Video</a>
+            <a href="/register">Crea account</a>
+            <a href="/login">Login</a>
+            <a href="/logout">Logout</a>
+        </div>
+        
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</body>
+<script>
+function flagDX() {
+    d = document.getElementById("flag2").value;
+    document.getElementById('flag2img').style.backgroundImage="url(./static/flags/"+d+")";
+}
+function flagSX() {
+    d = document.getElementById("flag1").value;
+    document.getElementById('flag1img').style.backgroundImage="url(./static/flags/"+d+")";
+}
+</script>
+</html>

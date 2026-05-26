@@ -1,0 +1,51 @@
+{#<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <style>
+        h1 { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>#}
+
+{% extends "baseb.html" %}
+
+{% block title %}dmb Score - Home{% endblock %}
+
+{% block content %}
+
+    <h1 class="text-center">Login</h1>
+
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% endif %}
+    <div class="game-card" style="margin-bottom: 50px">
+        <div class="row" style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; top: 10px; left: 20px">
+            <form action="/login" method="post">
+                <div class="row margin5">
+                    <div class="col-6 text-right">
+                        Username:
+                    </div>
+                    <div class="col-6 text-left">
+                        <input type="text" name="username" required />
+                    </div>
+                </div>
+                <div class="row margin5">
+                    <div class="col-6 text-right">
+                        Password:
+                    </div>
+                    <div class="col-6 text-left">
+                        <input type="password" name="password" required />
+                    </div>
+                </div>
+                <div class="row margin5 text-center">
+                    <button type="submit" class="btn">Login</button>
+                </div>
+            </form>
+{% endblock %}
+{#
+</body>
+</html>#}

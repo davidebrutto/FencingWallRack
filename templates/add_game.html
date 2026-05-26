@@ -1,0 +1,61 @@
+
+{% extends "base_test_sse.html" %}
+
+{% block title %}Add New Game{% endblock %}
+
+{% block content %}
+<h2>Add New Game</h2>
+
+<form method="post" style="max-width: 500px; margin: 0 auto;">
+    <div class="form-group">
+        <label for="sport">Sport:</label>
+        <select name="sport" id="sport" required>
+            <option value="">Select Sport</option>
+            <option value="Football">Football</option>
+            <option value="Basketball">Basketball</option>
+            <option value="Baseball">Baseball</option>
+            <option value="Soccer">Soccer</option>
+            <option value="Hockey">Hockey</option>
+            <option value="Tennis">Tennis</option>
+            <option value="Volleyball">Volleyball</option>
+            <option value="Rugby">Rugby</option>
+            <option value="Cricket">Cricket</option>
+            <option value="Other">Other</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="team1">Team 1:</label>
+        <input type="text" name="team1" id="team1" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="team2">Team 2:</label>
+        <input type="text" name="team2" id="team2" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="score1">Team 1 Score:</label>
+        <input type="number" name="score1" id="score1" value="0" min="0">
+    </div>
+    
+    <div class="form-group">
+        <label for="score2">Team 2 Score:</label>
+        <input type="number" name="score2" id="score2" value="0" min="0">
+    </div>
+    
+    <div class="form-group">
+        <label for="status">Game Status:</label>
+        <select name="status" id="status">
+            <option value="Scheduled">Scheduled</option>
+            <option value="Live" selected>Live</option>
+            <option value="Final">Final</option>
+        </select>
+    </div>
+    
+    <div style="text-align: center; margin-top: 30px;">
+        <button type="submit" class="btn">Add Game</button>
+        <a href="{{ url_for('index') }}" class="btn" style="background: #95a5a6;">Cancel</a>
+    </div>
+</form>
+{% endblock %}
