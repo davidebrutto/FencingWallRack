@@ -328,14 +328,19 @@ app.get('/api/scores', (req, res) => {
 });
 
 function parseTabellone(serialString) {
+  const type = serialString.slice(2, 3);
+  if (type !== 'N' && type !== 'R') {
+    return null;
+  }
+
   let i = 0;
   let h = 0;
 
-  if (serialString.slice(2, 3) === 'N') {
+  if (type === 'N') {
     i = 28;
   }
 
-  if (serialString.slice(2, 3) === 'R') {
+  if (type === 'R') {
     i = 0;
     if (serialString.slice(15, 16) === 'G') {
       h = 11;
@@ -344,6 +349,11 @@ function parseTabellone(serialString) {
       h = 0;
       i = 22;
     }
+  }
+
+  const minLen = i + h + 49;
+  if (serialString.length < minLen) {
+    return null;
   }
 
   const tabellone = {
@@ -435,7 +445,7 @@ function startSerialReader() {
   });
 
   function emitFrame(frameBuf, source) {
-    const serialString = frameBuf.toString('utf8');
+    const serialString = frameBuf.toString('latin1');
 
     if (!serialString || serialString.length < 8) {
       logSerialDebug('frame_drop', `source=${source} len=${serialString.length}`);
@@ -444,6 +454,10 @@ function startSerialReader() {
 
     logSerialDebug('frame_complete', `source=${source} len=${serialString.length}`);
     const parsedTabellone = parseTabellone(serialString);
+    if (!parsedTabellone) {
+      logSerialDebug('frame_skip', `source=${source} reason=not_scoreboard_frame`);
+      return;
+    }
     const tabellone = mergeTabelloneState(parsedTabellone);
     logSerialDebug('ws_emit', `XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`);
     io.volatile.emit('punti_emit', { tabellone });
