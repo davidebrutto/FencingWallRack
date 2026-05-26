@@ -454,6 +454,21 @@ function logSerialDebug(event, details = '') {
   console.log(`[${ts}] ${event}${details ? ` ${details}` : ''}`);
 }
 
+function decodeCandidates(frameBuf) {
+  const candidates = [];
+
+  candidates.push({ name: 'utf8', text: frameBuf.toString('utf8') });
+  candidates.push({ name: 'latin1', text: frameBuf.toString('latin1') });
+
+  const masked = Buffer.allocUnsafe(frameBuf.length);
+  for (let i = 0; i < frameBuf.length; i += 1) {
+    masked[i] = frameBuf[i] & 0x7f;
+  }
+  candidates.push({ name: '7bit', text: masked.toString('latin1') });
+
+  return candidates;
+}
+
 function startSerialReader() {
   const delimiter = Buffer.from([0x02, 0x20, 0x20, 0x04]);
   const delimiterEot = Buffer.from([0x04]);
@@ -476,21 +491,35 @@ function startSerialReader() {
   });
 
   function emitFrame(frameBuf, source) {
-    const serialString = frameBuf.toString('latin1');
-
-    if (!serialString || serialString.length < 8) {
-      logSerialDebug('frame_drop', `source=${source} len=${serialString.length}`);
+    if (!frameBuf || frameBuf.length < 8) {
+      logSerialDebug('frame_drop', `source=${source} len=${frameBuf ? frameBuf.length : 0}`);
       return;
     }
 
-    logSerialDebug('frame_complete', `source=${source} len=${serialString.length}`);
-    const parsedTabellone = parseTabellone(serialString);
+    logSerialDebug('frame_complete', `source=${source} len=${frameBuf.length}`);
+
+    let parsedTabellone = null;
+    let decoderUsed = '';
+    for (const candidate of decodeCandidates(frameBuf)) {
+      if (!candidate.text || candidate.text.length < 8) {
+        continue;
+      }
+      const parsed = parseTabellone(candidate.text);
+      if (parsed) {
+        parsedTabellone = parsed;
+        decoderUsed = candidate.name;
+        break;
+      }
+    }
+
     if (!parsedTabellone) {
-      logSerialDebug('frame_skip', `source=${source} reason=not_scoreboard_frame`);
+      const hexHead = frameBuf.subarray(0, Math.min(16, frameBuf.length)).toString('hex');
+      logSerialDebug('frame_skip', `source=${source} reason=not_scoreboard_frame hex=${hexHead}`);
       return;
     }
+
     const tabellone = mergeTabelloneState(parsedTabellone);
-    logSerialDebug('ws_emit', `XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`);
+    logSerialDebug('ws_emit', `decoder=${decoderUsed} XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`);
     io.volatile.emit('punti_emit', { tabellone });
   }
 
