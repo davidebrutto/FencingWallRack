@@ -334,89 +334,192 @@ app.get('/api/scores', (req, res) => {
   res.json(loadScores());
 });
 
-function parseTabelloneAtOffset(serialString) {
-  const type = serialString.slice(2, 3);
-  if (type !== 'N' && type !== 'R') {
-    return null;
-  }
+const SOH = 0x01;
+const EOT = 0x04;
+const CMD_DC4 = 0x14;
+const CMD_DC3 = 0x13;
+const STX = 0x02;
 
-  let i = 0;
-  let h = 0;
-
-  if (type === 'N') {
-    i = 28;
-  }
-
-  if (type === 'R') {
-    i = 0;
-    if (serialString.slice(15, 16) === 'G') {
-      h = 11;
-    }
-    if (serialString.slice(28, 29) === 'W') {
-      h = 0;
-      i = 22;
-    }
-  }
-
-  const minLen = i + h + 49;
-  if (serialString.length < minLen) {
-    return null;
-  }
-
-  const tabellone = {
-    R: serialString.slice(i + 3, i + 4),
-    G: serialString.slice(i + 5, i + 6),
-    W: serialString.slice(i + 7, i + 8),
-    w: serialString.slice(i + 9, i + 10),
-    timer: serialString.slice(i + h + 15, i + h + 23),
-    XX: serialString.slice(i + h + 28, i + h + 30),
-    YY: serialString.slice(i + h + 31, i + h + 33),
-    A: serialString.slice(i + h + 35, i + h + 36),
-    B: serialString.slice(i + h + 37, i + h + 38),
-    b: serialString.slice(i + h + 38, i + h + 39),
-    C: serialString.slice(i + h + 41, i + h + 42),
-    D: serialString.slice(i + h + 43, i + h + 44),
-    d: serialString.slice(i + h + 44, i + h + 45),
-    P: serialString.slice(i + h + 46, i + h + 47),
-    PR: serialString.slice(i + h + 48, i + h + 49),
-  };
-
-  if (serialString.slice(i + h + 15, i + h + 17) === ' 0') {
-    const secondsChunk = serialString.slice(i + h + 18, i + h + 20);
-    if (Number.parseInt(secondsChunk, 10) <= 9) {
-      tabellone.timer = serialString.slice(i + h + 19, i + h + 23).replace('.', ':');
-    }
-  }
-
-  return tabellone;
+function boolByteToFlag(value) {
+  return value === 0x00 ? '0' : '1';
 }
 
-function parseTabellone(serialString) {
-  // Auto-align: try every position where candidate[2] can be N/R.
-  for (let markerIdx = 0; markerIdx < serialString.length; markerIdx += 1) {
-    const ch = serialString[markerIdx];
-    if (ch !== 'N' && ch !== 'R') {
-      continue;
-    }
-
-    const shift = markerIdx - 2;
-    if (shift < 0) {
-      continue;
-    }
-
-    const candidate = serialString.slice(shift);
-    const parsed = parseTabelloneAtOffset(candidate);
-    if (parsed) {
-      return parsed;
-    }
+function parseMessage1Frame(frameBuf) {
+  // Message 1: [SOH][DC4]R«x»G«x»W«x»w«x»[EOT] => 11 bytes
+  if (frameBuf.length !== 11) {
+    return null;
+  }
+  if (frameBuf[0] !== SOH || frameBuf[1] !== CMD_DC4 || frameBuf[10] !== EOT) {
+    return null;
+  }
+  if (frameBuf[2] !== 0x52 || frameBuf[4] !== 0x47 || frameBuf[6] !== 0x57 || frameBuf[8] !== 0x77) {
+    return null;
   }
 
-  // Last chance: direct attempt at shift 0.
-  {
-    const parsed = parseTabelloneAtOffset(serialString);
-    if (parsed) {
-      return parsed;
+  return {
+    R: boolByteToFlag(frameBuf[3]),
+    G: boolByteToFlag(frameBuf[5]),
+    W: boolByteToFlag(frameBuf[7]),
+    w: boolByteToFlag(frameBuf[9]),
+  };
+}
+
+function normalizeTimerText(raw) {
+  // Keep digits and separators, convert non-printables/extended chars to spaces.
+  let out = '';
+  for (let i = 0; i < raw.length; i += 1) {
+    const ch = raw[i];
+    const code = raw.charCodeAt(i);
+    if ((code >= 0x30 && code <= 0x39) || ch === ':' || ch === '.') {
+      out += ch;
+    } else {
+      out += ' ';
     }
+  }
+  return out;
+}
+
+function parseMessage2Frame(frameBuf) {
+  // Message 2: [SOH][DC3]Z[STX]«MM:SS.DC»[EOT] => 13 bytes
+  if (frameBuf.length !== 13) {
+    return null;
+  }
+  if (frameBuf[0] !== SOH || frameBuf[1] !== CMD_DC3 || frameBuf[3] !== STX || frameBuf[12] !== EOT) {
+    return null;
+  }
+
+  const mode = String.fromCharCode(frameBuf[2]);
+  if (!['R', 'N', 'J', 'B'].includes(mode)) {
+    return null;
+  }
+
+  const rawTimer = frameBuf.subarray(4, 12).toString('latin1');
+  const timer = normalizeTimerText(rawTimer);
+
+  return {
+    timer,
+    timerMode: mode,
+  };
+}
+
+function printableFromByte(byte, fallback = ' ') {
+  if (byte >= 0x20 && byte <= 0x7e) {
+    return String.fromCharCode(byte);
+  }
+  return fallback;
+}
+
+function segmentToPrintableString(segment) {
+  let out = '';
+  for (let i = 0; i < segment.length; i += 1) {
+    out += printableFromByte(segment[i], ' ');
+  }
+  return out;
+}
+
+function parseMessage3Frame(frameBuf) {
+  // Message 3: [SOH][DC3]D[STX]XX:YY[STX]ABb[STX]CDd[STX]P[STX]R[STX]vW[EOT]
+  if (frameBuf.length < 12) {
+    return null;
+  }
+  if (frameBuf[0] !== SOH || frameBuf[1] !== CMD_DC3 || frameBuf[2] !== 0x44 || frameBuf[frameBuf.length - 1] !== EOT) {
+    return null;
+  }
+
+  const segments = [];
+  let idx = 3;
+  while (idx < frameBuf.length - 1) {
+    if (frameBuf[idx] !== STX) {
+      return null;
+    }
+    idx += 1;
+    const start = idx;
+    while (idx < frameBuf.length - 1 && frameBuf[idx] !== STX) {
+      idx += 1;
+    }
+    segments.push(frameBuf.subarray(start, idx));
+  }
+
+  if (segments.length < 6) {
+    return null;
+  }
+
+  const scoreSeg = segments[0];
+  const cardsRightSeg = segments[1];
+  const cardsLeftSeg = segments[2];
+  const prioritySeg = segments[3];
+  const roundSeg = segments[4];
+
+  if (scoreSeg.length < 5 || cardsRightSeg.length < 3 || cardsLeftSeg.length < 3 || prioritySeg.length < 1 || roundSeg.length < 1) {
+    return null;
+  }
+
+  const XX = `${printableFromByte(scoreSeg[0])}${printableFromByte(scoreSeg[1])}`;
+  const sep = printableFromByte(scoreSeg[2], ':');
+  const YY = `${printableFromByte(scoreSeg[3])}${printableFromByte(scoreSeg[4])}`;
+
+  const A = printableFromByte(cardsRightSeg[0], '0');
+  const B = printableFromByte(cardsRightSeg[1], '0');
+  const b = printableFromByte(cardsRightSeg[2], '0');
+  const C = printableFromByte(cardsLeftSeg[0], '0');
+  const D = printableFromByte(cardsLeftSeg[1], '0');
+  const d = printableFromByte(cardsLeftSeg[2], '0');
+
+  const P = printableFromByte(prioritySeg[0], '0');
+  const PR = segmentToPrintableString(roundSeg).trim() || '0';
+
+  return {
+    XX,
+    YY,
+    A,
+    B,
+    b,
+    C,
+    D,
+    d,
+    P,
+    PR,
+    scoreSep: sep,
+  };
+}
+
+function parseMessage4Frame(frameBuf) {
+  // Message 4: [SOH][DC3]I[STX]M[STX]W[STX]S[STX]N[STX]VW[EOT]
+  // For now we recognize it to avoid false "skip" logs, but we don't map fields.
+  if (frameBuf.length !== 12) {
+    return null;
+  }
+  if (frameBuf[0] !== SOH || frameBuf[1] !== CMD_DC3 || frameBuf[2] !== 0x49 || frameBuf[11] !== EOT) {
+    return null;
+  }
+  if (frameBuf[3] !== STX || frameBuf[5] !== STX || frameBuf[7] !== STX || frameBuf[9] !== STX) {
+    return null;
+  }
+
+  return {
+    M: printableFromByte(frameBuf[4], '0'),
+    W: printableFromByte(frameBuf[6], '0'),
+    S: printableFromByte(frameBuf[8], '0'),
+    N: printableFromByte(frameBuf[10], '0'),
+  };
+}
+
+function parseKnownFrame(frameBuf) {
+  const msg1 = parseMessage1Frame(frameBuf);
+  if (msg1) {
+    return { type: 'message1_lights', tabellone: msg1 };
+  }
+  const msg2 = parseMessage2Frame(frameBuf);
+  if (msg2) {
+    return { type: 'message2_time', tabellone: msg2 };
+  }
+  const msg3 = parseMessage3Frame(frameBuf);
+  if (msg3) {
+    return { type: 'message3_competitors', tabellone: msg3 };
+  }
+  const msg4 = parseMessage4Frame(frameBuf);
+  if (msg4) {
+    return { type: 'message4_status_info', tabellone: null };
   }
   return null;
 }
@@ -437,6 +540,8 @@ const lastTabelloneState = {
   d: '0',
   P: '0',
   PR: '0',
+  scoreSep: ':',
+  timerMode: 'R',
 };
 
 function mergeTabelloneState(partial) {
@@ -461,26 +566,8 @@ function logSerialDebug(event, details = '') {
   console.log(`[${ts}] ${event}${details ? ` ${details}` : ''}`);
 }
 
-function decodeCandidates(frameBuf) {
-  const candidates = [];
-
-  candidates.push({ name: 'utf8', text: frameBuf.toString('utf8') });
-  candidates.push({ name: 'latin1', text: frameBuf.toString('latin1') });
-
-  const masked = Buffer.allocUnsafe(frameBuf.length);
-  for (let i = 0; i < frameBuf.length; i += 1) {
-    masked[i] = frameBuf[i] & 0x7f;
-  }
-  candidates.push({ name: '7bit', text: masked.toString('latin1') });
-
-  return candidates;
-}
-
 function startSerialReader() {
-  const delimiter = Buffer.from([0x02, 0x20, 0x20, 0x04]);
-  const delimiterEot = Buffer.from([0x04]);
   let rxBuffer = Buffer.alloc(0);
-  let flushTimer = null;
 
   const port = new SerialPort({
     path: SERIAL_PORT,
@@ -507,91 +594,68 @@ function startSerialReader() {
   });
 
   function emitFrame(frameBuf, source) {
-    if (!frameBuf || frameBuf.length < 8) {
+    if (!frameBuf || frameBuf.length < 3) {
       logSerialDebug('frame_drop', `source=${source} len=${frameBuf ? frameBuf.length : 0}`);
       return;
     }
 
     logSerialDebug('frame_complete', `source=${source} len=${frameBuf.length}`);
-
-    let parsedTabellone = null;
-    let decoderUsed = '';
-    for (const candidate of decodeCandidates(frameBuf)) {
-      if (!candidate.text || candidate.text.length < 8) {
-        continue;
-      }
-      const parsed = parseTabellone(candidate.text);
-      if (parsed) {
-        parsedTabellone = parsed;
-        decoderUsed = candidate.name;
-        break;
-      }
-    }
-
-    if (!parsedTabellone) {
+    const parsed = parseKnownFrame(frameBuf);
+    if (!parsed) {
       const hexHead = frameBuf.subarray(0, Math.min(16, frameBuf.length)).toString('hex');
       logSerialDebug('frame_skip', `source=${source} reason=not_scoreboard_frame hex=${hexHead}`);
       return;
     }
 
-    const tabellone = mergeTabelloneState(parsedTabellone);
-    logSerialDebug('ws_emit', `decoder=${decoderUsed} XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`);
-    io.volatile.emit('punti_emit', { tabellone });
-  }
-
-  function findDelimiterIndex(buffer) {
-    const fullIdx = buffer.indexOf(delimiter);
-    if (fullIdx !== -1) {
-      return { index: fullIdx, length: delimiter.length, type: 'full' };
-    }
-    const eotIdx = buffer.indexOf(delimiterEot);
-    if (eotIdx !== -1) {
-      return { index: eotIdx, length: delimiterEot.length, type: 'eot' };
-    }
-    return null;
-  }
-
-  function flushFramesFromBuffer(source) {
-    while (true) {
-      const match = findDelimiterIndex(rxBuffer);
-      if (!match) {
-        break;
-      }
-
-      const frame = rxBuffer.subarray(0, match.index);
-      rxBuffer = rxBuffer.subarray(match.index + match.length);
-      emitFrame(frame, `${source}:${match.type}`);
-    }
-  }
-
-  function scheduleIdleFlush() {
-    if (SERIAL_IDLE_FLUSH_MS <= 0) {
+    if (!parsed.tabellone) {
+      logSerialDebug('frame_ignore', `type=${parsed.type}`);
       return;
     }
 
-    if (flushTimer) {
-      clearTimeout(flushTimer);
-    }
+    const tabellone = mergeTabelloneState(parsed.tabellone);
+    logSerialDebug('ws_emit', `type=${parsed.type} R=${tabellone.R} G=${tabellone.G} W=${tabellone.W} w=${tabellone.w}`);
+    io.volatile.emit('punti_emit', { tabellone });
+  }
 
-    flushTimer = setTimeout(() => {
-      flushTimer = null;
-      if (rxBuffer.length > 0) {
-        const frame = rxBuffer;
-        rxBuffer = Buffer.alloc(0);
-        emitFrame(frame, 'idle_flush');
+  function extractFramesFromBuffer(source) {
+    while (true) {
+      const sohIndex = rxBuffer.indexOf(SOH);
+      if (sohIndex === -1) {
+        if (rxBuffer.length > 0) {
+          logSerialDebug('buffer_clear', `source=${source} dropped=${rxBuffer.length}`);
+          rxBuffer = Buffer.alloc(0);
+        }
+        break;
       }
-    }, SERIAL_IDLE_FLUSH_MS);
+
+      if (sohIndex > 0) {
+        logSerialDebug('buffer_trim', `source=${source} dropped=${sohIndex}`);
+        rxBuffer = rxBuffer.subarray(sohIndex);
+      }
+
+      const eotIndex = rxBuffer.indexOf(EOT, 1);
+      if (eotIndex === -1) {
+        if (rxBuffer.length > 4096) {
+          logSerialDebug('buffer_overflow', `source=${source} len=${rxBuffer.length}`);
+          rxBuffer = rxBuffer.subarray(-512);
+        }
+        break;
+      }
+
+      const frame = rxBuffer.subarray(0, eotIndex + 1);
+      rxBuffer = rxBuffer.subarray(eotIndex + 1);
+      emitFrame(frame, `${source}:soh_eot`);
+    }
   }
 
   port.on('data', (chunk) => {
     const hexHead = chunk.subarray(0, Math.min(8, chunk.length)).toString('hex');
     logSerialDebug('serial_rx', `bytes=${chunk.length} hex=${hexHead}`);
     rxBuffer = Buffer.concat([rxBuffer, chunk]);
-    flushFramesFromBuffer('delimiter');
-    scheduleIdleFlush();
+    extractFramesFromBuffer('stream');
 
     if (rxBuffer.length > 8192) {
-      rxBuffer = rxBuffer.subarray(rxBuffer.length - 2048);
+      rxBuffer = rxBuffer.subarray(rxBuffer.length - 512);
     }
   });
 
