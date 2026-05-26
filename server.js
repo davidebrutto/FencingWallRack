@@ -409,7 +409,7 @@ function startSerialReader() {
       }
 
       const tabellone = parseTabellone(serialString);
-      io.emit('punti_emit', { tabellone });
+      io.volatile.emit('punti_emit', { tabellone });
     }
 
     if (rxBuffer.length > 8192) {

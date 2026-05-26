@@ -215,8 +215,7 @@
     })
 
     socket.on("punti_emit", function(tabellone) {
-            console.log(tabellone)
-            //STATO DX
+            // console.log(tabellone) disabled for realtime performance            //STATO DX
             if (tabellone.tabellone.G == 1){
                 document.getElementById('statoDXbig').style.backgroundColor='#009900';
             }else if (tabellone.tabellone.W == 1) {
