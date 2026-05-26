@@ -103,7 +103,7 @@ const nunjucksEnv = nunjucks.configure();
 
 nunjucksEnv.addGlobal('url_for', urlFor);
 
-app.set('view engine', 'html');
+app.set('view engine', 'njk');
 app.set('views', path.join(__dirname, 'templates'));
 app.use('/static', express.static(path.join(__dirname, 'static')));
 
