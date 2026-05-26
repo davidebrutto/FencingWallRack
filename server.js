@@ -406,43 +406,6 @@ function mergeTabelloneState(partial) {
   return { ...lastTabelloneState };
 }
 
-function isValidTabelloneValue(key, value) {
-  if (typeof value !== 'string') {
-    return false;
-  }
-
-  if (key === 'timer') {
-    return /^[0-9 :.]{4,8}$/.test(value);
-  }
-
-  if (key === 'XX' || key === 'YY') {
-    return /^[\x20-\x7E]{2}$/.test(value);
-  }
-
-  if (['R', 'G', 'W', 'w', 'A', 'B', 'b', 'C', 'D', 'd', 'P', 'PR'].includes(key)) {
-    return /^[\x20-\x7E]$/.test(value);
-  }
-
-  return true;
-}
-
-function sanitizeTabellone(partial) {
-  const sanitized = {};
-  for (const [key, value] of Object.entries(partial)) {
-    if (typeof value !== 'string') {
-      continue;
-    }
-    const printable = value.replace(/[^\x20-\x7E]/g, '');
-    if (printable.length === 0) {
-      continue;
-    }
-    if (isValidTabelloneValue(key, printable)) {
-      sanitized[key] = printable;
-    }
-  }
-  return sanitized;
-}
-
 function logSerialDebug(event, details = '') {
   if (!DEBUG_SERIAL) {
     return;
@@ -472,7 +435,14 @@ function startSerialReader() {
   });
 
   function emitFrame(frameBuf, source) {
-    const serialString = frameBuf.toString('latin1');
+    let serialString = '';
+    try {
+      serialString = new TextDecoder('utf-8', { fatal: true }).decode(frameBuf);
+    } catch (error) {
+      logSerialDebug('frame_drop', `source=${source} reason=invalid_utf8`);
+      return;
+    }
+
     if (!serialString || serialString.length < 8) {
       logSerialDebug('frame_drop', `source=${source} len=${serialString.length}`);
       return;
@@ -480,13 +450,7 @@ function startSerialReader() {
 
     logSerialDebug('frame_complete', `source=${source} len=${serialString.length}`);
     const parsedTabellone = parseTabellone(serialString);
-    const partialTabellone = sanitizeTabellone(parsedTabellone);
-    if (Object.keys(partialTabellone).length === 0) {
-      logSerialDebug('frame_keep_last', `source=${source} reason=no_valid_fields`);
-      io.volatile.emit('punti_emit', { tabellone: { ...lastTabelloneState } });
-      return;
-    }
-    const tabellone = mergeTabelloneState(partialTabellone);
+    const tabellone = mergeTabelloneState(parsedTabellone);
     logSerialDebug('ws_emit', `XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`);
     io.volatile.emit('punti_emit', { tabellone });
   }
