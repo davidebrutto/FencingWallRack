@@ -13,7 +13,12 @@ const { DelimiterParser } = require('@serialport/parser-delimiter');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, {
+  cors: { origin: '*' },
+  transports: ['websocket'],
+  allowUpgrades: false,
+  perMessageDeflate: false,
+});
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 5000);

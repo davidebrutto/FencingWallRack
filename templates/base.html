@@ -183,7 +183,11 @@
     </div>
 </body>
 <script type="application/javascript">
-    const socket = io({autoConnect: false});
+    const socket = io({
+        autoConnect: false,
+        transports: ['websocket'],
+        upgrade: false
+    });
     const container = document.querySelector('.nomeSX');
     const containerDX = document.querySelector('.nomeDX');
     let scrollAmount = 0;
