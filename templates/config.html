@@ -50,11 +50,11 @@
                     <div class="col-8 text-left">
                         <input type="text" readonly name="flag2img" id="flag2img" style="background-image: url('./static/flags/{{ game.flag2 }}'); margin-right: 5px; background-repeat: no-repeat; height: 50px; width:65px">
                         <select onchange="flagDX()" name="flag2" id="flag2">
-                            {% for fileimg in files: %}
+                            {% for fileimg in files %}
                                 {% if game.flag2 == fileimg %}
                                 	<option value="{{fileimg}}" selected>{{fileimg}}</option>
                                 {% else %}
-                                    <option value="{{fileimg}}")>{{fileimg}}</option>
+                                    <option value="{{fileimg}}">{{fileimg}}</option>
                                 {% endif %}
                             {% endfor %}
                         </select>
@@ -67,11 +67,11 @@
                     <div class="col-8 text-left">
                         <input type="text" readonly name="flag1img" id="flag1img" style="background-image: url('./static/flags/{{ game.flag1 }}'); margin-right: 5px; background-repeat: no-repeat; height: 50px; width:65px">
                         <select onchange="flagSX()" name="flag1" id="flag1">
-                            {% for fileimg in files: %}
+                            {% for fileimg in files %}
                                 {% if game.flag1 == fileimg %}
                                 	<option value="{{fileimg}}" selected>{{fileimg}}</option>
                                 {% else %}
-                                    <option value="{{fileimg}}")>{{fileimg}}</option>
+                                    <option value="{{fileimg}}">{{fileimg}}</option>
                                 {% endif %}
                             {% endfor %}
                         </select>
