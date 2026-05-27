@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
@@ -10,6 +11,12 @@ const nunjucks = require('nunjucks');
 const { Server } = require('socket.io');
 const { SerialPort } = require('serialport');
 const { DelimiterParser } = require('@serialport/parser-delimiter');
+let DatabaseSync = null;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (_) {
+  DatabaseSync = null;
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -38,6 +45,7 @@ const SERIAL_WATCHDOG_MS = Number(process.env.SERIAL_WATCHDOG_MS || 2000);
 
 const DATA_FILE = path.join(__dirname, 'scores.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
+const AUTH_DB_FILE = path.join(__dirname, 'instance', 'db.sqlite');
 
 const ROUTES = {
   index: '/',
@@ -86,6 +94,108 @@ function loadUsers() {
 
 function saveUsers(users) {
   writeJson(USERS_FILE, users);
+}
+
+let authDb = null;
+if (DatabaseSync && fs.existsSync(AUTH_DB_FILE)) {
+  try {
+    authDb = new DatabaseSync(AUTH_DB_FILE);
+    console.log(`Auth DB ready: ${AUTH_DB_FILE}`);
+  } catch (error) {
+    console.warn(`Auth DB open failed (${AUTH_DB_FILE}): ${error.message}`);
+  }
+}
+
+function randomSalt(length = 16) {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let out = '';
+  const bytes = crypto.randomBytes(length);
+  for (let i = 0; i < length; i += 1) {
+    out += alphabet[bytes[i] % alphabet.length];
+  }
+  return out;
+}
+
+function makeFlaskPbkdf2Hash(password, iterations = 1000000) {
+  const salt = randomSalt(16);
+  const digest = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256').toString('hex');
+  return `pbkdf2:sha256:${iterations}$${salt}$${digest}`;
+}
+
+function verifyPassword(storedHash, plainPassword) {
+  if (!storedHash || !plainPassword) {
+    return false;
+  }
+
+  if (storedHash.startsWith('pbkdf2:')) {
+    const parts = storedHash.split('$');
+    if (parts.length !== 3) {
+      return false;
+    }
+
+    const methodPart = parts[0];
+    const salt = parts[1];
+    const expectedHex = parts[2];
+    const methodBits = methodPart.split(':');
+    const digest = methodBits[1] || 'sha256';
+    const iterations = Number(methodBits[2] || 260000);
+    if (!Number.isFinite(iterations) || iterations <= 0) {
+      return false;
+    }
+
+    try {
+      const expectedBuf = Buffer.from(expectedHex, 'hex');
+      const derivedBuf = crypto.pbkdf2Sync(plainPassword, salt, iterations, expectedBuf.length, digest);
+      if (expectedBuf.length !== derivedBuf.length) {
+        return false;
+      }
+      return crypto.timingSafeEqual(expectedBuf, derivedBuf);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$') || storedHash.startsWith('$2y$')) {
+    return bcrypt.compareSync(plainPassword, storedHash);
+  }
+
+  return storedHash === plainPassword;
+}
+
+function getAuthUserByUsername(username) {
+  if (authDb) {
+    try {
+      const row = authDb
+        .prepare('SELECT id, username, password FROM users WHERE username = ? LIMIT 1')
+        .get(username);
+      if (row) {
+        return row;
+      }
+    } catch (error) {
+      console.warn(`Auth DB query by username failed: ${error.message}`);
+    }
+  }
+
+  const users = loadUsers();
+  return users.find((u) => u.username === username) || null;
+}
+
+function getAuthUserById(id) {
+  if (authDb) {
+    try {
+      const row = authDb
+        .prepare('SELECT id, username, password FROM users WHERE id = ? LIMIT 1')
+        .get(Number(id));
+      if (row) {
+        return row;
+      }
+    } catch (error) {
+      console.warn(`Auth DB query by id failed: ${error.message}`);
+    }
+  }
+
+  const users = loadUsers();
+  return users.find((u) => Number(u.id) === Number(id)) || null;
 }
 
 function applyRouteParams(route, kwargs) {
@@ -143,12 +253,11 @@ app.use(passport.session());
 passport.use(
   new LocalStrategy(async (username, password, done) => {
     try {
-      const users = loadUsers();
-      const user = users.find((u) => u.username === username);
+      const user = getAuthUserByUsername(username);
       if (!user) {
         return done(null, false);
       }
-      const valid = await bcrypt.compare(password, user.password);
+      const valid = verifyPassword(user.password, password);
       return done(null, valid ? user : false);
     } catch (error) {
       return done(error);
@@ -158,8 +267,7 @@ passport.use(
 
 passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser((id, done) => {
-  const users = loadUsers();
-  const user = users.find((u) => u.id === id);
+  const user = getAuthUserById(id);
   done(null, user || false);
 });
 
@@ -203,21 +311,32 @@ app.get('/register', loginRequired, (req, res) => {
 
 app.post('/register', loginRequired, async (req, res) => {
   const { username, password } = req.body;
-  const users = loadUsers();
 
-  if (users.some((u) => u.username === username)) {
+  if (getAuthUserByUsername(username)) {
     return res.render('sign_up.html', { error: 'Username already taken!' });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = {
-    id: users.length > 0 ? Math.max(...users.map((u) => u.id)) + 1 : 1,
-    username,
-    password: hashedPassword,
-  };
+  if (authDb) {
+    try {
+      const hashedPassword = makeFlaskPbkdf2Hash(password, 1000000);
+      authDb
+        .prepare('INSERT INTO users (username, password) VALUES (?, ?)')
+        .run(username, hashedPassword);
+    } catch (error) {
+      return res.render('sign_up.html', { error: `Registration error: ${error.message}` });
+    }
+  } else {
+    const users = loadUsers();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = {
+      id: users.length > 0 ? Math.max(...users.map((u) => Number(u.id) || 0)) + 1 : 1,
+      username,
+      password: hashedPassword,
+    };
+    users.push(newUser);
+    saveUsers(users);
+  }
 
-  users.push(newUser);
-  saveUsers(users);
   return res.redirect('/login');
 });
 
