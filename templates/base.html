@@ -257,11 +257,38 @@
     socket.on("video_emit", function(video) {
         console.log(video)
         if (video.video == 'videoOn'){
-            document.getElementById("videoSX").style.display = 'block';
-            document.getElementById("videoDX").style.display = 'block';
+            const src = video.src || '';
+            const videoContainers = [document.getElementById("videoSX"), document.getElementById("videoDX")];
+            for (const containerEl of videoContainers) {
+                if (containerEl) {
+                    containerEl.style.display = 'block';
+                }
+            }
+
+            const players = document.querySelectorAll('.videoPlayer');
+            players.forEach((player) => {
+                if (src) {
+                    if (player.getAttribute('src') !== src) {
+                        player.setAttribute('src', src);
+                    }
+                    player.load();
+                }
+                player.muted = true;
+                player.play().catch(() => {});
+            });
         }else{
-            document.getElementById("videoSX").style.display = 'none';
-            document.getElementById("videoDX").style.display = 'none';
+            const videoContainers = [document.getElementById("videoSX"), document.getElementById("videoDX")];
+            for (const containerEl of videoContainers) {
+                if (containerEl) {
+                    containerEl.style.display = 'none';
+                }
+            }
+            const players = document.querySelectorAll('.videoPlayer');
+            players.forEach((player) => {
+                try {
+                    player.pause();
+                } catch (_) {}
+            });
         }
 
     })

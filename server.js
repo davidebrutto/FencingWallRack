@@ -7,6 +7,7 @@ const session = require('express-session');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
 const nunjucks = require('nunjucks');
 const { Server } = require('socket.io');
 const { SerialPort } = require('serialport');
@@ -46,6 +47,10 @@ const SERIAL_WATCHDOG_MS = Number(process.env.SERIAL_WATCHDOG_MS || 2000);
 const DATA_FILE = path.join(__dirname, 'scores.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const AUTH_DB_FILE = path.join(__dirname, 'instance', 'db.sqlite');
+const VIDEO_UPLOAD_DIR = path.join(__dirname, 'static', 'uploads', 'videos');
+const VIDEO_STATE_FILE = path.join(__dirname, 'video_state.json');
+const MAX_VIDEO_UPLOAD_MB = Number(process.env.MAX_VIDEO_UPLOAD_MB || 500);
+const ALLOWED_VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogg']);
 
 const ROUTES = {
   index: '/',
@@ -57,6 +62,8 @@ const ROUTES = {
   config_game: '/config',
   video: '/video',
   video_upd: '/video_upd',
+  video_upload: '/video_upload',
+  video_select: '/video_select',
   delete_game: '/delete_game/:game_id',
   update_score: '/update_score/:game_id',
   api_scores: '/api/scores',
@@ -95,6 +102,76 @@ function loadUsers() {
 function saveUsers(users) {
   writeJson(USERS_FILE, users);
 }
+
+function sanitizeFilename(name) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function listUploadedVideos() {
+  if (!fs.existsSync(VIDEO_UPLOAD_DIR)) {
+    return [];
+  }
+  return fs
+    .readdirSync(VIDEO_UPLOAD_DIR)
+    .filter((file) => ALLOWED_VIDEO_EXTENSIONS.has(path.extname(file).toLowerCase()))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function buildVideoPublicPath(filename) {
+  if (!filename) {
+    return '';
+  }
+  return `/static/uploads/videos/${filename}`;
+}
+
+function loadVideoState() {
+  const state = readJson(VIDEO_STATE_FILE, {
+    selectedVideo: '',
+    videoEnabled: false,
+  });
+  if (!state || typeof state !== 'object') {
+    return { selectedVideo: '', videoEnabled: false };
+  }
+  return {
+    selectedVideo: typeof state.selectedVideo === 'string' ? state.selectedVideo : '',
+    videoEnabled: Boolean(state.videoEnabled),
+  };
+}
+
+function saveVideoState(state) {
+  writeJson(VIDEO_STATE_FILE, state);
+}
+
+function resolveActiveVideoFilename(state) {
+  const videos = listUploadedVideos();
+  if (state.selectedVideo && videos.includes(state.selectedVideo)) {
+    return state.selectedVideo;
+  }
+  return videos.length > 0 ? videos[videos.length - 1] : '';
+}
+
+const videoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, VIDEO_UPLOAD_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const base = path.basename(file.originalname || 'video', ext);
+    const safeBase = sanitizeFilename(base).slice(0, 60) || 'video';
+    cb(null, `${Date.now()}_${safeBase}${ext}`);
+  },
+});
+
+const uploadVideo = multer({
+  storage: videoStorage,
+  limits: { fileSize: MAX_VIDEO_UPLOAD_MB * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (!ALLOWED_VIDEO_EXTENSIONS.has(ext)) {
+      cb(new Error('Unsupported video format'));
+      return;
+    }
+    cb(null, true);
+  },
+});
 
 let authDb = null;
 if (DatabaseSync && fs.existsSync(AUTH_DB_FILE)) {
@@ -400,16 +477,103 @@ app.get('/config', loginRequired, (req, res) => {
 });
 
 app.get('/video', loginRequired, (req, res) => {
-  res.render('video.html');
+  const state = loadVideoState();
+  const uploadedVideos = listUploadedVideos();
+  const selectedVideo = resolveActiveVideoFilename(state);
+  const activeVideoUrl = selectedVideo ? buildVideoPublicPath(selectedVideo) : '';
+  res.render('video.html', {
+    uploadedVideos,
+    selectedVideo,
+    activeVideoUrl,
+    videoEnabled: state.videoEnabled,
+    maxVideoUploadMb: MAX_VIDEO_UPLOAD_MB,
+  });
+});
+
+app.post('/video_upload', loginRequired, (req, res) => {
+  uploadVideo.single('videoFile')(req, res, (err) => {
+    if (err) {
+      return res.status(400).render('video.html', {
+        uploadedVideos: listUploadedVideos(),
+        selectedVideo: '',
+        activeVideoUrl: '',
+        videoEnabled: false,
+        maxVideoUploadMb: MAX_VIDEO_UPLOAD_MB,
+        uploadError: err.message || 'Upload error',
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).render('video.html', {
+        uploadedVideos: listUploadedVideos(),
+        selectedVideo: '',
+        activeVideoUrl: '',
+        videoEnabled: false,
+        maxVideoUploadMb: MAX_VIDEO_UPLOAD_MB,
+        uploadError: 'No file selected',
+      });
+    }
+
+    const state = loadVideoState();
+    state.selectedVideo = req.file.filename;
+    saveVideoState(state);
+
+    if (state.videoEnabled) {
+      io.emit('video_emit', {
+        video: 'videoOn',
+        src: buildVideoPublicPath(state.selectedVideo),
+      });
+    }
+
+    return res.redirect('/video');
+  });
+});
+
+app.post('/video_select', loginRequired, (req, res) => {
+  const filename = String(req.body.selectedVideo || '');
+  const videos = listUploadedVideos();
+  if (!videos.includes(filename)) {
+    return res.status(400).render('video.html', {
+      uploadedVideos: videos,
+      selectedVideo: '',
+      activeVideoUrl: '',
+      videoEnabled: false,
+      maxVideoUploadMb: MAX_VIDEO_UPLOAD_MB,
+      uploadError: 'Selected video not found',
+    });
+  }
+
+  const state = loadVideoState();
+  state.selectedVideo = filename;
+  saveVideoState(state);
+
+  if (state.videoEnabled) {
+    io.emit('video_emit', {
+      video: 'videoOn',
+      src: buildVideoPublicPath(state.selectedVideo),
+    });
+  }
+
+  return res.redirect('/video');
 });
 
 app.post('/video_upd', (req, res) => {
+  const state = loadVideoState();
+  const activeFile = resolveActiveVideoFilename(state);
+  state.selectedVideo = activeFile;
+
   if (req.body.video === 'videoOn') {
-    io.emit('video_emit', { video: 'videoOn' });
+    state.videoEnabled = true;
+    io.emit('video_emit', {
+      video: 'videoOn',
+      src: activeFile ? buildVideoPublicPath(activeFile) : '',
+    });
   }
   if (req.body.video === 'videoOff') {
+    state.videoEnabled = false;
     io.emit('video_emit', { video: 'videoOff' });
   }
+  saveVideoState(state);
   res.redirect('/video');
 });
 
@@ -987,11 +1151,26 @@ function startSerialReader() {
   connectSerial();
 }
 
+if (!fs.existsSync(VIDEO_UPLOAD_DIR)) {
+  fs.mkdirSync(VIDEO_UPLOAD_DIR, { recursive: true });
+}
 ensureJsonFile(DATA_FILE, []);
 ensureJsonFile(USERS_FILE, []);
+ensureJsonFile(VIDEO_STATE_FILE, {
+  selectedVideo: '',
+  videoEnabled: false,
+});
 
 io.on('connection', (socket) => {
   socket.emit('punti_emit', { tabellone: { ...lastTabelloneState } });
+  const state = loadVideoState();
+  const activeFile = resolveActiveVideoFilename(state);
+  if (state.videoEnabled && activeFile) {
+    socket.emit('video_emit', {
+      video: 'videoOn',
+      src: buildVideoPublicPath(activeFile),
+    });
+  }
 });
 
 startSerialReader();
