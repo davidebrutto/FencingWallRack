@@ -730,6 +730,7 @@ function startSerialReader() {
 
     logSerialDebug('serial_teardown', `reason=${reason}`);
   }
+  
 
   function startWatchdog() {
     if (watchdogTimer) {
