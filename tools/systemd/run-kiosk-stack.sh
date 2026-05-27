@@ -7,6 +7,7 @@ DISPLAY="${DISPLAY:-:0}"
 XAUTHORITY="${XAUTHORITY:-/home/pi/.Xauthority}"
 CHROMIUM_PROFILE_DIR="${CHROMIUM_PROFILE_DIR:-/home/pi/.config/fencing-kiosk}"
 STARTUP_TIMEOUT_SEC="${STARTUP_TIMEOUT_SEC:-90}"
+CHROMIUM_START_DELAY_SEC="${CHROMIUM_START_DELAY_SEC:-8}"
 
 export DISPLAY
 export XAUTHORITY
@@ -81,11 +82,16 @@ echo "Node avviato PID=${NODE_PID}"
 
 wait_for_x_display
 wait_for_http
+sleep "${CHROMIUM_START_DELAY_SEC}"
 
 mkdir -p "${CHROMIUM_PROFILE_DIR}"
+# Prevent stale instances from stacking black overlay windows.
+pkill -f "${CHROMIUM_BIN}.*${CHROMIUM_PROFILE_DIR}" >/dev/null 2>&1 || true
 "${CHROMIUM_BIN}" \
   --kiosk \
   --incognito \
+  --ozone-platform=x11 \
+  --disable-gpu \
   --autoplay-policy=no-user-gesture-required \
   --disable-infobars \
   --disable-session-crashed-bubble \
