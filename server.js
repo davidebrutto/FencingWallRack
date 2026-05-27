@@ -759,11 +759,20 @@ function startSerialReader() {
     );
 
     parser.on('data', (frameBuf) => {
-      const s1 = frameBuf.toString('utf8');
+      let normalizedFrame = frameBuf;
+      const sohIdx = normalizedFrame.indexOf(0x01);
+      if (sohIdx > 0) {
+        // After reconnect some devices prepend one junk byte (often 0x00):
+        // align to SOH so legacy fixed offsets stay correct.
+        normalizedFrame = normalizedFrame.subarray(sohIdx);
+        logSerialDebug('legacy_align', `dropped=${sohIdx}`);
+      }
+
+      const s1 = normalizedFrame.toString('utf8');
       logSerialDebug('frame_complete', `source=legacy len=${s1.length}`);
       const parsed = parseLegacyAsciiTabellone(s1);
       if (!parsed) {
-        const hexHead = frameBuf.subarray(0, Math.min(16, frameBuf.length)).toString('hex');
+        const hexHead = normalizedFrame.subarray(0, Math.min(16, normalizedFrame.length)).toString('hex');
         logSerialDebug('frame_skip', `source=legacy reason=short_or_invalid hex=${hexHead}`);
         return;
       }
