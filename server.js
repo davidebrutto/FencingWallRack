@@ -33,6 +33,8 @@ const SERIAL_XOFF = process.env.SERIAL_XOFF === '1';
 const SERIAL_MODE = process.env.SERIAL_MODE || 'legacy_read_until';
 const DEBUG_SERIAL = process.env.DEBUG_SERIAL === '1';
 const SERIAL_IDLE_FLUSH_MS = Number(process.env.SERIAL_IDLE_FLUSH_MS || 1200);
+const SERIAL_RECONNECT_MS = Number(process.env.SERIAL_RECONNECT_MS || 1500);
+const SERIAL_WATCHDOG_MS = Number(process.env.SERIAL_WATCHDOG_MS || 2000);
 
 const DATA_FILE = path.join(__dirname, 'scores.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -628,69 +630,10 @@ function logSerialDebug(event, details = '') {
 
 function startSerialReader() {
   let rxBuffer = Buffer.alloc(0);
-
-  const port = new SerialPort({
-    path: SERIAL_PORT,
-    baudRate: SERIAL_BAUD,
-    dataBits: SERIAL_DATABITS,
-    parity: SERIAL_PARITY,
-    stopBits: SERIAL_STOPBITS,
-    rtscts: SERIAL_RTSCTS,
-    xon: SERIAL_XON,
-    xoff: SERIAL_XOFF,
-    autoOpen: false,
-  });
-
-  port.open((error) => {
-    if (error) {
-      console.error(`Serial open error (${SERIAL_PORT}):`, error.message);
-      return;
-    }
-    console.log(
-      `Serial Start on ${SERIAL_PORT} @ ${SERIAL_BAUD} ` +
-      `${SERIAL_DATABITS}${SERIAL_PARITY[0]?.toUpperCase() || 'N'}${SERIAL_STOPBITS} ` +
-      `rtscts=${SERIAL_RTSCTS} xon=${SERIAL_XON} xoff=${SERIAL_XOFF}`
-    );
-  });
-
-  if (SERIAL_MODE === 'legacy_read_until') {
-    const parser = port.pipe(
-      new DelimiterParser({
-        delimiter: Buffer.from([0x02, 0x20, 0x20, 0x04]),
-        includeDelimiter: true,
-      })
-    );
-
-    parser.on('data', (frameBuf) => {
-      let s1 = '';
-      try {
-        s1 = frameBuf.toString('utf8');
-      } catch (error) {
-        logSerialDebug('frame_drop', 'source=legacy reason=utf8_decode_error');
-        return;
-      }
-
-      logSerialDebug('frame_complete', `source=legacy len=${s1.length}`);
-      const parsed = parseLegacyAsciiTabellone(s1);
-      if (!parsed) {
-        const hexHead = frameBuf.subarray(0, Math.min(16, frameBuf.length)).toString('hex');
-        logSerialDebug('frame_skip', `source=legacy reason=short_or_invalid hex=${hexHead}`);
-        return;
-      }
-
-      const tabellone = mergeTabelloneState(parsed);
-      logSerialDebug(
-        'ws_emit',
-        `mode=legacy XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`
-      );
-      io.volatile.emit('punti_emit', { tabellone });
-    });
-
-    port.on('error', (error) => {
-      console.error('Serial runtime error:', error.message);
-    });
-    return;
-  }
+  let activePort = null;
+  let reconnectTimer = null;
+  let watchdogTimer = null;
+  let ignoreNextCloseEvent = false;
 
   function emitFrame(frameBuf, source) {
     if (!frameBuf || frameBuf.length < 3) {
@@ -747,20 +690,172 @@ function startSerialReader() {
     }
   }
 
-  port.on('data', (chunk) => {
-    const hexHead = chunk.subarray(0, Math.min(8, chunk.length)).toString('hex');
-    logSerialDebug('serial_rx', `bytes=${chunk.length} hex=${hexHead}`);
-    rxBuffer = Buffer.concat([rxBuffer, chunk]);
-    extractFramesFromBuffer('stream');
-
-    if (rxBuffer.length > 8192) {
-      rxBuffer = rxBuffer.subarray(rxBuffer.length - 512);
+  function scheduleReconnect(reason) {
+    if (reconnectTimer) {
+      return;
     }
-  });
+    console.warn(`Serial disconnected (${reason}). Retrying in ${SERIAL_RECONNECT_MS}ms...`);
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      connectSerial();
+    }, SERIAL_RECONNECT_MS);
+  }
 
-  port.on('error', (error) => {
-    console.error('Serial runtime error:', error.message);
-  });
+  function closeCurrentPort(reason) {
+    if (!activePort) {
+      return;
+    }
+
+    const portToClose = activePort;
+    activePort = null;
+    rxBuffer = Buffer.alloc(0);
+
+    try {
+      portToClose.removeAllListeners('data');
+      portToClose.removeAllListeners('error');
+      portToClose.removeAllListeners('close');
+      portToClose.removeAllListeners('open');
+    } catch (_) {
+      // no-op
+    }
+
+    if (portToClose.isOpen) {
+      ignoreNextCloseEvent = true;
+      try {
+        portToClose.close(() => {});
+      } catch (_) {
+        // no-op
+      }
+    }
+
+    logSerialDebug('serial_teardown', `reason=${reason}`);
+  }
+
+  function startWatchdog() {
+    if (watchdogTimer) {
+      clearInterval(watchdogTimer);
+    }
+
+    watchdogTimer = setInterval(() => {
+      if (!activePort || !activePort.isOpen) {
+        return;
+      }
+
+      // Some adapters don't emit close/error on unplug. Probe device-path visibility.
+      if (!fs.existsSync(SERIAL_PORT)) {
+        console.warn(`Serial device path missing: ${SERIAL_PORT}`);
+        closeCurrentPort('watchdog_path_missing');
+        scheduleReconnect('watchdog_path_missing');
+      }
+    }, SERIAL_WATCHDOG_MS);
+  }
+
+  function setupLegacyMode(port) {
+    const parser = port.pipe(
+      new DelimiterParser({
+        delimiter: Buffer.from([0x02, 0x20, 0x20, 0x04]),
+        includeDelimiter: true,
+      })
+    );
+
+    parser.on('data', (frameBuf) => {
+      const s1 = frameBuf.toString('utf8');
+      logSerialDebug('frame_complete', `source=legacy len=${s1.length}`);
+      const parsed = parseLegacyAsciiTabellone(s1);
+      if (!parsed) {
+        const hexHead = frameBuf.subarray(0, Math.min(16, frameBuf.length)).toString('hex');
+        logSerialDebug('frame_skip', `source=legacy reason=short_or_invalid hex=${hexHead}`);
+        return;
+      }
+
+      const tabellone = mergeTabelloneState(parsed);
+      logSerialDebug(
+        'ws_emit',
+        `mode=legacy XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`
+      );
+      io.volatile.emit('punti_emit', { tabellone });
+    });
+
+    parser.on('error', (error) => {
+      console.error('Serial parser error:', error.message);
+      closeCurrentPort('legacy_parser_error');
+      scheduleReconnect(`legacy_parser_error:${error.message}`);
+    });
+  }
+
+  function setupBinaryMode(port) {
+    port.on('data', (chunk) => {
+      const hexHead = chunk.subarray(0, Math.min(8, chunk.length)).toString('hex');
+      logSerialDebug('serial_rx', `bytes=${chunk.length} hex=${hexHead}`);
+      rxBuffer = Buffer.concat([rxBuffer, chunk]);
+      extractFramesFromBuffer('stream');
+
+      if (rxBuffer.length > 8192) {
+        rxBuffer = rxBuffer.subarray(rxBuffer.length - 512);
+      }
+    });
+  }
+
+  function connectSerial() {
+    closeCurrentPort('reconnect_attempt');
+
+    const port = new SerialPort({
+      path: SERIAL_PORT,
+      baudRate: SERIAL_BAUD,
+      dataBits: SERIAL_DATABITS,
+      parity: SERIAL_PARITY,
+      stopBits: SERIAL_STOPBITS,
+      rtscts: SERIAL_RTSCTS,
+      xon: SERIAL_XON,
+      xoff: SERIAL_XOFF,
+      autoOpen: false,
+    });
+
+    activePort = port;
+    rxBuffer = Buffer.alloc(0);
+
+    port.on('error', (error) => {
+      console.error('Serial runtime error:', error.message);
+      closeCurrentPort(`runtime_error:${error.message}`);
+      scheduleReconnect(`runtime_error:${error.message}`);
+    });
+
+    port.on('close', (err) => {
+      if (ignoreNextCloseEvent) {
+        ignoreNextCloseEvent = false;
+        return;
+      }
+
+      const reason = err && err.disconnected ? 'disconnected' : 'closed';
+      console.warn(`Serial port closed (${reason})`);
+      closeCurrentPort(`close:${reason}`);
+      scheduleReconnect(`close:${reason}`);
+    });
+
+    if (SERIAL_MODE === 'legacy_read_until') {
+      setupLegacyMode(port);
+    } else {
+      setupBinaryMode(port);
+    }
+
+    port.open((error) => {
+      if (error) {
+        console.error(`Serial open error (${SERIAL_PORT}):`, error.message);
+        closeCurrentPort(`open_error:${error.message}`);
+        scheduleReconnect(`open_error:${error.message}`);
+        return;
+      }
+
+      console.log(
+        `Serial Start on ${SERIAL_PORT} @ ${SERIAL_BAUD} ` +
+        `${SERIAL_DATABITS}${SERIAL_PARITY[0]?.toUpperCase() || 'N'}${SERIAL_STOPBITS} ` +
+        `rtscts=${SERIAL_RTSCTS} xon=${SERIAL_XON} xoff=${SERIAL_XOFF}`
+      );
+    });
+  }
+
+  startWatchdog();
+  connectSerial();
 }
 
 ensureJsonFile(DATA_FILE, []);
