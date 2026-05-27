@@ -181,6 +181,9 @@
             {% block content %}{% endblock %}
         </div>
     </div>
+    <div id="pauseFallback" style="display:none; position:fixed; inset:0; background:#000; z-index:9999; align-items:center; justify-content:center;">
+        <img src="/static/pausa.jpg" alt="Pausa" style="width:100%; height:100%; object-fit:contain; background:#000;" />
+    </div>
 </body>
 <script type="application/javascript">
     const socket = io({
@@ -190,12 +193,66 @@
     });
     const container = document.querySelector('.nomeSX');
     const containerDX = document.querySelector('.nomeDX');
+    const appContainer = document.querySelector('.container');
+    const pauseFallback = document.getElementById('pauseFallback');
+    const NO_DATA_TIMEOUT_MS = 10000;
+    const RETRY_INTERVAL_MS = 10000;
+    let lastDataAt = Date.now();
+    let fallbackActive = false;
     let scrollAmount = 0;
     let scrollAmountDX = 0;
     let misuraTotale = 0;
     let ranking = 0;
 
+    function showPauseFallback(reason) {
+        if (fallbackActive) {
+            return;
+        }
+        fallbackActive = true;
+        if (appContainer) {
+            appContainer.style.display = 'none';
+        }
+        if (pauseFallback) {
+            pauseFallback.style.display = 'flex';
+        }
+        console.warn('Fallback ON:', reason);
+    }
+
+    function hidePauseFallback() {
+        fallbackActive = false;
+        if (pauseFallback) {
+            pauseFallback.style.display = 'none';
+        }
+        if (appContainer) {
+            appContainer.style.display = '';
+        }
+    }
+
+    function tryReconnect() {
+        if (!fallbackActive) {
+            return;
+        }
+        if (socket.disconnected) {
+            socket.connect();
+            return;
+        }
+        fetch('/api/scores', { cache: 'no-store' }).catch(() => {});
+    }
+
     socket.connect();
+
+    socket.on("connect", function() {
+        // Keep fallback active until real serial data arrives.
+        console.log("Socket connected");
+    });
+
+    socket.on("disconnect", function(reason) {
+        showPauseFallback(`socket_disconnect:${reason}`);
+    });
+
+    socket.on("connect_error", function(err) {
+        showPauseFallback(`socket_connect_error:${err && err.message ? err.message : 'unknown'}`);
+    });
 
     socket.on("video_emit", function(video) {
         console.log(video)
@@ -215,6 +272,8 @@
     })
 
     socket.on("punti_emit", function(tabellone) {
+            lastDataAt = Date.now();
+            hidePauseFallback();
             // console.log(tabellone) disabled for realtime performance            //STATO DX
             if (tabellone.tabellone.G == 1){
                 document.getElementById('statoDXbig').style.backgroundColor='#009900';
@@ -271,6 +330,19 @@
         })
 
       setInterval(() => {
+          if ((Date.now() - lastDataAt) > NO_DATA_TIMEOUT_MS) {
+              showPauseFallback('no_serial_data_timeout');
+          }
+      }, 1000);
+
+      setInterval(() => {
+          tryReconnect();
+      }, RETRY_INTERVAL_MS);
+
+      setInterval(() => {
+            if (!container || !containerDX) {
+                return;
+            }
 
           {#if (scrollAmount == 10){
               wait(1000);
