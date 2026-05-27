@@ -196,9 +196,32 @@
     socket.on("video_emit", function(video) {
         console.log(video)
         if (video.video == 'videoOn'){
+            const src = video.src || '';
             document.getElementById("videoSX").style.display = 'block';
+            const players = document.querySelectorAll('.videoPlayer');
+            players.forEach((player) => {
+                if (src) {
+                    if (player.getAttribute('src') !== src) {
+                        player.setAttribute('src', src);
+                    }
+                    player.load();
+                }
+                player.defaultMuted = false;
+                player.muted = false;
+                player.removeAttribute('muted');
+                player.volume = 1.0;
+                player.play().catch((err) => {
+                    console.warn('Video autoplay with audio blocked by browser policy:', err && err.message ? err.message : err);
+                });
+            });
         }else{
             document.getElementById("videoSX").style.display = 'none';
+            const players = document.querySelectorAll('.videoPlayer');
+            players.forEach((player) => {
+                try {
+                    player.pause();
+                } catch (_) {}
+            });
         }
 
     })

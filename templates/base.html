@@ -273,8 +273,13 @@
                     }
                     player.load();
                 }
-                player.muted = true;
-                player.play().catch(() => {});
+                player.defaultMuted = false;
+                player.muted = false;
+                player.removeAttribute('muted');
+                player.volume = 1.0;
+                player.play().catch((err) => {
+                    console.warn('Video autoplay with audio blocked by browser policy:', err && err.message ? err.message : err);
+                });
             });
         }else{
             const videoContainers = [document.getElementById("videoSX"), document.getElementById("videoDX")];
