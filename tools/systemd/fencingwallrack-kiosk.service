@@ -1,0 +1,22 @@
+[Unit]
+Description=FencingWallRack Node + Chromium Kiosk
+After=network-online.target graphical.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/FencingWallRack
+EnvironmentFile=-/etc/default/fencingwallrack-kiosk
+Environment=NODE_ENV=production
+ExecStart=/home/pi/FencingWallRack/tools/systemd/run-kiosk-stack.sh
+Restart=always
+RestartSec=2
+KillMode=control-group
+TimeoutStopSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical.target
