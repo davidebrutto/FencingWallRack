@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const nunjucks = require('nunjucks');
 const { Server } = require('socket.io');
 const { SerialPort } = require('serialport');
+const { DelimiterParser } = require('@serialport/parser-delimiter');
 
 const app = express();
 const server = http.createServer(app);
@@ -29,6 +30,7 @@ const SERIAL_STOPBITS = Number(process.env.SERIAL_STOPBITS || 1);
 const SERIAL_RTSCTS = process.env.SERIAL_RTSCTS === '1';
 const SERIAL_XON = process.env.SERIAL_XON === '1';
 const SERIAL_XOFF = process.env.SERIAL_XOFF === '1';
+const SERIAL_MODE = process.env.SERIAL_MODE || 'legacy_read_until';
 const DEBUG_SERIAL = process.env.DEBUG_SERIAL === '1';
 const SERIAL_IDLE_FLUSH_MS = Number(process.env.SERIAL_IDLE_FLUSH_MS || 1200);
 
@@ -417,6 +419,13 @@ function segmentToPrintableString(segment) {
   return out;
 }
 
+function segmentSlice(segment, start, length, fallback = '') {
+  if (segment.length < start + length) {
+    return fallback;
+  }
+  return segmentToPrintableString(segment.subarray(start, start + length));
+}
+
 function parseMessage3Frame(frameBuf) {
   // Message 3: [SOH][DC3]D[STX]XX:YY[STX]ABb[STX]CDd[STX]P[STX]R[STX]vW[EOT]
   if (frameBuf.length < 12) {
@@ -450,20 +459,20 @@ function parseMessage3Frame(frameBuf) {
   const prioritySeg = segments[3];
   const roundSeg = segments[4];
 
-  if (scoreSeg.length < 5 || cardsRightSeg.length < 3 || cardsLeftSeg.length < 3 || prioritySeg.length < 1 || roundSeg.length < 1) {
+  if (scoreSeg.length < 5 || cardsRightSeg.length < 5 || cardsLeftSeg.length < 5 || prioritySeg.length < 1 || roundSeg.length < 1) {
     return null;
   }
 
-  const XX = `${printableFromByte(scoreSeg[0])}${printableFromByte(scoreSeg[1])}`;
+  const XX = `${printableFromByte(scoreSeg[0], ' ')}${printableFromByte(scoreSeg[1], ' ')}`;
   const sep = printableFromByte(scoreSeg[2], ':');
-  const YY = `${printableFromByte(scoreSeg[3])}${printableFromByte(scoreSeg[4])}`;
+  const YY = `${printableFromByte(scoreSeg[3], ' ')}${printableFromByte(scoreSeg[4], ' ')}`;
 
-  const A = printableFromByte(cardsRightSeg[0], '0');
-  const B = printableFromByte(cardsRightSeg[1], '0');
-  const b = printableFromByte(cardsRightSeg[2], '0');
-  const C = printableFromByte(cardsLeftSeg[0], '0');
-  const D = printableFromByte(cardsLeftSeg[1], '0');
-  const d = printableFromByte(cardsLeftSeg[2], '0');
+  const A = segmentSlice(cardsRightSeg, 0, 2, ' 0');
+  const B = segmentSlice(cardsRightSeg, 2, 2, ' 0');
+  const b = segmentSlice(cardsRightSeg, 4, 1, '0');
+  const C = segmentSlice(cardsLeftSeg, 0, 2, ' 0');
+  const D = segmentSlice(cardsLeftSeg, 2, 2, ' 0');
+  const d = segmentSlice(cardsLeftSeg, 4, 1, '0');
 
   const P = printableFromByte(prioritySeg[0], '0');
   const PR = segmentToPrintableString(roundSeg).trim() || '0';
@@ -558,6 +567,57 @@ function mergeTabelloneState(partial) {
   return { ...lastTabelloneState };
 }
 
+function parseLegacyAsciiTabellone(s1) {
+  if (!s1 || s1.length < 50) {
+    return null;
+  }
+
+  let i = 0;
+  let h = 0;
+
+  if (s1.slice(2, 3) === 'N') {
+    i = 28;
+  }
+  if (s1.slice(2, 3) === 'R') {
+    i = 0;
+    if (s1.slice(15, 16) === 'G') {
+      h = 11;
+    }
+    if (s1.slice(28, 29) === 'W') {
+      h = 0;
+      i = 22;
+    }
+  }
+
+  const tabellone = {
+    R: s1.slice(i + 3, i + 4),
+    G: s1.slice(i + 5, i + 6),
+    W: s1.slice(i + 7, i + 8),
+    w: s1.slice(i + 9, i + 10),
+    timer: s1.slice(i + h + 15, i + h + 23),
+    XX: s1.slice(i + h + 28, i + h + 30),
+    YY: s1.slice(i + h + 31, i + h + 33),
+    A: s1.slice(i + h + 35, i + h + 36),
+    B: s1.slice(i + h + 37, i + h + 38),
+    b: s1.slice(i + h + 38, i + h + 39),
+    C: s1.slice(i + h + 41, i + h + 42),
+    D: s1.slice(i + h + 43, i + h + 44),
+    d: s1.slice(i + h + 44, i + h + 45),
+    P: s1.slice(i + h + 46, i + h + 47),
+    PR: s1.slice(i + h + 48, i + h + 49),
+  };
+
+  if (s1.slice(i + h + 15, i + h + 17) === ' 0') {
+    const secChunk = s1.slice(i + h + 18, i + h + 20);
+    const secInt = Number.parseInt(secChunk, 10);
+    if (!Number.isNaN(secInt) && secInt <= 9) {
+      tabellone.timer = s1.slice(i + h + 19, i + h + 23).replace('.', ':');
+    }
+  }
+
+  return tabellone;
+}
+
 function logSerialDebug(event, details = '') {
   if (!DEBUG_SERIAL) {
     return;
@@ -592,6 +652,45 @@ function startSerialReader() {
       `rtscts=${SERIAL_RTSCTS} xon=${SERIAL_XON} xoff=${SERIAL_XOFF}`
     );
   });
+
+  if (SERIAL_MODE === 'legacy_read_until') {
+    const parser = port.pipe(
+      new DelimiterParser({
+        delimiter: Buffer.from([0x02, 0x20, 0x20, 0x04]),
+        includeDelimiter: true,
+      })
+    );
+
+    parser.on('data', (frameBuf) => {
+      let s1 = '';
+      try {
+        s1 = frameBuf.toString('utf8');
+      } catch (error) {
+        logSerialDebug('frame_drop', 'source=legacy reason=utf8_decode_error');
+        return;
+      }
+
+      logSerialDebug('frame_complete', `source=legacy len=${s1.length}`);
+      const parsed = parseLegacyAsciiTabellone(s1);
+      if (!parsed) {
+        const hexHead = frameBuf.subarray(0, Math.min(16, frameBuf.length)).toString('hex');
+        logSerialDebug('frame_skip', `source=legacy reason=short_or_invalid hex=${hexHead}`);
+        return;
+      }
+
+      const tabellone = mergeTabelloneState(parsed);
+      logSerialDebug(
+        'ws_emit',
+        `mode=legacy XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`
+      );
+      io.volatile.emit('punti_emit', { tabellone });
+    });
+
+    port.on('error', (error) => {
+      console.error('Serial runtime error:', error.message);
+    });
+    return;
+  }
 
   function emitFrame(frameBuf, source) {
     if (!frameBuf || frameBuf.length < 3) {
