@@ -38,7 +38,7 @@ const SERIAL_STOPBITS = Number(process.env.SERIAL_STOPBITS || 1);
 const SERIAL_RTSCTS = process.env.SERIAL_RTSCTS === '1';
 const SERIAL_XON = process.env.SERIAL_XON === '1';
 const SERIAL_XOFF = process.env.SERIAL_XOFF === '1';
-const SERIAL_MODE = process.env.SERIAL_MODE || 'legacy_read_until';
+const SERIAL_MODE = process.env.SERIAL_MODE || 'soh_eot';
 const DEBUG_SERIAL = process.env.DEBUG_SERIAL === '1';
 const SERIAL_IDLE_FLUSH_MS = Number(process.env.SERIAL_IDLE_FLUSH_MS || 1200);
 const SERIAL_RECONNECT_MS = Number(process.env.SERIAL_RECONNECT_MS || 1500);
@@ -798,6 +798,47 @@ function parseMessage4Frame(frameBuf) {
   };
 }
 
+function parseCompetitorInfoFrame(frameBuf) {
+  // Message 5/6: [SOH][DC3]N[L/R][STX]Bib[STX]Name[STX]Nat[EOT]
+  // We recognize these frames so they never get interpreted as scoreboard data.
+  if (frameBuf.length < 10) {
+    return null;
+  }
+  if (frameBuf[0] !== SOH || frameBuf[1] !== CMD_DC3 || frameBuf[2] !== 0x4e || frameBuf[frameBuf.length - 1] !== EOT) {
+    return null;
+  }
+
+  const sideByte = frameBuf[3];
+  if (sideByte !== 0x4c && sideByte !== 0x52) {
+    return null;
+  }
+
+  const segments = [];
+  let idx = 4;
+  while (idx < frameBuf.length - 1) {
+    if (frameBuf[idx] !== STX) {
+      return null;
+    }
+    idx += 1;
+    const start = idx;
+    while (idx < frameBuf.length - 1 && frameBuf[idx] !== STX) {
+      idx += 1;
+    }
+    segments.push(frameBuf.subarray(start, idx));
+  }
+
+  if (segments.length < 3) {
+    return null;
+  }
+
+  return {
+    side: sideByte === 0x4c ? 'left' : 'right',
+    bib: segmentToPrintableString(segments[0]).trim(),
+    name: segmentToPrintableString(segments[1]).trim(),
+    nation: segmentToPrintableString(segments[2]).trim(),
+  };
+}
+
 function parseKnownFrame(frameBuf) {
   const msg1 = parseMessage1Frame(frameBuf);
   if (msg1) {
@@ -814,6 +855,10 @@ function parseKnownFrame(frameBuf) {
   const msg4 = parseMessage4Frame(frameBuf);
   if (msg4) {
     return { type: 'message4_status_info', tabellone: null };
+  }
+  const competitorInfo = parseCompetitorInfoFrame(frameBuf);
+  if (competitorInfo) {
+    return { type: `message_competitor_info_${competitorInfo.side}`, tabellone: null, info: competitorInfo };
   }
   return null;
 }
