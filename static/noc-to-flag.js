@@ -20,7 +20,7 @@
     SMR: 'sm', SOL: 'sb', SOM: 'so', SRB: 'rs', SRI: 'lk', SSD: 'ss', STP: 'st', SUD: 'sd', SUI: 'ch', SUR: 'sr',
     SVK: 'sk', SWE: 'se', SWZ: 'sz', SYR: 'sy', TAN: 'tz', TGA: 'to', THA: 'th', TJK: 'tj', TKM: 'tm', TLS: 'tl',
     TOG: 'tg', TPE: 'tw', TTO: 'tt', TUN: 'tn', TUR: 'tr', TUV: 'tv', UAE: 'ae', UGA: 'ug', UKR: 'ua', URU: 'uy',
-    USA: 'us', UZB: 'uz', VAN: 'vu', VEN: 've', VIE: 'vn', VIN: 'vc', YEM: 'ye', ZAM: 'zm', ZIM: 'zw',
+    USA: 'us', UZB: 'uz', VA: 'va', VAT: 'va', VAN: 'vu', VEN: 've', VIE: 'vn', VIN: 'vc', YEM: 'ye', ZAM: 'zm', ZIM: 'zw',
 
     // Common historical/alternate codes.
     BAHAMAS: 'bs', CHINESE_TAIPEI: 'tw', FRG: 'de', GDR: 'de', HOL: 'nl', NBO: 'my', ROC: 'ru', SCG: 'rs', TCH: 'cz',
