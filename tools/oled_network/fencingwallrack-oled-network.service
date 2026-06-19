@@ -1,0 +1,19 @@
+[Unit]
+Description=FencingWallRack OLED Network Configurator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/fencewall/FencingWallRack
+EnvironmentFile=-/etc/default/fencingwallrack-oled-network
+ExecStart=/home/fencewall/FencingWallRack/.venv-oled/bin/python /home/fencewall/FencingWallRack/tools/oled_network/oled_network_config.py
+Restart=always
+RestartSec=2
+User=root
+Group=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
