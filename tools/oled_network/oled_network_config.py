@@ -6,6 +6,7 @@ import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 
 from gpiozero import Button
@@ -180,6 +181,7 @@ class OledNetworkApp:
         self.gw_chars = ip_to_chars(self.cfg["gateway"])
         self.cursor = 0
         self.status = "K1 save K2 mode K3 iface"
+        self.render_lock = threading.Lock()
 
         self.setup_buttons()
 
@@ -230,15 +232,19 @@ class OledNetworkApp:
 
     def handle_event(self, event):
         if event == "k1":
+            stop_animation = threading.Event()
+            animation = threading.Thread(target=self.saving_animation, args=(stop_animation,), daemon=True)
+            animation.start()
             try:
                 apply_network(self.iface, self.cfg)
                 self.status = "Saved. Re-reading..."
-                self.draw()
-                time.sleep(1)
                 self.refresh_iface()
                 self.status = "Saved"
             except Exception as exc:
                 self.status = f"ERR {exc}"[:21]
+            finally:
+                stop_animation.set()
+                animation.join(timeout=1)
             return
 
         if event == "k2":
@@ -291,7 +297,23 @@ class OledNetworkApp:
         ]
         for idx, line in enumerate(lines):
             draw.text((0, idx * 10), line[:21], font=self.font, fill=255)
-        self.device.display(image)
+        with self.render_lock:
+            self.device.display(image)
+
+    def saving_animation(self, stop_event):
+        frames = ["|", "/", "-", "\\"]
+        frame = 0
+        while not stop_event.is_set():
+            image = Image.new("1", (WIDTH, HEIGHT), 0)
+            draw = ImageDraw.Draw(image)
+            draw.text((0, 0), "Saving network", font=self.font, fill=255)
+            draw.text((0, 16), f"Please wait {frames[frame % len(frames)]}", font=self.font, fill=255)
+            draw.text((0, 32), self.iface[:21], font=self.font, fill=255)
+            draw.text((0, 48), f"{self.cfg['ip']}/{self.cfg['prefix']}"[:21], font=self.font, fill=255)
+            with self.render_lock:
+                self.device.display(image)
+            frame += 1
+            stop_event.wait(0.2)
 
     def loop(self):
         self.draw()
