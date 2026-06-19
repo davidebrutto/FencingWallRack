@@ -628,7 +628,7 @@ const CMD_DC3 = 0x13;
 const STX = 0x02;
 
 function boolByteToFlag(value) {
-  return value === 0x00 ? '0' : '1';
+  return value === 0x00 || value === 0x30 ? '0' : '1';
 }
 
 function parseMessage1Frame(frameBuf) {
