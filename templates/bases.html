@@ -191,6 +191,68 @@
     let misuraTotale = 0;
     let ranking = 0;
 
+    const NOC_TO_FLAG = {
+        ITA: 'it',
+        FRA: 'fr',
+        GER: 'de',
+        DEU: 'de',
+        ESP: 'es',
+        GBR: 'gb',
+        USA: 'us',
+        SUI: 'ch',
+        JPN: 'jp',
+        KOR: 'kr',
+        CHN: 'cn',
+        HKG: 'hk',
+        HUN: 'hu',
+        POL: 'pl',
+        ROU: 'ro',
+        UKR: 'ua',
+        RUS: 'ru',
+    };
+
+    function updateText(selector, value) {
+        if (!value) {
+            return;
+        }
+        document.querySelectorAll(selector).forEach((el) => {
+            el.textContent = value;
+            el.scrollLeft = 0;
+        });
+    }
+
+    function updateCompetitorFromSerial(payload) {
+        const competitor = payload.competitor || payload;
+        if (!competitor || !competitor.side) {
+            return;
+        }
+
+        const isLeft = competitor.side === 'left';
+        const nameSelector = isLeft ? '.nomeSX' : '.nomeDX';
+        const countrySelector = isLeft ? '.countrySX' : '.countryDX';
+        const flagSelector = isLeft ? '.flagSX img' : '.flagDX img';
+        const nation = (competitor.nation || '').trim().toUpperCase();
+        const flagCode = NOC_TO_FLAG[nation];
+
+        updateText(nameSelector, (competitor.name || '').trim());
+        updateText(countrySelector, nation);
+
+        if (flagCode) {
+            document.querySelectorAll(flagSelector).forEach((img) => {
+                img.src = `/static/flags/${flagCode}.svg`;
+            });
+        }
+
+        scrollAmount = 0;
+        scrollAmountDX = 0;
+        if (container) {
+            container.scrollLeft = 0;
+        }
+        if (containerDX) {
+            containerDX.scrollLeft = 0;
+        }
+    }
+
     socket.connect();
 
     socket.on("video_emit", function(video) {
@@ -229,6 +291,10 @@
     socket.on("info_emit", function(info) {
         console.log(info)
         window.location.reload();
+    })
+
+    socket.on("competitor_emit", function(payload) {
+        updateCompetitorFromSerial(payload);
     })
 
     socket.on("punti_emit", function(tabellone) {

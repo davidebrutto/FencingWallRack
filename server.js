@@ -883,6 +883,11 @@ const lastTabelloneState = {
   timerMode: 'R',
 };
 
+const lastCompetitorInfoState = {
+  left: null,
+  right: null,
+};
+
 function mergeTabelloneState(partial) {
   for (const [key, value] of Object.entries(partial)) {
     if (typeof value !== 'string') {
@@ -974,6 +979,13 @@ function startSerialReader() {
     if (!parsed) {
       const hexHead = frameBuf.subarray(0, Math.min(16, frameBuf.length)).toString('hex');
       logSerialDebug('frame_skip', `source=${source} reason=not_scoreboard_frame hex=${hexHead}`);
+      return;
+    }
+
+    if (parsed.info) {
+      lastCompetitorInfoState[parsed.info.side] = parsed.info;
+      logSerialDebug('competitor_emit', `side=${parsed.info.side} name=${parsed.info.name} nation=${parsed.info.nation}`);
+      io.emit('competitor_emit', { competitor: parsed.info });
       return;
     }
 
@@ -1208,6 +1220,11 @@ ensureJsonFile(VIDEO_STATE_FILE, {
 
 io.on('connection', (socket) => {
   socket.emit('punti_emit', { tabellone: { ...lastTabelloneState } });
+  for (const competitor of Object.values(lastCompetitorInfoState)) {
+    if (competitor) {
+      socket.emit('competitor_emit', { competitor });
+    }
+  }
   const state = loadVideoState();
   const activeFile = resolveActiveVideoFilename(state);
   if (state.videoEnabled && activeFile) {
