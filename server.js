@@ -971,6 +971,16 @@ function startSerialReader() {
   let pendingTabelloneEmit = null;
   let puntiEmitTimer = null;
   let lastPuntiEmitJson = '';
+  let lastSerialAliveEmitAt = 0;
+
+  function emitSerialAlive() {
+    const now = Date.now();
+    if (now - lastSerialAliveEmitAt < 1000) {
+      return;
+    }
+    lastSerialAliveEmitAt = now;
+    io.volatile.emit('serial_alive');
+  }
 
   function schedulePuntiEmit(tabellone, type) {
     pendingTabelloneEmit = tabellone;
@@ -1010,6 +1020,7 @@ function startSerialReader() {
       logSerialDebug('frame_skip', `source=${source} reason=not_scoreboard_frame hex=${hexHead}`);
       return;
     }
+    emitSerialAlive();
 
     if (parsed.info) {
       const previousInfo = lastCompetitorInfoState[parsed.info.side];

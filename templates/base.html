@@ -413,6 +413,11 @@
         updateCompetitorFromSerial(payload);
     })
 
+    socket.on("serial_alive", function() {
+        lastDataAt = Date.now();
+        hidePauseFallback();
+    })
+
     socket.on("punti_emit", function(tabellone) {
             lastDataAt = Date.now();
             hidePauseFallback();
