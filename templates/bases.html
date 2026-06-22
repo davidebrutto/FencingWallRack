@@ -184,7 +184,11 @@
 </body>
 <script type="application/javascript" src="/static/noc-to-flag.js"></script>
 <script type="application/javascript">
-    const socket = io({autoConnect: false});
+    const socket = io({
+        autoConnect: false,
+        transports: ['websocket'],
+        upgrade: false
+    });
     const container = document.querySelector('.nomeSX');
     const containerDX = document.querySelector('.nomeDX');
     let scrollAmount = 0;
@@ -197,6 +201,9 @@
             return;
         }
         document.querySelectorAll(selector).forEach((el) => {
+            if (el.textContent === value) {
+                return;
+            }
             el.textContent = value;
             el.scrollLeft = 0;
         });
@@ -219,8 +226,11 @@
         updateText(countrySelector, nation);
 
         if (flagCode) {
+            const nextSrc = `/static/flags/${flagCode}.svg`;
             document.querySelectorAll(flagSelector).forEach((img) => {
-                img.src = `/static/flags/${flagCode}.svg`;
+                if (!img.src.endsWith(nextSrc)) {
+                    img.src = nextSrc;
+                }
             });
         }
 
@@ -237,7 +247,6 @@
     socket.connect();
 
     socket.on("video_emit", function(video) {
-        console.log(video)
         if (video.video == 'videoOn'){
             const src = video.src || '';
             document.getElementById("videoSX").style.display = 'block';
@@ -270,7 +279,6 @@
     })
 
     socket.on("info_emit", function(info) {
-        console.log(info)
         window.location.reload();
     })
 
@@ -279,7 +287,6 @@
     })
 
     socket.on("punti_emit", function(tabellone) {
-            console.log(tabellone)
             //STATO DX
             if (tabellone.tabellone.G == 1){
                 document.getElementById('statoDXbig').style.backgroundColor='#009900';

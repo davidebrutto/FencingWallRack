@@ -983,9 +983,19 @@ function startSerialReader() {
     }
 
     if (parsed.info) {
+      const previousInfo = lastCompetitorInfoState[parsed.info.side];
+      const unchanged =
+        previousInfo &&
+        previousInfo.bib === parsed.info.bib &&
+        previousInfo.name === parsed.info.name &&
+        previousInfo.nation === parsed.info.nation;
+      if (unchanged) {
+        return;
+      }
+
       lastCompetitorInfoState[parsed.info.side] = parsed.info;
       logSerialDebug('competitor_emit', `side=${parsed.info.side} name=${parsed.info.name} nation=${parsed.info.nation}`);
-      io.emit('competitor_emit', { competitor: parsed.info });
+      io.volatile.emit('competitor_emit', { competitor: parsed.info });
       return;
     }
 

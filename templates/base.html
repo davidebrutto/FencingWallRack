@@ -245,6 +245,9 @@
             return;
         }
         document.querySelectorAll(selector).forEach((el) => {
+            if (el.textContent === value) {
+                return;
+            }
             el.textContent = value;
             el.scrollLeft = 0;
         });
@@ -267,8 +270,11 @@
         updateText(countrySelector, nation);
 
         if (flagCode) {
+            const nextSrc = `/static/flags/${flagCode}.svg`;
             document.querySelectorAll(flagSelector).forEach((img) => {
-                img.src = `/static/flags/${flagCode}.svg`;
+                if (!img.src.endsWith(nextSrc)) {
+                    img.src = nextSrc;
+                }
             });
         }
 
@@ -286,7 +292,6 @@
 
     socket.on("connect", function() {
         // Keep fallback active until real serial data arrives.
-        console.log("Socket connected");
     });
 
     socket.on("disconnect", function(reason) {
@@ -298,7 +303,6 @@
     });
 
     socket.on("video_emit", function(video) {
-        console.log(video)
         if (video.video == 'videoOn'){
             const src = video.src || '';
             const videoContainers = [document.getElementById("videoSX"), document.getElementById("videoDX")];
@@ -342,7 +346,6 @@
     })
 
     socket.on("info_emit", function(info) {
-        console.log(info)
         window.location.reload();
     })
 
