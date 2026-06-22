@@ -191,9 +191,6 @@
     });
     const container = document.querySelector('.nomeSX');
     const containerDX = document.querySelector('.nomeDX');
-    let scrollAmount = 0;
-    let scrollAmountDX = 0;
-    let misuraTotale = 0;
     let ranking = 0;
 
     function updateText(selector, value) {
@@ -205,7 +202,6 @@
                 return;
             }
             el.textContent = value;
-            el.scrollLeft = 0;
         });
     }
 
@@ -234,14 +230,78 @@
             });
         }
 
-        scrollAmount = 0;
-        scrollAmountDX = 0;
-        if (container) {
-            container.scrollLeft = 0;
+    }
+
+    const elCache = {};
+    const lastRenderedTabellone = {};
+    let pendingTabellone = null;
+    let renderScheduled = false;
+
+    function getEl(id) {
+        if (!elCache[id]) {
+            elCache[id] = document.getElementById(id);
         }
-        if (containerDX) {
-            containerDX.scrollLeft = 0;
+        return elCache[id];
+    }
+
+    function setTextIfChanged(id, value) {
+        const el = getEl(id);
+        if (!el) {
+            return;
         }
+        const text = String(value ?? '');
+        if (lastRenderedTabellone[`text:${id}`] === text) {
+            return;
+        }
+        lastRenderedTabellone[`text:${id}`] = text;
+        el.textContent = text;
+    }
+
+    function setBgIfChanged(id, value) {
+        const el = getEl(id);
+        if (!el) {
+            return;
+        }
+        if (lastRenderedTabellone[`bg:${id}`] === value) {
+            return;
+        }
+        lastRenderedTabellone[`bg:${id}`] = value;
+        el.style.backgroundColor = value;
+    }
+
+    function renderTabellone(tabellone) {
+        const statoDX = tabellone.G == 1 ? '#009900' : (tabellone.W == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
+        const statoSX = tabellone.R == 1 ? '#990000' : (tabellone.w == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
+        setBgIfChanged('statoDXbig', statoDX);
+        setBgIfChanged('statoSXbig', statoSX);
+
+        setTextIfChanged('timerText', String(tabellone.timer || '').trim());
+        setTextIfChanged('XX', tabellone.XX);
+        setTextIfChanged('YY', tabellone.YY);
+
+        setBgIfChanged('CGDX', tabellone.A >= 1 ? '#FFFF00' : 'rgba(255,255,255,0%)');
+        setBgIfChanged('CRDX', tabellone.B >= 1 ? '#FF0000' : 'rgba(255,255,255,0%)');
+        setBgIfChanged('CGSX', tabellone.C >= 1 ? '#FFFF00' : 'rgba(255,255,255,0%)');
+        setBgIfChanged('CRSX', tabellone.D >= 1 ? '#FF0000' : 'rgba(255,255,255,0%)');
+
+        setTextIfChanged('prioritaDX', tabellone.P == 1 ? 'P' : '');
+        setTextIfChanged('prioritaSX', tabellone.P == 2 ? 'P' : '');
+        setTextIfChanged('PR', tabellone.PR);
+    }
+
+    function scheduleTabelloneRender(tabellone) {
+        pendingTabellone = tabellone;
+        if (renderScheduled) {
+            return;
+        }
+        renderScheduled = true;
+        requestAnimationFrame(() => {
+            renderScheduled = false;
+            if (pendingTabellone) {
+                renderTabellone(pendingTabellone);
+                pendingTabellone = null;
+            }
+        });
     }
 
     socket.connect();
@@ -287,90 +347,19 @@
     })
 
     socket.on("punti_emit", function(tabellone) {
-            //STATO DX
-            if (tabellone.tabellone.G == 1){
-                document.getElementById('statoDXbig').style.backgroundColor='#009900';
-            }else if (tabellone.tabellone.W == 1) {
-                document.getElementById('statoDXbig').style.backgroundColor='#FFFFFF';
-            }else{
-                document.getElementById('statoDXbig').style.backgroundColor='rgba(255,255,255,0%)';
-            }
-            //STATO SX
-            if (tabellone.tabellone.R == 1){
-                document.getElementById('statoSXbig').style.backgroundColor='#990000';
-            }else if (tabellone.tabellone.w == 1) {
-                document.getElementById('statoSXbig').style.backgroundColor='#FFFFFF';
-            }else{
-                document.getElementById('statoSXbig').style.backgroundColor='rgba(255,255,255,0%)';
-            }
-            document.getElementById('timerText').innerHTML = tabellone.tabellone.timer.trim();
-            document.getElementById('XX').innerHTML = tabellone.tabellone.XX;
-            document.getElementById('YY').innerHTML = tabellone.tabellone.YY;
-            //DX CARDS
-            if (tabellone.tabellone.A >= 1){
-                document.getElementById('CGDX').style.backgroundColor='#FFFF00';
-            }else{
-                document.getElementById('CGDX').style.backgroundColor='rgba(255,255,255,0%)';
-            }
-            if (tabellone.tabellone.B >= 1){
-                document.getElementById('CRDX').style.backgroundColor='#FF0000';
-            }else{
-                document.getElementById('CRDX').style.backgroundColor='rgba(255,255,255,0%)';
-            }
-            //SX CARDS
-            if (tabellone.tabellone.C >= 1){
-                document.getElementById('CGSX').style.backgroundColor='#FFFF00';
-            }else{
-                document.getElementById('CGSX').style.backgroundColor='rgba(255,255,255,0%)';
-            }
-            if (tabellone.tabellone.D >= 1){
-                document.getElementById('CRSX').style.backgroundColor='#FF0000';
-            }else{
-                document.getElementById('CRSX').style.backgroundColor='rgba(255,255,255,0%)';
-            }
-            // PRIORIRY
-            if (tabellone.tabellone.P == 1){
-                document.getElementById('prioritaDX').innerHTML = 'P';
-                document.getElementById('prioritaSX').innerHTML = '';
-            }else if (tabellone.tabellone.P == 2){
-                document.getElementById('prioritaDX').innerHTML = '';
-                document.getElementById('prioritaSX').innerHTML = 'P';
-            }else{
-                document.getElementById('prioritaDX').innerHTML = '';
-                document.getElementById('prioritaSX').innerHTML = '';
-            }
-            document.getElementById('PR').innerHTML = tabellone.tabellone.PR;
+            scheduleTabelloneRender(tabellone.tabellone);
         })
-
-      setInterval(() => {
-
-          {#if (scrollAmount == 10){
-              wait(1000);
-          }#}
-            scrollAmount += 10;
-            container.scrollLeft = scrollAmount;
-            containerDX.scrollLeft = scrollAmount;
-            if(container.scrollWidth <= containerDX.scrollWidth){
-                misuraTotale = containerDX.scrollWidth;
-            }else{
-                misuraTotale = container.scrollWidth;
-            }
-            if (scrollAmount >= misuraTotale-1700) {
-              scrollAmount = 0;
-              container.scrollLeft = scrollAmount;
-            }
-      }, 50);
 
         setInterval(cambiaRank, 5000);
 
       function cambiaRank(){
           if(ranking == 0){
-              document.getElementById('rankSX').innerHTML = 'R:'+{{ scores[0].rank1 }};
-              document.getElementById('rankDX').innerHTML = 'R:'+{{ scores[0].rank2 }};
+              document.getElementById('rankSX').textContent = 'R:'+{{ scores[0].rank1 }};
+              document.getElementById('rankDX').textContent = 'R:'+{{ scores[0].rank2 }};
               ranking = 1;
           }else{
-              document.getElementById('rankSX').innerHTML = 'C:'+{{ scores[0].classgir1 }};
-              document.getElementById('rankDX').innerHTML = 'C:'+{{ scores[0].classgir2 }};
+              document.getElementById('rankSX').textContent = 'C:'+{{ scores[0].classgir1 }};
+              document.getElementById('rankDX').textContent = 'C:'+{{ scores[0].classgir2 }};
               ranking = 0;
           }
       }
