@@ -182,6 +182,8 @@ class OledNetworkApp:
         self.cursor = 0
         self.status = "K1 save K2 mode K3 iface"
         self.render_lock = threading.Lock()
+        self.blink_on = True
+        self.last_blink_at = time.monotonic()
 
         self.setup_buttons()
 
@@ -229,6 +231,32 @@ class OledNetworkApp:
             self.cfg["ip"] = chars_to_ip(chars)
         else:
             self.cfg["gateway"] = chars_to_ip(chars)
+
+    def field_text_and_cursor(self, field_name, prefix, value):
+        text = f"{prefix}{value}"
+        if not self.editing or self.fields[self.selected] != field_name:
+            return text, None
+
+        if field_name == "prefix":
+            cursor_offset = len(prefix) + max(0, len(str(value)) - 1)
+        else:
+            cursor_offset = len(prefix) + self.cursor
+        return text, cursor_offset
+
+    def draw_line_with_cursor(self, draw, y, text, cursor_offset=None):
+        draw.text((0, y), text[:21], font=self.font, fill=255)
+        if cursor_offset is None or not self.blink_on:
+            return
+
+        visible_text = text[:21]
+        if cursor_offset < 0 or cursor_offset >= len(visible_text):
+            return
+
+        left = self.font.getlength(visible_text[:cursor_offset])
+        char = visible_text[cursor_offset]
+        char_width = max(6, int(self.font.getlength(char)) + 1)
+        draw.rectangle((left, y, left + char_width, y + 8), fill=255)
+        draw.text((left, y), char, font=self.font, fill=0)
 
     def handle_event(self, event):
         if event == "k1":
@@ -287,16 +315,19 @@ class OledNetworkApp:
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
         mode = "*" if self.editing else " "
+        ip_line, ip_cursor = self.field_text_and_cursor("ip", f"{'>' if self.selected == 0 else ' '}IP ", self.cfg["ip"])
+        prefix_line, prefix_cursor = self.field_text_and_cursor("prefix", f"{'>' if self.selected == 1 else ' '}SN /", self.cfg["prefix"])
+        gateway_line, gateway_cursor = self.field_text_and_cursor("gateway", f"{'>' if self.selected == 2 else ' '}GW ", self.cfg["gateway"])
         lines = [
-            f"{self.iface} {self.cfg['mode']} {mode}",
-            f"{'>' if self.selected == 0 else ' '}IP {self.cfg['ip']}",
-            f"{'>' if self.selected == 1 else ' '}SN /{self.cfg['prefix']}",
-            f"{'>' if self.selected == 2 else ' '}GW {self.cfg['gateway']}",
-            "K1 Save K2 Mode",
-            (self.status or "")[:21],
+            (f"{self.iface} {self.cfg['mode']} {mode}", None),
+            (ip_line, ip_cursor),
+            (prefix_line, prefix_cursor),
+            (gateway_line, gateway_cursor),
+            ("K1 Save K2 Mode", None),
+            ((self.status or "")[:21], None),
         ]
-        for idx, line in enumerate(lines):
-            draw.text((0, idx * 10), line[:21], font=self.font, fill=255)
+        for idx, (line, cursor_offset) in enumerate(lines):
+            self.draw_line_with_cursor(draw, idx * 10, line, cursor_offset)
         with self.render_lock:
             self.device.display(image)
 
@@ -323,7 +354,10 @@ class OledNetworkApp:
                 self.handle_event(event)
                 self.draw()
             except queue.Empty:
-                pass
+                if self.editing and (time.monotonic() - self.last_blink_at) >= 0.5:
+                    self.blink_on = not self.blink_on
+                    self.last_blink_at = time.monotonic()
+                    self.draw()
 
 
 def main():
