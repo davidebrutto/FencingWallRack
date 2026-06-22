@@ -59,17 +59,26 @@ def list_connected_ifaces():
         if len(parts) < 3:
             continue
         dev, typ, state = parts[:3]
-        if dev != "lo" and typ in ("ethernet", "wifi") and state == "connected":
+        if dev != "lo" and typ == "ethernet" and state == "connected":
             result.append(dev)
     if result:
         return result
 
-    route = cmd_ok(["ip", "route", "show", "default"])
+    out = cmd_ok(["nmcli", "-t", "-f", "DEVICE,TYPE", "dev", "status"])
     fallback = []
-    for match in re.finditer(r"\bdev\s+(\S+)", route):
-        dev = match.group(1)
-        if dev != "lo" and dev not in fallback:
+    for line in out.splitlines():
+        parts = line.split(":")
+        if len(parts) < 2:
+            continue
+        dev, typ = parts[:2]
+        if typ == "ethernet" and dev != "lo" and dev not in fallback:
             fallback.append(dev)
+
+    for dev in os.listdir("/sys/class/net"):
+        if dev != "lo" and dev not in fallback:
+            wireless_path = os.path.join("/sys/class/net", dev, "wireless")
+            if not os.path.exists(wireless_path) and dev.startswith(("eth", "en")):
+                fallback.append(dev)
     return fallback or ["eth0"]
 
 
@@ -180,7 +189,7 @@ class OledNetworkApp:
         self.ip_chars = ip_to_chars(self.cfg["ip"])
         self.gw_chars = ip_to_chars(self.cfg["gateway"])
         self.cursor = 0
-        self.status = "K1 save K2 mode K3 iface"
+        self.status = "K1 save K2 DHCP K3 refresh"
         self.render_lock = threading.Lock()
         self.blink_on = True
         self.last_blink_at = time.monotonic()
@@ -281,9 +290,8 @@ class OledNetworkApp:
             return
 
         if event == "k3":
-            self.iface_index = (self.iface_index + 1) % max(1, len(self.ifaces))
             self.refresh_iface()
-            self.status = f"Iface {self.iface}"
+            self.status = f"Refreshed {self.iface}"
             return
 
         if event == "press":
@@ -323,7 +331,7 @@ class OledNetworkApp:
             (ip_line, ip_cursor),
             (prefix_line, prefix_cursor),
             (gateway_line, gateway_cursor),
-            ("K1 Save K2 Mode", None),
+            ("K1 Save K2 DHCP", None),
             ((self.status or "")[:21], None),
         ]
         for idx, (line, cursor_offset) in enumerate(lines):
