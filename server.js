@@ -40,6 +40,7 @@ const SERIAL_XON = process.env.SERIAL_XON === '1';
 const SERIAL_XOFF = process.env.SERIAL_XOFF === '1';
 const SERIAL_MODE = process.env.SERIAL_MODE || 'soh_eot';
 const DEBUG_SERIAL = process.env.DEBUG_SERIAL === '1';
+const SERIAL_EMIT_COALESCE_MS = Number(process.env.SERIAL_EMIT_COALESCE_MS || 8);
 const SERIAL_IDLE_FLUSH_MS = Number(process.env.SERIAL_IDLE_FLUSH_MS || 1200);
 const SERIAL_RECONNECT_MS = Number(process.env.SERIAL_RECONNECT_MS || 1500);
 const SERIAL_WATCHDOG_MS = Number(process.env.SERIAL_WATCHDOG_MS || 2000);
@@ -967,6 +968,34 @@ function startSerialReader() {
   let reconnectTimer = null;
   let watchdogTimer = null;
   let ignoreNextCloseEvent = false;
+  let pendingTabelloneEmit = null;
+  let puntiEmitTimer = null;
+  let lastPuntiEmitJson = '';
+
+  function schedulePuntiEmit(tabellone, type) {
+    pendingTabelloneEmit = tabellone;
+    if (puntiEmitTimer) {
+      return;
+    }
+
+    puntiEmitTimer = setTimeout(() => {
+      puntiEmitTimer = null;
+      if (!pendingTabelloneEmit) {
+        return;
+      }
+
+      const nextTabellone = pendingTabelloneEmit;
+      pendingTabelloneEmit = null;
+      const nextJson = JSON.stringify(nextTabellone);
+      if (nextJson === lastPuntiEmitJson) {
+        return;
+      }
+
+      lastPuntiEmitJson = nextJson;
+      logSerialDebug('ws_emit', `type=${type} XX=${nextTabellone.XX} YY=${nextTabellone.YY} timer=${(nextTabellone.timer || '').trim()}`);
+      io.volatile.emit('punti_emit', { tabellone: nextTabellone });
+    }, SERIAL_EMIT_COALESCE_MS);
+  }
 
   function emitFrame(frameBuf, source) {
     if (!frameBuf || frameBuf.length < 3) {
@@ -995,7 +1024,7 @@ function startSerialReader() {
 
       lastCompetitorInfoState[parsed.info.side] = parsed.info;
       logSerialDebug('competitor_emit', `side=${parsed.info.side} name=${parsed.info.name} nation=${parsed.info.nation}`);
-      io.volatile.emit('competitor_emit', { competitor: parsed.info });
+      io.emit('competitor_emit', { competitor: parsed.info });
       return;
     }
 
@@ -1005,8 +1034,7 @@ function startSerialReader() {
     }
 
     const tabellone = mergeTabelloneState(parsed.tabellone);
-    logSerialDebug('ws_emit', `type=${parsed.type} R=${tabellone.R} G=${tabellone.G} W=${tabellone.W} w=${tabellone.w}`);
-    io.volatile.emit('punti_emit', { tabellone });
+    schedulePuntiEmit(tabellone, parsed.type);
   }
 
   function extractFramesFromBuffer(source) {
@@ -1131,9 +1159,9 @@ function startSerialReader() {
       const tabellone = mergeTabelloneState(parsed);
       logSerialDebug(
         'ws_emit',
-        `mode=legacy XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`
+        `mode=legacy_pending XX=${tabellone.XX} YY=${tabellone.YY} timer=${(tabellone.timer || '').trim()}`
       );
-      io.volatile.emit('punti_emit', { tabellone });
+      schedulePuntiEmit(tabellone, 'legacy');
     });
 
     parser.on('error', (error) => {
