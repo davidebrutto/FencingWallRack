@@ -8,6 +8,12 @@ XAUTHORITY="${XAUTHORITY:-/home/pi/.Xauthority}"
 CHROMIUM_PROFILE_DIR="${CHROMIUM_PROFILE_DIR:-/home/pi/.config/fencing-kiosk}"
 STARTUP_TIMEOUT_SEC="${STARTUP_TIMEOUT_SEC:-90}"
 CHROMIUM_START_DELAY_SEC="${CHROMIUM_START_DELAY_SEC:-8}"
+KIOSK_WINDOW_MODE="${KIOSK_WINDOW_MODE:-dual}"
+KIOSK_SCALE="${KIOSK_SCALE:-0.5}"
+KIOSK_LEFT_PROFILE_DIR="${KIOSK_LEFT_PROFILE_DIR:-/home/pi/.config/chrome-profile-1}"
+KIOSK_RIGHT_PROFILE_DIR="${KIOSK_RIGHT_PROFILE_DIR:-/home/pi/.config/chrome-profile-2}"
+KIOSK_LEFT_GEOMETRY="${KIOSK_LEFT_GEOMETRY:-0,1,962,414}"
+KIOSK_RIGHT_GEOMETRY="${KIOSK_RIGHT_GEOMETRY:-455,1,962,414}"
 
 export DISPLAY
 export XAUTHORITY
@@ -28,9 +34,19 @@ fi
 
 NODE_PID=""
 CHROME_PID=""
+CHROME_LEFT_PID=""
+CHROME_RIGHT_PID=""
 
 cleanup() {
   set +e
+  if [[ -n "${CHROME_LEFT_PID}" ]] && kill -0 "${CHROME_LEFT_PID}" 2>/dev/null; then
+    kill "${CHROME_LEFT_PID}" 2>/dev/null
+    wait "${CHROME_LEFT_PID}" 2>/dev/null
+  fi
+  if [[ -n "${CHROME_RIGHT_PID}" ]] && kill -0 "${CHROME_RIGHT_PID}" 2>/dev/null; then
+    kill "${CHROME_RIGHT_PID}" 2>/dev/null
+    wait "${CHROME_RIGHT_PID}" 2>/dev/null
+  fi
   if [[ -n "${CHROME_PID}" ]] && kill -0 "${CHROME_PID}" 2>/dev/null; then
     kill "${CHROME_PID}" 2>/dev/null
     wait "${CHROME_PID}" 2>/dev/null
@@ -75,6 +91,151 @@ wait_for_http() {
   return 0
 }
 
+geometry_part() {
+  local geometry="$1"
+  local index="$2"
+  IFS=',' read -r x y w h <<<"${geometry}"
+  case "${index}" in
+    x) echo "${x}" ;;
+    y) echo "${y}" ;;
+    w) echo "${w}" ;;
+    h) echo "${h}" ;;
+  esac
+}
+
+wait_for_window_id() {
+  local class_name="$1"
+  local elapsed=0
+  local step=1
+  local window_id=""
+
+  while [[ -z "${window_id}" ]]; do
+    if command -v wmctrl >/dev/null 2>&1; then
+      window_id="$(wmctrl -lx | awk -v cls="${class_name}" '$0 ~ cls {print $1}' | tail -n 1)"
+    fi
+    if [[ -n "${window_id}" ]]; then
+      echo "${window_id}"
+      return 0
+    fi
+    elapsed=$((elapsed + step))
+    if (( elapsed >= 20 )); then
+      return 1
+    fi
+    sleep "${step}"
+  done
+}
+
+configure_window() {
+  local class_name="$1"
+  local geometry="$2"
+  local window_id=""
+
+  if ! command -v wmctrl >/dev/null 2>&1; then
+    echo "wmctrl non trovato: salto posizionamento finestra ${class_name}" >&2
+    return 0
+  fi
+
+  window_id="$(wait_for_window_id "${class_name}" || true)"
+  if [[ -z "${window_id}" ]]; then
+    echo "Finestra ${class_name} non trovata da wmctrl" >&2
+    return 0
+  fi
+
+  wmctrl -x -r "${class_name}" -b remove,maximized_vert,maximized_horz || true
+
+  if command -v xprop >/dev/null 2>&1; then
+    xprop -id "${window_id}" -f _MOTIF_WM_HINTS 32c \
+      -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" || true
+  else
+    echo "xprop non trovato: salto rimozione bordi finestra ${class_name}" >&2
+  fi
+
+  wmctrl -x -r "${class_name}" -e "0,${geometry}" || true
+}
+
+launch_dual_windows() {
+  local left_x left_y left_w left_h right_x right_y right_w right_h
+  left_x="$(geometry_part "${KIOSK_LEFT_GEOMETRY}" x)"
+  left_y="$(geometry_part "${KIOSK_LEFT_GEOMETRY}" y)"
+  left_w="$(geometry_part "${KIOSK_LEFT_GEOMETRY}" w)"
+  left_h="$(geometry_part "${KIOSK_LEFT_GEOMETRY}" h)"
+  right_x="$(geometry_part "${KIOSK_RIGHT_GEOMETRY}" x)"
+  right_y="$(geometry_part "${KIOSK_RIGHT_GEOMETRY}" y)"
+  right_w="$(geometry_part "${KIOSK_RIGHT_GEOMETRY}" w)"
+  right_h="$(geometry_part "${KIOSK_RIGHT_GEOMETRY}" h)"
+
+  mkdir -p "${KIOSK_LEFT_PROFILE_DIR}" "${KIOSK_RIGHT_PROFILE_DIR}"
+  pkill -f "${CHROMIUM_BIN}.*${KIOSK_LEFT_PROFILE_DIR}" >/dev/null 2>&1 || true
+  pkill -f "${CHROMIUM_BIN}.*${KIOSK_RIGHT_PROFILE_DIR}" >/dev/null 2>&1 || true
+
+  "${CHROMIUM_BIN}" \
+    --disable-gpu \
+    --disable-software-rasterizer \
+    --autoplay-policy=no-user-gesture-required \
+    --disable-infobars \
+    --disable-session-crashed-bubble \
+    --noerrdialogs \
+    --no-first-run \
+    --ozone-platform=x11 \
+    --app="${KIOSK_URL}" \
+    --user-data-dir="${KIOSK_LEFT_PROFILE_DIR}" \
+    --class="kiosk_sinistro" \
+    --name="kiosk_sinistro" \
+    --window-size="${left_w},${left_h}" \
+    --window-position="${left_x},${left_y}" \
+    --force-device-scale-factor="${KIOSK_SCALE}" \
+    --new-window \
+    --disable-features=OverlayScrollbar &
+  CHROME_LEFT_PID=$!
+
+  "${CHROMIUM_BIN}" \
+    --disable-gpu \
+    --disable-software-rasterizer \
+    --autoplay-policy=no-user-gesture-required \
+    --disable-infobars \
+    --disable-session-crashed-bubble \
+    --noerrdialogs \
+    --no-first-run \
+    --ozone-platform=x11 \
+    --app="${KIOSK_URL}" \
+    --user-data-dir="${KIOSK_RIGHT_PROFILE_DIR}" \
+    --class="kiosk_destro" \
+    --name="kiosk_destro" \
+    --window-size="${right_w},${right_h}" \
+    --window-position="${right_x},${right_y}" \
+    --force-device-scale-factor="${KIOSK_SCALE}" \
+    --new-window \
+    --bwsi \
+    --disable-features=OverlayScrollbar &
+  CHROME_RIGHT_PID=$!
+
+  configure_window "kiosk_sinistro" "${KIOSK_LEFT_GEOMETRY}" &
+  configure_window "kiosk_destro" "${KIOSK_RIGHT_GEOMETRY}" &
+
+  echo "Chromium sinistro avviato PID=${CHROME_LEFT_PID}"
+  echo "Chromium destro avviato PID=${CHROME_RIGHT_PID}"
+}
+
+launch_single_window() {
+  mkdir -p "${CHROMIUM_PROFILE_DIR}"
+  # Prevent stale instances from stacking black overlay windows.
+  pkill -f "${CHROMIUM_BIN}.*${CHROMIUM_PROFILE_DIR}" >/dev/null 2>&1 || true
+  "${CHROMIUM_BIN}" \
+    --kiosk \
+    --incognito \
+    --ozone-platform=x11 \
+    --disable-gpu \
+    --autoplay-policy=no-user-gesture-required \
+    --disable-infobars \
+    --disable-session-crashed-bubble \
+    --noerrdialogs \
+    --no-first-run \
+    --user-data-dir="${CHROMIUM_PROFILE_DIR}" \
+    "${KIOSK_URL}" &
+  CHROME_PID=$!
+  echo "Chromium avviato PID=${CHROME_PID}"
+}
+
 cd "${APP_DIR}"
 npm start &
 NODE_PID=$!
@@ -84,26 +245,18 @@ wait_for_x_display
 wait_for_http
 sleep "${CHROMIUM_START_DELAY_SEC}"
 
-mkdir -p "${CHROMIUM_PROFILE_DIR}"
-# Prevent stale instances from stacking black overlay windows.
-pkill -f "${CHROMIUM_BIN}.*${CHROMIUM_PROFILE_DIR}" >/dev/null 2>&1 || true
-"${CHROMIUM_BIN}" \
-  --kiosk \
-  --incognito \
-  --ozone-platform=x11 \
-  --disable-gpu \
-  --autoplay-policy=no-user-gesture-required \
-  --disable-infobars \
-  --disable-session-crashed-bubble \
-  --noerrdialogs \
-  --no-first-run \
-  --user-data-dir="${CHROMIUM_PROFILE_DIR}" \
-  "${KIOSK_URL}" &
-CHROME_PID=$!
-echo "Chromium avviato PID=${CHROME_PID}"
+if [[ "${KIOSK_WINDOW_MODE}" == "dual" ]]; then
+  launch_dual_windows
+else
+  launch_single_window
+fi
 
 set +e
-wait -n "${NODE_PID}" "${CHROME_PID}"
+if [[ "${KIOSK_WINDOW_MODE}" == "dual" ]]; then
+  wait -n "${NODE_PID}" "${CHROME_LEFT_PID}" "${CHROME_RIGHT_PID}"
+else
+  wait -n "${NODE_PID}" "${CHROME_PID}"
+fi
 EXIT_CODE=$?
 set -e
 
@@ -111,8 +264,16 @@ if ! kill -0 "${NODE_PID}" 2>/dev/null; then
   echo "Node terminato, richiesto restart service" >&2
 fi
 
-if ! kill -0 "${CHROME_PID}" 2>/dev/null; then
+if [[ "${KIOSK_WINDOW_MODE}" == "single" ]] && ! kill -0 "${CHROME_PID}" 2>/dev/null; then
   echo "Chromium terminato, richiesto restart service" >&2
+fi
+
+if [[ "${KIOSK_WINDOW_MODE}" == "dual" ]] && ! kill -0 "${CHROME_LEFT_PID}" 2>/dev/null; then
+  echo "Chromium sinistro terminato, richiesto restart service" >&2
+fi
+
+if [[ "${KIOSK_WINDOW_MODE}" == "dual" ]] && ! kill -0 "${CHROME_RIGHT_PID}" 2>/dev/null; then
+  echo "Chromium destro terminato, richiesto restart service" >&2
 fi
 
 exit "${EXIT_CODE}"
