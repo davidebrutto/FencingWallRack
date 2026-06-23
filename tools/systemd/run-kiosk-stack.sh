@@ -129,6 +129,7 @@ configure_window() {
   local class_name="$1"
   local geometry="$2"
   local window_id=""
+  local attempt=0
 
   if ! command -v wmctrl >/dev/null 2>&1; then
     echo "wmctrl non trovato: salto posizionamento finestra ${class_name}" >&2
@@ -141,16 +142,20 @@ configure_window() {
     return 0
   fi
 
-  wmctrl -x -r "${class_name}" -b remove,maximized_vert,maximized_horz || true
+  while (( attempt < 10 )); do
+    wmctrl -x -r "${class_name}" -b remove,maximized_vert,maximized_horz || true
 
-  if command -v xprop >/dev/null 2>&1; then
-    xprop -id "${window_id}" -f _MOTIF_WM_HINTS 32c \
-      -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" || true
-  else
-    echo "xprop non trovato: salto rimozione bordi finestra ${class_name}" >&2
-  fi
+    if command -v xprop >/dev/null 2>&1; then
+      xprop -id "${window_id}" -f _MOTIF_WM_HINTS 32c \
+        -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0" || true
+    elif (( attempt == 0 )); then
+      echo "xprop non trovato: salto rimozione bordi finestra ${class_name}" >&2
+    fi
 
-  wmctrl -x -r "${class_name}" -e "0,${geometry}" || true
+    wmctrl -x -r "${class_name}" -e "0,${geometry}" || true
+    attempt=$((attempt + 1))
+    sleep 0.5
+  done
 }
 
 launch_dual_windows() {
