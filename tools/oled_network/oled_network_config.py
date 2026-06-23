@@ -189,7 +189,7 @@ class OledNetworkApp:
         self.ip_chars = ip_to_chars(self.cfg["ip"])
         self.gw_chars = ip_to_chars(self.cfg["gateway"])
         self.cursor = 0
-        self.status = "K1 save K2 DHCP K3 refresh"
+        self.status = ""
         self.render_lock = threading.Lock()
         self.blink_on = True
         self.last_blink_at = time.monotonic()
@@ -198,8 +198,12 @@ class OledNetworkApp:
 
     def setup_buttons(self):
         for name, pin in PINS.items():
-            button = Button(pin, pull_up=True, bounce_time=0.08)
-            button.when_pressed = lambda event=name: self.events.put(event)
+            if name == "k3":
+                button = Button(pin, pull_up=True, bounce_time=0.08, hold_time=3)
+                button.when_held = lambda event="k3_hold": self.events.put(event)
+            else:
+                button = Button(pin, pull_up=True, bounce_time=0.08)
+                button.when_pressed = lambda event=name: self.events.put(event)
             self.buttons.append(button)
 
     def refresh_iface(self):
@@ -268,7 +272,7 @@ class OledNetworkApp:
         draw.text((left, y), char, font=self.font, fill=0)
 
     def handle_event(self, event):
-        if event == "k1":
+        if event == "k2":
             stop_animation = threading.Event()
             animation = threading.Thread(target=self.saving_animation, args=(stop_animation,), daemon=True)
             animation.start()
@@ -276,6 +280,7 @@ class OledNetworkApp:
                 apply_network(self.iface, self.cfg)
                 self.status = "Saved. Re-reading..."
                 self.refresh_iface()
+                self.editing = False
                 self.status = "Saved"
             except Exception as exc:
                 self.status = f"ERR {exc}"[:21]
@@ -284,19 +289,16 @@ class OledNetworkApp:
                 animation.join(timeout=1)
             return
 
-        if event == "k2":
-            self.cfg["mode"] = "STATIC" if self.cfg["mode"] == "DHCP" else "DHCP"
-            self.status = f"Mode {self.cfg['mode']}"
+        if event == "k3_hold":
+            self.editing = True
+            self.cfg["mode"] = "STATIC"
+            self.status = "EDIT"
             return
 
-        if event == "k3":
-            self.refresh_iface()
-            self.status = f"Refreshed {self.iface}"
+        if event in ("k1", "k3"):
             return
 
         if event == "press":
-            self.editing = not self.editing
-            self.status = "EDIT" if self.editing else "SELECT"
             return
 
         if not self.editing:
@@ -331,8 +333,6 @@ class OledNetworkApp:
             (ip_line, ip_cursor),
             (prefix_line, prefix_cursor),
             (gateway_line, gateway_cursor),
-            ("K1 Save K2 DHCP", None),
-            ((self.status or "")[:21], None),
         ]
         for idx, (line, cursor_offset) in enumerate(lines):
             self.draw_line_with_cursor(draw, idx * 10, line, cursor_offset)
