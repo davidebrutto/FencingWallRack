@@ -1,7 +1,7 @@
 
 {% extends "base.html" %}
 
-{% block title %}dmb Score - Home{% endblock %}
+{% block title %}FENCEWALL{% endblock %}
 
 {% block content %}
 {#<h2>Live Sports Scores</h2>#}
@@ -40,6 +40,8 @@
             <div class="countryDX">{{ game.country2 }}</div>
             <div class="rankDX" id="rankDX">R:{{ game.rank2 }}</div>
             <div class="gruppoDX">{{ game.gruppo2 }}</div>
+            <div class="fotoSX" id="fotoSX"></div>
+            <div class="fotoDX" id="fotoDX"></div>
             {#<div class="statoDX"> </div>#}
         </div>
         <div class="row">
@@ -48,10 +50,12 @@
         </div>
         <div class="row">
             <div class="scoreSX" id="YY"></div>
-            <div class="statoSXbig" id="statoSXbig" style="background-color: rgba(255,255,255,0%);"><a href="{{ url_for('index') }}">Home</a></div>
+            <div class="statoSXbig" id="statoSXbig" style="background-color: rgba(255,255,255,0%);"></div>
 
             <div class="CGSX" id="CGSX" style="background-color: rgba(255,255,255,0%)"></div>
             <div class="CRSX" id="CRSX" style="background-color: rgba(255,255,255,0%)"></div>
+            <div class="CGPSX" id="CGPSX" style="background-color: rgba(255,255,255,0%)">P</div>
+            <div class="CRPSX" id="CRPSX" style="background-color: rgba(255,255,255,0%)">P</div>
 
             <div class="prioritaSX" id="prioritaSX"></div>
 
@@ -63,6 +67,8 @@
 
             <div class="CGDX" id="CGDX" style="background-color: rgba(255,255,255,0%)"></div>
             <div class="CRDX" id="CRDX" style="background-color: rgba(255,255,255,0%)"></div>
+            <div class="CGPDX" id="CGPDX" style="background-color: rgba(255,255,255,0%)">P</div>
+            <div class="CRPDX" id="CRPDX" style="background-color: rgba(255,255,255,0%)">P</div>
 
             <div class="scoreDX" id="XX"></div>
             <div class="statoDXbig" id="statoDXbig" style="background-color: rgba(255,255,255,0%);"></div>

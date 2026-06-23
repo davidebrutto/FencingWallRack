@@ -1,79 +1,445 @@
-.statoSX {
-    height: 200px !important;
-    width: 900px;
-    background-color: #220000;
-    position: absolute;
-    z-index: 1000;
-}
-.statoSXbig {
-    height: 570px !important;
-    width: 1910px;
-    background-color: #110000;
-    position: absolute;
-    z-index: 1100;
-    top: 500px;
-}
-.statoDX {
-    height: 200px !important;
-    width: 900px;
-    background-color: #002200;
-    position: absolute;
-    left: 2930px;
-    z-index: 1000;
-}
-.statoDXbig {
-    height: 570px !important;
-    width: 1900px;
-    /*background-color: #001100;*/
-    position: absolute;
-    z-index: 1100;
-    top: 500px;
-    left: 1930px;
-}
-
 .nomeSXCont {
-    height: 270px !important;
-    max-height: 270px !important;
-    width: 1800px;
+    height: 120px !important;
+    max-height: 120px !important;
+    width: 740px;
     background-color: rgba(255,255,255,0%);
     position: absolute;
-    top: 230px;
-    left: 0px;
+    top: 10px;
+    left: 10px;
     overflow: hidden;
+    padding-left:10px;
+    border-radius: 20px;
+    border-width: 7px;
+    border-style: solid;
+    border-color: #880000;
 
 }
 .nomeSX{
-    color: #C2AF03FF;
-    font-size: 320px;
-    line-height: 280px;
-    font-family: led2;
+    color: #ffffff;
+    font-size: 110px;
+    line-height: 120px;
+    font-family: bigSV;
     z-index: 800;
     text-align: left;
     white-space:nowrap;
     overflow: hidden;
-    width: 1800px;
+    width: 740px;
 }
-.nomeDXCont{
-    height: 270px !important;
-    max-height: 270px !important;
-    width: 1800px;
+.statoSXbig {
+    height: 120px !important;
+    width: 740px;
+    background-color: #220000;
+    position: absolute;
+    z-index: 1000;
+    top: 10px;
+    left: 10px;
+    overflow: hidden;
+    padding-left:10px;
+    border-radius: 20px;
+    border-width: 7px;
+    border-style: solid;
+    border-color: #880000;
+}
+.countrySX {
+    height: 110px !important;
+    width: 150px;
+    background-color: #036cc2;
+    position: absolute;
+    left: 10px;
+    top: 140px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 100px;
+    line-height: 110px;
+    text-align: center;
+    font-family: sofiaECV;
+    border-radius: 15px;
+}
+.flagSX {
+    height: 110px !important;
+    width: 150px;
     background-color: rgba(255,255,255,0%);
     position: absolute;
-    top: 230px;
-    left: 2020px;
-    overflow: hidden;
-}
-.nomeDX {
-    color: #C2AF03FF;
-    font-size: 320px;
-    line-height: 280px;
+    left: 170px;
+    top: 140px;
+    z-index: 900;
+    color: #FFFFFF;
+    text-align: center;
     font-family: led2;
+    vertical-align: center;
+    overflow: hidden;
+    border-radius: 15px;
+}
+.fotoSX {
+    height: 300px !important;
+    width: 200px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 10px;
+    top: 260px;
+    z-index: 900;
+    color: #FFFFFF;
+    text-align: center;
+    font-family: led2;
+    vertical-align: center;
+    overflow: hidden;
+    border-radius: 15px;
+    border-width: 3px;
+    border-style: solid;
+    border-color: #ffffff;
+}
+
+.scoreSX{
+    height: 350px !important;
+    width: 400px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 280px;
+    top: 450px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 450px;
+    line-height: 370px;
+    font-family: sofiaECV;
+    text-align: center;
+    overflow-y: clip;
+    border-width: 0px;
+    border-style: groove;
+    border-color: #FF0000;
+}
+.CGSX{
+    height: 95px !important;
+    width: 80px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 10px;
+    top: 570px;
+    z-index: 900;
+    color: #000000;
+    font-size: 110px;
+    line-height: 95px;
+    font-family: sofiaECV;
+    text-align: center;
+    border-radius: 10px;
+}
+.CRSX{
+    height: 95px !important;
+    width: 80px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 130px;
+    top: 570px;
+    z-index: 900;
+    color: #000000;
+    font-size: 110px;
+    line-height: 95px;
+    font-family: sofiaECV;
+    text-align: center;
+    border-radius: 10px;
+}
+.CGPSX{
+    height: 95px !important;
+    width: 80px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 10px;
+    top: 680px;
+    z-index: 900;
+    color: #000000;
+    font-size: 110px;
+    line-height: 95px;
+    font-family: sofiaECV;
+    text-align: center;
+    border-radius: 10px;
+}
+.CRPSX{
+    height: 95px !important;
+    width: 80px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 130px;
+    top: 680px;
+    z-index: 900;
+    color: #000000;
+    font-size: 110px;
+    line-height: 95px;
+    font-family: sofiaECV;
+    text-align: center;
+    border-radius: 10px;
+}
+.prioritaSX {
+    height: 150px !important;
+    width: 50px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 380px;
+    top: 260px;
+    z-index: 900;
+    color: #FFFF00;
+    font-size: 150px;
+    line-height: 150px;
+    font-family: sofiaECV;
+    text-align: center;
+    overflow-y: clip;
+}
+
+
+.period {
+    height: 170px !important;
+    width: 250px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 630px;
+    top: 430px;
+    z-index: 900;
+    color: #036cc2;
+    font-size: 200px;
+    line-height: 200px;
+    font-family: sofiaECV;
+    text-align: center;
+    overflow-y: clip;
+}
+
+
+.timerCont{
+    height: 200px !important;
+    max-height: 200px !important;
+    width: 600px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    top: 190px;
+    left: 460px;
     z-index: 800;
-    text-align: left;
+    overflow-y: clip;
+    border-width: 5px;
+    border-style: groove;
+    border-color: #FFFFFF;
+    border-radius: 20px;
+    vertical-align: top;
+    text-align: right;
+}
+.timerText {
+    color: #00FF00;
+    font-size: 260px;
+    line-height: 210px;
+    font-family: sofiaECV;
+    z-index: 800;
+    text-align: center;
+    white-space:nowrap;
+    /*width: 1000px;*/
+    overflow-y: clip;
+}
+
+
+.nomeDXCont {
+    height: 120px !important;
+    max-height: 120px !important;
+    width: 740px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    top: 10px;
+    left: 770px;
+    overflow: hidden;
+    
+    border-radius: 20px;
+    border-width: 7px;
+    border-style: solid;
+    border-color: #008800;
+
+}
+.nomeDX{
+    color: #ffffff;
+    font-size: 110px;
+    line-height: 120px;
+    font-family: bigSV;
+    z-index: 800;
+    text-align: right;
     white-space:nowrap;
     overflow: hidden;
-    width: 1800px;
+    width: 740px;
+    padding-right:20px;
 }
+.statoDXbig {
+    height: 120px !important;
+    width: 740px;
+    background-color: #008800;
+    position: absolute;
+    z-index: 1000;
+    top: 10px;
+    left: 770px;
+    overflow: hidden;
+    padding-left:10px;
+    border-radius: 20px;
+    border-width: 7px;
+    border-style: solid;
+    border-color: #008800;
+}
+.countryDX {
+    height: 110px !important;
+    width: 150px;
+    background-color: #036cc2;
+    position: absolute;
+    left: 1360px;
+    top: 140px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 100px;
+    line-height: 110px;
+    text-align: center;
+    font-family: sofiaECV;
+    border-radius: 15px;
+}
+.flagDX {
+    height: 110px !important;
+    width: 150px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 1200px;
+    top: 140px;
+    z-index: 900;
+    color: #FFFFFF;
+    text-align: center;
+    font-family: led2;
+    vertical-align: center;
+    overflow: hidden;
+    border-radius: 15px;
+}
+.fotoDX {
+    height: 300px !important;
+    width: 200px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 1310px;
+    top: 260px;
+    z-index: 900;
+    color: #FFFFFF;
+    text-align: center;
+    font-family: led2;
+    vertical-align: center;
+    overflow: hidden;
+    border-radius: 15px;
+    border-width: 3px;
+    border-style: solid;
+    border-color: #ffffff;
+}
+.scoreDX{
+    height: 350px !important;
+    width: 400px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 830px;
+    top: 450px;
+    z-index: 900;
+    color: #FFFFFF;
+    font-size: 450px;
+    line-height: 370px;
+    font-family: sofiaECV;
+    text-align: center;
+    overflow-y: clip;
+    border-width: 0px;
+    border-style: groove;
+    border-color: #FF0000;
+}
+.CGDX{
+    height: 95px !important;
+    width: 80px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 1430px;
+    top: 570px;
+    z-index: 900;
+    color: #000000;
+    font-size: 110px;
+    line-height: 95px;
+    font-family: sofiaECV;
+    text-align: center;
+    border-radius: 10px;
+}
+.CRDX{
+    height: 95px !important;
+    width: 80px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 1310px;
+    top: 570px;
+    z-index: 900;
+    color: #000000;
+    font-size: 110px;
+    line-height: 95px;
+    font-family: sofiaECV;
+    text-align: center;
+    border-radius: 10px;
+}
+.CGPDX{
+    height: 95px !important;
+    width: 80px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 1430px;
+    top: 680px;
+    z-index: 900;
+    color: #000000;
+    font-size: 110px;
+    line-height: 95px;
+    font-family: sofiaECV;
+    text-align: center;
+    border-radius: 10px;
+}
+.CRPDX{
+    height: 95px !important;
+    width: 80px;
+    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
+    position: absolute;
+    left: 1310px;
+    top: 680px;
+    z-index: 900;
+    color: #000000;
+    font-size: 110px;
+    line-height: 95px;
+    font-family: sofiaECV;
+    text-align: center;
+    border-radius: 10px;
+}
+.prioritaDX {
+    height: 150px !important;
+    width: 50px;
+    background-color: rgba(255,255,255,0%);
+    position: absolute;
+    left: 1080px;
+    top: 260px;
+    z-index: 900;
+    color: #FFFF00;
+    font-size: 150px;
+    line-height: 150px;
+    font-family: sofiaECV;
+    text-align: center;
+    overflow-y: clip;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 .gruppoSX {
@@ -93,6 +459,7 @@
     border-style: groove;
     border-color: #FFFFFF;
     vertical-align: top;
+    display:none;
 
 }
 .gruppoDX {
@@ -112,6 +479,7 @@
     border-style: groove;
     border-color: #FFFFFF;
     padding: 0px;
+    display:none;
 }
 
 .rankSX {
@@ -130,6 +498,7 @@
     border-width: 5px;
     border-style: groove;
     border-color: #FFFFFF;
+    display:none;
 
 }
 .rankDX {
@@ -148,313 +517,26 @@
     border-width: 5px;
     border-style: groove;
     border-color: #FFFFFF;
+    display:none;
 
 }
 
-.countrySX {
-    height: 200px !important;
-    width: 400px;
-    background-color: rgba(255,255,255,0%);
-    position: absolute;
-    left: 1507px;
-    top: 10px;
-    z-index: 900;
-    color: #FFFFFF;
-    font-size: 200px;
-    line-height: 200px;
-    text-align: center;
-    font-family: led2;
-    border-width: 5px;
-    border-style: groove;
-    border-color: #FFFFFF;
-
-}
-.countryDX {
-    height: 200px !important;
-    width: 400px;
-    background-color: rgba(255,255,255,0%);
-    position: absolute;
-    left: 1925px;
-    top: 10px;
-    z-index: 900;
-    color: #FFFFFF;
-    font-size: 200px;
-    line-height: 200px;
-    text-align: center;
-    font-family: led2;
-    border-width: 5px;
-    border-style: groove;
-    border-color: #FFFFFF;
-
-}
-
-.flagSX {
-    height: 200px !important;
-    width: 267px;
-    background-color: rgba(255,255,255,0%);
-    position: absolute;
-    left: 1225px;
-    top: 10px;
-    z-index: 900;
-    color: #FFFFFF;
-    font-size: 200px;
-    line-height: 220px;
-    text-align: center;
-    font-family: led2;
-    border-width: 5px;
-    border-style: groove;
-    border-color: #FFFFFF;
-    vertical-align: center;
-    overflow: hidden;
-
-}
-.flagDX {
-    height: 200px !important;
-    width: 267px;
-    background-color: rgba(255,255,255,0%);
-    position: absolute;
-    left: 2338px;
-    top: 10px;
-    z-index: 900;
-    color: #FFFFFF;
-    font-size: 200px;
-    line-height: 220px;
-    text-align: center;
-    font-family: led2;
-    border-width: 5px;
-    border-style: groove;
-    border-color: #FFFFFF;
-    vertical-align: center;
-    overflow: hidden;
-
-}
-
-.scoreSX{
-    height: 570px !important;
-    width: 750px;
-    background-color: rgba(255,255,255,0%);
-    position: absolute;
-    left: 0px;
-    top: 500px;
-    z-index: 900;
-    color: #FFFFFF;
-    font-size: 550px;
-    line-height: 650px;
-    font-family: seven;
-    text-align: center;
-    overflow-y: clip;
-    border-width: 0px;
-    border-style: groove;
-    border-color: #FF0000;
-}
-.scoreDX{
-    height: 570px !important;
-    width: 750px;
-    background-color: rgba(255,255,255,0%);
-    position: absolute;
-    left: 3085px;
-    top: 500px;
-    z-index: 900;
-    color: #FFFFFF;
-    font-size: 550px;
-    line-height: 650px;
-    font-family: seven;
-    text-align: center;
-    overflow-y: clip;
-    border-width: 0px;
-    border-style: groove;
-    border-color: #FFFFFF;
-}
-
-.CGPDX{
-    height: 230px !important;
-    width: 180px;
-    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
-    position: absolute;
-    left: 2735px;
-    top: 540px;
-    z-index: 900;
-    color: #000000;
-    font-size: 280px;
-    line-height: 250px;
-    font-family: led2;
-    text-align: center;
-}
-.CGDX{
-    height: 230px !important;
-    width: 130px;
-    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
-    position: absolute;
-    left: 2920px;
-    top: 540px;
-    z-index: 900;
-    color: #000000;
-    font-size: 280px;
-    line-height: 250px;
-    font-family: led2;
-    text-align: center;
-}
-.CRPDX{
-    height: 230px !important;
-    width: 180px;
-    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
-    position: absolute;
-    left: 2735px;
-    top: 790px;
-    z-index: 900;
-    color: #000000;
-    font-size: 280px;
-    line-height: 250px;
-    font-family: led2;
-    text-align: center;
-}
-.CRDX{
-    height: 230px !important;
-    width: 130px;
-    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
-    position: absolute;
-    left: 2920px;
-    top: 790px;
-    z-index: 900;
-    color: #000000;
-    font-size: 280px;
-    line-height: 250px;
-    font-family: led2;
-    text-align: center;
-}
-
-.prioritaDX {
-    height: 250px !important;
-    width: 100px;
-    background-color: rgba(255,255,255,0%);
-    position: absolute;
-    left: 2700px;
-    top: 790px;
-    z-index: 900;
-    color: #FFFFFF;
-    font-size: 250px;
-    line-height: 250px;
-    font-family: led2;
-    text-align: center;
-    overflow-y: clip;
-}
-.prioritaSX {
-    height: 250px !important;
-    width: 100px;
-    background-color: rgba(255,255,255,0%);
-    position: absolute;
-    left: 950px;
-    top: 790px;
-    z-index: 900;
-    color: #FFFFFF; /*#3EA5FAFF;*/
-    font-size: 250px;
-    line-height: 250px;
-    font-family: led2;
-    text-align: center;
-    overflow-y: clip;
-}
-
-.period {
-    height: 370px !important;
-    width: 250px;
-    background-color: rgba(255,255,255,0%);
-    position: absolute;
-    left: 1150px;
-    top: 670px; /*530px;*/
-    z-index: 900;
-    color: #036cc2;
-    font-size: 500px;
-    line-height: 500px;
-    font-family: led6;
-    text-align: center;
-    overflow-y: clip;
-}
-
-.CGSX{
-    height: 230px !important;
-    width: 130px;
-    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
-    position: absolute;
-    left: 790px;
-    top: 540px;
-    z-index: 900;
-    color: #000000;
-    font-size: 280px;
-    line-height: 250px;
-    font-family: led2;
-    text-align: center;
-}
-.CGPSX{
-    height: 230px !important;
-    width: 180px;
-    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
-    position: absolute;
-    left: 930px;
-    top: 540px;
-    z-index: 900;
-    color: #000000;
-    font-size: 280px;
-    line-height: 250px;
-    font-family: led2;
-    text-align: center;
-}
-.CRSX{
-    height: 230px !important;
-    width: 130px;
-    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
-    position: absolute;
-    left: 790px;
-    top: 790px;
-    z-index: 900;
-    color: #000000;
-    font-size: 280px;
-    line-height: 250px;
-    font-family: led2;
-    text-align: center;
-}
-.CRPSX{
-    height: 230px !important;
-    width: 180px;
-    background-color: rgba(255,255,255,0%); /* rgba(255,255,255,0%);*/
-    position: absolute;
-    left: 930px;
-    top: 790px;
-    z-index: 900;
-    color: #000000;
-    font-size: 280px;
-    line-height: 250px;
-    font-family: led2;
-    text-align: center;
-}
 
 
-.timerCont{
-    height: 480px !important;
-    max-height: 480px !important;
-    width: 1200px;
-    background-color: rgba(255,255,255,0%);
-    position: absolute;
-    top: 570px;
-    left: 1430px;
-    z-index: 800;
-    overflow-y: clip;
-    border-width: 5px;
-    border-style: groove;
-    border-color: #FFFFFF;
-    vertical-align: top;
-    text-align: right;
-}
-.timerText {
-    color: #00FF00;
-    font-size: 630px;
-    line-height: 580px;
-    font-family: led6;
-    z-index: 800;
-    text-align: center;
-    white-space:nowrap;
-    /*width: 1000px;*/
-    overflow-y: clip;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .text-right{
     text-align: right;
@@ -490,6 +572,18 @@
 
 }
 
+@font-face{
+    font-family: sofiaECV;
+    src: url('SofiaSansExtraCondensed-VariableFont_wght.ttf');
+}
+@font-face{
+    font-family: robotoV;
+    src: url('RobotoMono-VariableFont_wght.ttf');
+}
+@font-face{
+    font-family: bigSV;
+    src: url('BigShoulders-VariableFont_opsz,wght.ttf');
+}
 @font-face{
     font-family: sofiaEC;
     src: url('SofiaSansExtraCondensed-Regular.ttf');
