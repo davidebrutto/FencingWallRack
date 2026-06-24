@@ -198,13 +198,16 @@
     const pauseFallback = document.getElementById('pauseFallback');
     const pauseVideoContainer = document.getElementById('videoPausa');
     const pauseVideoPlayer = pauseVideoContainer ? pauseVideoContainer.querySelector('video') : null;
-    const IDLE_VIDEO_TIMEOUT_MS = 5 * 60 * 1000;
+    const NO_SERIAL_TIMEOUT_MS = 10000;
+    const UNCHANGED_TIMER_TIMEOUT_MS = 5 * 60 * 1000;
     const RETRY_INTERVAL_MS = 10000;
     let lastDataAt = Date.now();
-    let lastScoreChangeAt = Date.now();
-    let lastScorePayloadJson = '';
+    let lastTimerChangeAt = Date.now();
+    let lastTimerValue = null;
     let fallbackActive = false;
+    let fallbackReason = '';
     let pauseVideoActive = false;
+    let pauseVideoReason = '';
     let pauseVideoList = [];
     let pauseVideoIndex = 0;
     let ranking = 0;
@@ -214,6 +217,7 @@
             return;
         }
         fallbackActive = true;
+        fallbackReason = reason || '';
         if (appContainer) {
             appContainer.style.display = 'none';
         }
@@ -225,6 +229,7 @@
 
     function hidePauseFallback() {
         fallbackActive = false;
+        fallbackReason = '';
         if (pauseFallback) {
             pauseFallback.style.display = 'none';
         }
@@ -261,6 +266,7 @@
 
     function hidePauseVideos() {
         pauseVideoActive = false;
+        pauseVideoReason = '';
         if (pauseVideoContainer) {
             pauseVideoContainer.style.display = 'none';
         }
@@ -313,6 +319,7 @@
         }
         hidePauseFallback();
         pauseVideoActive = true;
+        pauseVideoReason = reason || '';
         pauseVideoContainer.style.display = 'block';
         playPauseVideoAt(pauseVideoIndex);
         console.warn('Pause videos ON:', reason);
@@ -516,6 +523,7 @@
                 }
             }
             pauseVideoActive = false;
+            pauseVideoReason = '';
             const players = document.querySelectorAll('.videoPlayer');
             players.forEach((player) => {
                 try {
@@ -536,29 +544,44 @@
 
     socket.on("serial_alive", function() {
         lastDataAt = Date.now();
-        hidePauseFallback();
+        if (pauseVideoReason === 'no_serial_data_timeout') {
+            hidePauseVideos();
+        }
+        if (fallbackReason.includes('no_serial_data_timeout')) {
+            hidePauseFallback();
+        }
     })
 
     socket.on("punti_emit", function(tabellone) {
-            const scorePayloadJson = JSON.stringify(tabellone.tabellone || {});
-            if (scorePayloadJson !== lastScorePayloadJson) {
-                lastScorePayloadJson = scorePayloadJson;
-                lastScoreChangeAt = Date.now();
+            const payload = tabellone.tabellone || {};
+            const timerValue = String(payload.timer || '').trim();
+            if (lastTimerValue === null) {
+                lastTimerValue = timerValue;
+                lastTimerChangeAt = Date.now();
+            } else if (timerValue !== lastTimerValue) {
+                lastTimerValue = timerValue;
+                lastTimerChangeAt = Date.now();
                 hidePauseVideos();
+                hidePauseFallback();
             }
             lastDataAt = Date.now();
-            hidePauseFallback();
-            scheduleTabelloneRender(tabellone.tabellone);
+            if (pauseVideoReason === 'no_serial_data_timeout') {
+                hidePauseVideos();
+            }
+            if (fallbackReason.includes('no_serial_data_timeout')) {
+                hidePauseFallback();
+            }
+            scheduleTabelloneRender(payload);
         })
 
       setInterval(() => {
           const now = Date.now();
-          if ((now - lastDataAt) > IDLE_VIDEO_TIMEOUT_MS) {
+          if ((now - lastDataAt) > NO_SERIAL_TIMEOUT_MS) {
               showPauseVideos('no_serial_data_timeout');
               return;
           }
-          if ((now - lastScoreChangeAt) > IDLE_VIDEO_TIMEOUT_MS) {
-              showPauseVideos('unchanged_score_timeout');
+          if (lastTimerValue !== null && (now - lastTimerChangeAt) > UNCHANGED_TIMER_TIMEOUT_MS) {
+              showPauseVideos('unchanged_timer_timeout');
           }
       }, 1000);
 
