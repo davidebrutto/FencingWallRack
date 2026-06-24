@@ -50,9 +50,12 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 const AUTH_DB_FILE = path.join(__dirname, 'instance', 'db.sqlite');
 const VIDEO_UPLOAD_DIR = path.join(__dirname, 'static', 'uploads', 'videos');
 const PAUSE_VIDEO_DIR = path.join(__dirname, 'static', 'pause-videos');
+const ATHLETE_PHOTO_DIR = path.join(__dirname, 'static', 'athlete-photos');
 const VIDEO_STATE_FILE = path.join(__dirname, 'video_state.json');
 const MAX_VIDEO_UPLOAD_MB = Number(process.env.MAX_VIDEO_UPLOAD_MB || 500);
+const MAX_PHOTO_UPLOAD_MB = Number(process.env.MAX_PHOTO_UPLOAD_MB || 20);
 const ALLOWED_VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogg']);
+const ALLOWED_PHOTO_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
 const ROUTES = {
   index: '/',
@@ -67,6 +70,10 @@ const ROUTES = {
   video_upload: '/video_upload',
   video_select: '/video_select',
   video_delete: '/video_delete',
+  photos: '/photos',
+  photo_upload: '/photo_upload',
+  photo_rename: '/photo_rename',
+  photo_delete: '/photo_delete',
   delete_game: '/delete_game/:game_id',
   update_score: '/update_score/:game_id',
   api_scores: '/api/scores',
@@ -110,6 +117,36 @@ function sanitizeFilename(name) {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
+function normalizeAthleteName(name) {
+  return String(name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function sanitizeAthletePhotoBase(name) {
+  return String(name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9 ._-]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80) || 'athlete';
+}
+
+function uniqueFilePath(dir, base, ext, currentFilename = '') {
+  let candidate = `${base}${ext}`;
+  let counter = 1;
+  while (candidate !== currentFilename && fs.existsSync(path.join(dir, candidate))) {
+    candidate = `${base}_${counter}${ext}`;
+    counter += 1;
+  }
+  return candidate;
+}
+
 function listUploadedVideos() {
   if (!fs.existsSync(VIDEO_UPLOAD_DIR)) {
     return [];
@@ -132,6 +169,35 @@ function listPauseVideos() {
       filename: file,
       src: `/static/pause-videos/${file}`,
     }));
+}
+
+function listAthletePhotos() {
+  if (!fs.existsSync(ATHLETE_PHOTO_DIR)) {
+    return [];
+  }
+  return fs
+    .readdirSync(ATHLETE_PHOTO_DIR)
+    .filter((file) => ALLOWED_PHOTO_EXTENSIONS.has(path.extname(file).toLowerCase()))
+    .sort((a, b) => a.localeCompare(b))
+    .map((file) => {
+      const athleteName = path.basename(file, path.extname(file));
+      return {
+        filename: file,
+        athleteName,
+        normalizedName: normalizeAthleteName(athleteName),
+        src: `/static/athlete-photos/${encodeURIComponent(file)}`,
+      };
+    });
+}
+
+function buildAthletePhotoMap() {
+  const map = {};
+  for (const photo of listAthletePhotos()) {
+    if (photo.normalizedName && !map[photo.normalizedName]) {
+      map[photo.normalizedName] = photo.src;
+    }
+  }
+  return map;
 }
 
 function buildVideoPublicPath(filename) {
@@ -184,6 +250,28 @@ const uploadVideo = multer({
     const ext = path.extname(file.originalname || '').toLowerCase();
     if (!ALLOWED_VIDEO_EXTENSIONS.has(ext)) {
       cb(new Error('Unsupported video format'));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+const athletePhotoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, ATHLETE_PHOTO_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const base = sanitizeAthletePhotoBase(path.basename(file.originalname || 'athlete', ext));
+    cb(null, uniqueFilePath(ATHLETE_PHOTO_DIR, base, ext));
+  },
+});
+
+const uploadAthletePhoto = multer({
+  storage: athletePhotoStorage,
+  limits: { fileSize: MAX_PHOTO_UPLOAD_MB * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (!ALLOWED_PHOTO_EXTENSIONS.has(ext)) {
+      cb(new Error('Unsupported image format'));
       return;
     }
     cb(null, true);
@@ -558,6 +646,101 @@ app.post('/video_upd', loginRequired, (req, res) => {
   res.redirect('/video');
 });
 
+app.get('/photos', loginRequired, (req, res) => {
+  res.render('photos.html', {
+    photos: listAthletePhotos(),
+    maxPhotoUploadMb: MAX_PHOTO_UPLOAD_MB,
+  });
+});
+
+app.post('/photo_upload', loginRequired, (req, res) => {
+  uploadAthletePhoto.single('photoFile')(req, res, (err) => {
+    if (err) {
+      return res.status(400).render('photos.html', {
+        photos: listAthletePhotos(),
+        maxPhotoUploadMb: MAX_PHOTO_UPLOAD_MB,
+        photoError: err.message || 'Upload error',
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).render('photos.html', {
+        photos: listAthletePhotos(),
+        maxPhotoUploadMb: MAX_PHOTO_UPLOAD_MB,
+        photoError: 'No file selected',
+      });
+    }
+
+    return res.redirect('/photos');
+  });
+});
+
+app.post('/photo_rename', loginRequired, (req, res) => {
+  const filename = path.basename(String(req.body.filename || ''));
+  const athleteName = sanitizeAthletePhotoBase(req.body.athleteName || '');
+  const ext = path.extname(filename).toLowerCase();
+
+  if (!filename || !athleteName || !ALLOWED_PHOTO_EXTENSIONS.has(ext)) {
+    return res.status(400).render('photos.html', {
+      photos: listAthletePhotos(),
+      maxPhotoUploadMb: MAX_PHOTO_UPLOAD_MB,
+      photoError: 'Nome foto non valido',
+    });
+  }
+
+  const resolvedDir = path.resolve(ATHLETE_PHOTO_DIR);
+  const oldPath = path.resolve(path.join(ATHLETE_PHOTO_DIR, filename));
+  if (!oldPath.startsWith(`${resolvedDir}${path.sep}`) || !fs.existsSync(oldPath)) {
+    return res.status(400).render('photos.html', {
+      photos: listAthletePhotos(),
+      maxPhotoUploadMb: MAX_PHOTO_UPLOAD_MB,
+      photoError: 'Foto non trovata',
+    });
+  }
+
+  const newFilename = uniqueFilePath(ATHLETE_PHOTO_DIR, athleteName, ext, filename);
+  const newPath = path.resolve(path.join(ATHLETE_PHOTO_DIR, newFilename));
+  if (!newPath.startsWith(`${resolvedDir}${path.sep}`)) {
+    return res.status(400).render('photos.html', {
+      photos: listAthletePhotos(),
+      maxPhotoUploadMb: MAX_PHOTO_UPLOAD_MB,
+      photoError: 'Percorso foto non valido',
+    });
+  }
+
+  if (newFilename !== filename) {
+    fs.renameSync(oldPath, newPath);
+  }
+  return res.redirect('/photos');
+});
+
+app.post('/photo_delete', loginRequired, (req, res) => {
+  const filename = path.basename(String(req.body.filename || ''));
+  const ext = path.extname(filename).toLowerCase();
+  if (!filename || !ALLOWED_PHOTO_EXTENSIONS.has(ext)) {
+    return res.status(400).render('photos.html', {
+      photos: listAthletePhotos(),
+      maxPhotoUploadMb: MAX_PHOTO_UPLOAD_MB,
+      photoError: 'Foto non valida',
+    });
+  }
+
+  const resolvedDir = path.resolve(ATHLETE_PHOTO_DIR);
+  const photoPath = path.resolve(path.join(ATHLETE_PHOTO_DIR, filename));
+  if (!photoPath.startsWith(`${resolvedDir}${path.sep}`)) {
+    return res.status(400).render('photos.html', {
+      photos: listAthletePhotos(),
+      maxPhotoUploadMb: MAX_PHOTO_UPLOAD_MB,
+      photoError: 'Percorso foto non valido',
+    });
+  }
+
+  if (fs.existsSync(photoPath)) {
+    fs.unlinkSync(photoPath);
+  }
+  return res.redirect('/photos');
+});
+
 app.post('/update_score/:game_id', (req, res) => {
   const gameId = Number(req.params.game_id);
   const scores = loadScores();
@@ -604,6 +787,13 @@ app.get('/api/scores', (req, res) => {
 
 app.get('/api/pause-videos', (req, res) => {
   res.json({ videos: listPauseVideos() });
+});
+
+app.get('/api/athlete-photos', (req, res) => {
+  res.json({
+    photos: listAthletePhotos(),
+    map: buildAthletePhotoMap(),
+  });
 });
 
 const SOH = 0x01;
@@ -1251,6 +1441,9 @@ if (!fs.existsSync(VIDEO_UPLOAD_DIR)) {
 }
 if (!fs.existsSync(PAUSE_VIDEO_DIR)) {
   fs.mkdirSync(PAUSE_VIDEO_DIR, { recursive: true });
+}
+if (!fs.existsSync(ATHLETE_PHOTO_DIR)) {
+  fs.mkdirSync(ATHLETE_PHOTO_DIR, { recursive: true });
 }
 ensureJsonFile(DATA_FILE, []);
 ensureJsonFile(USERS_FILE, []);

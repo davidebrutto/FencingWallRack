@@ -210,6 +210,8 @@
     let pauseVideoReason = '';
     let pauseVideoList = [];
     let pauseVideoIndex = 0;
+    let athletePhotoMap = {};
+    let athletePhotoMapPromise = null;
     let ranking = 0;
 
     function showPauseFallback(reason) {
@@ -352,6 +354,54 @@
         });
     }
 
+    function normalizeAthleteNameForPhoto(name) {
+        return String(name || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, ' ')
+            .trim()
+            .replace(/\s+/g, ' ');
+    }
+
+    async function loadAthletePhotoMap() {
+        if (athletePhotoMapPromise) {
+            return athletePhotoMapPromise;
+        }
+        athletePhotoMapPromise = fetch('/api/athlete-photos', { cache: 'no-store' })
+            .then((response) => response.ok ? response.json() : { map: {} })
+            .then((payload) => {
+                athletePhotoMap = payload && payload.map ? payload.map : {};
+                return athletePhotoMap;
+            })
+            .catch((error) => {
+                console.warn('Athlete photo map unavailable:', error && error.message ? error.message : error);
+                athletePhotoMap = {};
+                return athletePhotoMap;
+            });
+        return athletePhotoMapPromise;
+    }
+
+    async function updateAthletePhoto(side, athleteName) {
+        const photoSelector = side === 'left' ? '.fotoSX' : '.fotoDX';
+        const normalizedName = normalizeAthleteNameForPhoto(athleteName);
+        if (!normalizedName) {
+            document.querySelectorAll(photoSelector).forEach((el) => {
+                el.style.backgroundImage = '';
+            });
+            return;
+        }
+
+        const map = await loadAthletePhotoMap();
+        const photoSrc = map[normalizedName] || '';
+        document.querySelectorAll(photoSelector).forEach((el) => {
+            el.style.backgroundImage = photoSrc ? `url("${photoSrc}")` : '';
+            el.style.backgroundSize = 'cover';
+            el.style.backgroundPosition = 'center';
+            el.style.backgroundRepeat = 'no-repeat';
+        });
+    }
+
     function updateCompetitorFromSerial(payload) {
         const competitor = payload.competitor || payload;
         if (!competitor || !competitor.side) {
@@ -367,6 +417,7 @@
 
         updateText(nameSelector, (competitor.name || '').trim());
         updateText(countrySelector, nation);
+        updateAthletePhoto(competitor.side, competitor.name || '');
 
         if (flagCode) {
             const nextSrc = `/static/flags/${flagCode}.svg`;

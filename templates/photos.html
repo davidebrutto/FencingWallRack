@@ -1,0 +1,66 @@
+{% extends "baseb.html" %}
+
+{% block title %}Foto atleti{% endblock %}
+
+{% block content %}
+    <div class="game-card" style="margin-bottom: 50px">
+        <div class="row" style="display: flex; justify-content: center; margin-top: 10px;">
+            <div class="col-11 col-lg-9" style="background:#f5f5f5; border-radius:8px; padding:20px;">
+                <h3 style="margin-bottom:10px;">Foto atleti</h3>
+                <p style="margin-bottom:15px;">
+                    Rinomina ogni foto con lo stesso nome che arriva dalla seriale. Esempio: <code>BRUTTO D.</code>
+                </p>
+
+                {% if photoError %}
+                <div style="margin: 10px 0; padding: 10px; color:#fff; background:#d9534f; border-radius:6px;">
+                    {{ photoError }}
+                </div>
+                {% endif %}
+
+                <form method="post" action="{{ url_for('photo_upload') }}" enctype="multipart/form-data" style="margin-bottom:25px;">
+                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                        <input type="file" name="photoFile" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" required>
+                        <button type="submit" class="btn btn-primary">Upload foto</button>
+                    </div>
+                    <small>Max upload: {{ maxPhotoUploadMb }} MB. Cartella: <code>static/athlete-photos</code></small>
+                </form>
+
+                <h4 style="margin: 10px 0 15px;">Foto caricate</h4>
+
+                {% if photos | length %}
+                    <div style="display:flex; flex-direction:column; gap:14px;">
+                        {% for photo in photos %}
+                            <div style="display:flex; gap:15px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:12px; background:#fff; border:1px solid #ddd; border-radius:8px;">
+                                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                                    <img src="{{ photo.src }}" alt="{{ photo.athleteName }}" width="120" height="150" style="object-fit:cover; background:#000; border-radius:6px;">
+                                    <div>
+                                        <div style="font-weight:bold;">{{ photo.filename }}</div>
+                                        <div>Nome atleta associato: <code>{{ photo.athleteName }}</code></div>
+                                        <div>Chiave ricerca: <code>{{ photo.normalizedName }}</code></div>
+                                    </div>
+                                </div>
+
+                                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                                    <form method="post" action="{{ url_for('photo_rename') }}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                        <input type="hidden" name="filename" value="{{ photo.filename }}">
+                                        <input type="text" name="athleteName" value="{{ photo.athleteName }}" placeholder="Nome atleta" style="min-width:220px;">
+                                        <button type="submit" class="btn btn-secondary">Rinomina</button>
+                                    </form>
+
+                                    <form method="post" action="{{ url_for('photo_delete') }}" onsubmit="return confirm('Eliminare questa foto?');">
+                                        <input type="hidden" name="filename" value="{{ photo.filename }}">
+                                        <button type="submit" class="btn btn-danger">Elimina</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div style="padding:15px; background:#fff3cd; border:1px solid #ffeeba; border-radius:8px;">
+                        Nessuna foto caricata. Le aree foto resteranno vuote.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
