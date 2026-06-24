@@ -28,7 +28,7 @@ const io = new Server(server, {
   perMessageDeflate: false,
 });
 
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 const PORT = Number(process.env.PORT || 5000);
 const SERIAL_PORT = process.env.SERIAL_PORT || '/dev/ttyUSB0';
 const SERIAL_BAUD = Number(process.env.SERIAL_BAUD || 38400);
