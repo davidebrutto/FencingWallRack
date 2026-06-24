@@ -196,10 +196,17 @@
     const containerDX = document.querySelector('.nomeDX');
     const appContainer = document.querySelector('.container');
     const pauseFallback = document.getElementById('pauseFallback');
-    const NO_DATA_TIMEOUT_MS = 10000;
+    const pauseVideoContainer = document.getElementById('videoPausa');
+    const pauseVideoPlayer = pauseVideoContainer ? pauseVideoContainer.querySelector('video') : null;
+    const IDLE_VIDEO_TIMEOUT_MS = 5 * 60 * 1000;
     const RETRY_INTERVAL_MS = 10000;
     let lastDataAt = Date.now();
+    let lastScoreChangeAt = Date.now();
+    let lastScorePayloadJson = '';
     let fallbackActive = false;
+    let pauseVideoActive = false;
+    let pauseVideoList = [];
+    let pauseVideoIndex = 0;
     let ranking = 0;
 
     function showPauseFallback(reason) {
@@ -235,6 +242,95 @@
             return;
         }
         fetch('/api/scores', { cache: 'no-store' }).catch(() => {});
+    }
+
+    async function loadPauseVideos() {
+        try {
+            const response = await fetch('/api/pause-videos', { cache: 'no-store' });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const payload = await response.json();
+            pauseVideoList = Array.isArray(payload.videos) ? payload.videos : [];
+        } catch (error) {
+            console.warn('Pause video list unavailable:', error && error.message ? error.message : error);
+            pauseVideoList = [];
+        }
+        return pauseVideoList;
+    }
+
+    function hidePauseVideos() {
+        pauseVideoActive = false;
+        if (pauseVideoContainer) {
+            pauseVideoContainer.style.display = 'none';
+        }
+        if (pauseVideoPlayer) {
+            try {
+                pauseVideoPlayer.pause();
+            } catch (_) {}
+            pauseVideoPlayer.removeAttribute('src');
+            pauseVideoPlayer.load();
+        }
+    }
+
+    function playPauseVideoAt(index) {
+        if (!pauseVideoActive || !pauseVideoPlayer || pauseVideoList.length === 0) {
+            return;
+        }
+        pauseVideoIndex = (index + pauseVideoList.length) % pauseVideoList.length;
+        const nextVideo = pauseVideoList[pauseVideoIndex];
+        if (!nextVideo || !nextVideo.src) {
+            return;
+        }
+        if (pauseVideoPlayer.getAttribute('src') !== nextVideo.src) {
+            pauseVideoPlayer.setAttribute('src', nextVideo.src);
+            pauseVideoPlayer.load();
+        }
+        pauseVideoPlayer.loop = false;
+        pauseVideoPlayer.defaultMuted = false;
+        pauseVideoPlayer.muted = false;
+        pauseVideoPlayer.removeAttribute('muted');
+        pauseVideoPlayer.volume = 1.0;
+        pauseVideoPlayer.play().catch((err) => {
+            console.warn('Pause video autoplay blocked:', err && err.message ? err.message : err);
+        });
+    }
+
+    async function showPauseVideos(reason) {
+        if (pauseVideoActive) {
+            return;
+        }
+        if (!pauseVideoContainer || !pauseVideoPlayer) {
+            showPauseFallback(`pause_video_missing:${reason}`);
+            return;
+        }
+        if (pauseVideoList.length === 0) {
+            await loadPauseVideos();
+        }
+        if (pauseVideoList.length === 0) {
+            showPauseFallback(`pause_video_empty:${reason}`);
+            return;
+        }
+        hidePauseFallback();
+        pauseVideoActive = true;
+        pauseVideoContainer.style.display = 'block';
+        playPauseVideoAt(pauseVideoIndex);
+        console.warn('Pause videos ON:', reason);
+    }
+
+    if (pauseVideoPlayer) {
+        pauseVideoPlayer.addEventListener('ended', () => {
+            if (!pauseVideoActive) {
+                return;
+            }
+            playPauseVideoAt(pauseVideoIndex + 1);
+        });
+        pauseVideoPlayer.addEventListener('error', () => {
+            if (!pauseVideoActive) {
+                return;
+            }
+            playPauseVideoAt(pauseVideoIndex + 1);
+        });
     }
 
     function updateText(selector, value) {
@@ -388,7 +484,8 @@
     socket.on("video_emit", function(video) {
         if (video.video == 'videoOn'){
             const src = video.src || '';
-            const videoContainers = [document.getElementById("videoSX"), document.getElementById("videoDX")];
+            hidePauseVideos();
+            const videoContainers = [document.getElementById("videoPausa"), document.getElementById("videoSX"), document.getElementById("videoDX")];
             for (const containerEl of videoContainers) {
                 if (containerEl) {
                     containerEl.style.display = 'block';
@@ -412,12 +509,13 @@
                 });
             });
         }else{
-            const videoContainers = [document.getElementById("videoSX"), document.getElementById("videoDX")];
+            const videoContainers = [document.getElementById("videoPausa"), document.getElementById("videoSX"), document.getElementById("videoDX")];
             for (const containerEl of videoContainers) {
                 if (containerEl) {
                     containerEl.style.display = 'none';
                 }
             }
+            pauseVideoActive = false;
             const players = document.querySelectorAll('.videoPlayer');
             players.forEach((player) => {
                 try {
@@ -442,14 +540,25 @@
     })
 
     socket.on("punti_emit", function(tabellone) {
+            const scorePayloadJson = JSON.stringify(tabellone.tabellone || {});
+            if (scorePayloadJson !== lastScorePayloadJson) {
+                lastScorePayloadJson = scorePayloadJson;
+                lastScoreChangeAt = Date.now();
+                hidePauseVideos();
+            }
             lastDataAt = Date.now();
             hidePauseFallback();
             scheduleTabelloneRender(tabellone.tabellone);
         })
 
       setInterval(() => {
-          if ((Date.now() - lastDataAt) > NO_DATA_TIMEOUT_MS) {
-              showPauseFallback('no_serial_data_timeout');
+          const now = Date.now();
+          if ((now - lastDataAt) > IDLE_VIDEO_TIMEOUT_MS) {
+              showPauseVideos('no_serial_data_timeout');
+              return;
+          }
+          if ((now - lastScoreChangeAt) > IDLE_VIDEO_TIMEOUT_MS) {
+              showPauseVideos('unchanged_score_timeout');
           }
       }, 1000);
 

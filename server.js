@@ -49,6 +49,7 @@ const DATA_FILE = path.join(__dirname, 'scores.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const AUTH_DB_FILE = path.join(__dirname, 'instance', 'db.sqlite');
 const VIDEO_UPLOAD_DIR = path.join(__dirname, 'static', 'uploads', 'videos');
+const PAUSE_VIDEO_DIR = path.join(__dirname, 'static', 'pause-videos');
 const VIDEO_STATE_FILE = path.join(__dirname, 'video_state.json');
 const MAX_VIDEO_UPLOAD_MB = Number(process.env.MAX_VIDEO_UPLOAD_MB || 500);
 const ALLOWED_VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogg']);
@@ -116,6 +117,20 @@ function listUploadedVideos() {
     .readdirSync(VIDEO_UPLOAD_DIR)
     .filter((file) => ALLOWED_VIDEO_EXTENSIONS.has(path.extname(file).toLowerCase()))
     .sort((a, b) => a.localeCompare(b));
+}
+
+function listPauseVideos() {
+  if (!fs.existsSync(PAUSE_VIDEO_DIR)) {
+    return [];
+  }
+  return fs
+    .readdirSync(PAUSE_VIDEO_DIR)
+    .filter((file) => ALLOWED_VIDEO_EXTENSIONS.has(path.extname(file).toLowerCase()))
+    .sort((a, b) => a.localeCompare(b))
+    .map((file) => ({
+      filename: file,
+      src: `/static/pause-videos/${file}`,
+    }));
 }
 
 function buildVideoPublicPath(filename) {
@@ -620,6 +635,10 @@ app.get('/delete_game/:game_id', (req, res) => {
 
 app.get('/api/scores', (req, res) => {
   res.json(loadScores());
+});
+
+app.get('/api/pause-videos', (req, res) => {
+  res.json({ videos: listPauseVideos() });
 });
 
 const SOH = 0x01;

@@ -415,7 +415,15 @@
     text-align: center;
     overflow-y: clip;
 }
+.videoPausa{
+    width: 768px;
+    height: 414px;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    z-index: 2000;
 
+}
 
 
 

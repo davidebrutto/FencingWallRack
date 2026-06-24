@@ -17,19 +17,19 @@
             <small>{{ game.date }}</small>
         </div>#}
         <div class="row">
-            <div class="videoSX" id="videoSX" style="display: none">
-                <video id="videoPlayerSX" class="videoPlayer" width="1920" height="1080" autoplay loop playsinline controls style="background:#000;">
+            <div class="videoPausa" id="videoPausa" style="display: none">
+                <video id="videoPlayerSX" class="videoPlayer" width="768" height="414" autoplay loop playsinline controls style="background:#000;">
                     <source src="" type="video/mp4">
                 </video>
             </div>
         </div>
-        <div class="row">
+        <!--<div class="row">
             <div class="videoDX" id="videoDX" style="display: none">
                 <video id="videoPlayerDX" class="videoPlayer" width="1920" height="1080" autoplay loop playsinline controls style="background:#000;">
                     <source src="" type="video/mp4">
                 </video>
             </div>
-        </div>
+        </div>-->
         <div class="row">
             {#<div class="statoSX"><a href="{{ url_for('index') }}">Home</a></div>#}
             <div class="gruppoSX">{{ game.gruppo1 }}</div>
