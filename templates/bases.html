@@ -291,9 +291,16 @@
         return '#00FF00';
     }
 
+    function cardCount(value) {
+        const count = Number.parseInt(String(value ?? '').trim(), 10);
+        return Number.isFinite(count) && count > 0 ? count : 0;
+    }
+
     function renderTabellone(tabellone) {
         const statoDX = tabellone.G == 1 ? '#009900' : (tabellone.W == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
         const statoSX = tabellone.R == 1 ? '#990000' : (tabellone.w == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
+        const redCardsDX = cardCount(tabellone.B);
+        const redCardsSX = cardCount(tabellone.D);
         setBgIfChanged('statoDXbig', statoDX);
         setBgIfChanged('statoSXbig', statoSX);
 
@@ -303,9 +310,11 @@
         setTextIfChanged('YY', tabellone.YY);
 
         setBgIfChanged('CGDX', tabellone.A >= 1 ? '#FFFF00' : 'rgba(255,255,255,0%)');
-        setBgIfChanged('CRDX', tabellone.B >= 1 ? '#FF0000' : 'rgba(255,255,255,0%)');
+        setBgIfChanged('CRDX', redCardsDX > 0 ? '#FF0000' : 'rgba(255,255,255,0%)');
+        setTextIfChanged('CRDX', redCardsDX > 1 ? redCardsDX : '');
         setBgIfChanged('CGSX', tabellone.C >= 1 ? '#FFFF00' : 'rgba(255,255,255,0%)');
-        setBgIfChanged('CRSX', tabellone.D >= 1 ? '#FF0000' : 'rgba(255,255,255,0%)');
+        setBgIfChanged('CRSX', redCardsSX > 0 ? '#FF0000' : 'rgba(255,255,255,0%)');
+        setTextIfChanged('CRSX', redCardsSX > 1 ? redCardsSX : '');
 
         setTextIfChanged('prioritaDX', tabellone.P == 1 ? 'P' : '');
         setTextIfChanged('prioritaSX', tabellone.P == 2 ? 'P' : '');
