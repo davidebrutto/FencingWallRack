@@ -66,6 +66,7 @@ const ROUTES = {
   video_upd: '/video_upd',
   video_upload: '/video_upload',
   video_select: '/video_select',
+  video_delete: '/video_delete',
   delete_game: '/delete_game/:game_id',
   update_score: '/update_score/:game_id',
   api_scores: '/api/scores',
@@ -167,7 +168,7 @@ function resolveActiveVideoFilename(state) {
 }
 
 const videoStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, VIDEO_UPLOAD_DIR),
+  destination: (_req, _file, cb) => cb(null, PAUSE_VIDEO_DIR),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname || '').toLowerCase();
     const base = path.basename(file.originalname || 'video', ext);
@@ -493,15 +494,8 @@ app.get('/config', loginRequired, (req, res) => {
 });
 
 app.get('/video', loginRequired, (req, res) => {
-  const state = loadVideoState();
-  const uploadedVideos = listUploadedVideos();
-  const selectedVideo = resolveActiveVideoFilename(state);
-  const activeVideoUrl = selectedVideo ? buildVideoPublicPath(selectedVideo) : '';
   res.render('video.html', {
-    uploadedVideos,
-    selectedVideo,
-    activeVideoUrl,
-    videoEnabled: state.videoEnabled,
+    pauseVideos: listPauseVideos(),
     maxVideoUploadMb: MAX_VIDEO_UPLOAD_MB,
   });
 });
@@ -510,10 +504,7 @@ app.post('/video_upload', loginRequired, (req, res) => {
   uploadVideo.single('videoFile')(req, res, (err) => {
     if (err) {
       return res.status(400).render('video.html', {
-        uploadedVideos: listUploadedVideos(),
-        selectedVideo: '',
-        activeVideoUrl: '',
-        videoEnabled: false,
+        pauseVideos: listPauseVideos(),
         maxVideoUploadMb: MAX_VIDEO_UPLOAD_MB,
         uploadError: err.message || 'Upload error',
       });
@@ -521,23 +512,9 @@ app.post('/video_upload', loginRequired, (req, res) => {
 
     if (!req.file) {
       return res.status(400).render('video.html', {
-        uploadedVideos: listUploadedVideos(),
-        selectedVideo: '',
-        activeVideoUrl: '',
-        videoEnabled: false,
+        pauseVideos: listPauseVideos(),
         maxVideoUploadMb: MAX_VIDEO_UPLOAD_MB,
         uploadError: 'No file selected',
-      });
-    }
-
-    const state = loadVideoState();
-    state.selectedVideo = req.file.filename;
-    saveVideoState(state);
-
-    if (state.videoEnabled) {
-      io.emit('video_emit', {
-        video: 'videoOn',
-        src: buildVideoPublicPath(state.selectedVideo),
       });
     }
 
@@ -546,50 +523,38 @@ app.post('/video_upload', loginRequired, (req, res) => {
 });
 
 app.post('/video_select', loginRequired, (req, res) => {
-  const filename = String(req.body.selectedVideo || '');
-  const videos = listUploadedVideos();
-  if (!videos.includes(filename)) {
-    return res.status(400).render('video.html', {
-      uploadedVideos: videos,
-      selectedVideo: '',
-      activeVideoUrl: '',
-      videoEnabled: false,
-      maxVideoUploadMb: MAX_VIDEO_UPLOAD_MB,
-      uploadError: 'Selected video not found',
-    });
-  }
-
-  const state = loadVideoState();
-  state.selectedVideo = filename;
-  saveVideoState(state);
-
-  if (state.videoEnabled) {
-    io.emit('video_emit', {
-      video: 'videoOn',
-      src: buildVideoPublicPath(state.selectedVideo),
-    });
-  }
-
   return res.redirect('/video');
 });
 
-app.post('/video_upd', (req, res) => {
-  const state = loadVideoState();
-  const activeFile = resolveActiveVideoFilename(state);
-  state.selectedVideo = activeFile;
-
-  if (req.body.video === 'videoOn') {
-    state.videoEnabled = true;
-    io.emit('video_emit', {
-      video: 'videoOn',
-      src: activeFile ? buildVideoPublicPath(activeFile) : '',
+app.post('/video_delete', loginRequired, (req, res) => {
+  const filename = path.basename(String(req.body.filename || ''));
+  const ext = path.extname(filename).toLowerCase();
+  if (!filename || !ALLOWED_VIDEO_EXTENSIONS.has(ext)) {
+    return res.status(400).render('video.html', {
+      pauseVideos: listPauseVideos(),
+      maxVideoUploadMb: MAX_VIDEO_UPLOAD_MB,
+      uploadError: 'Video non valido',
     });
   }
-  if (req.body.video === 'videoOff') {
-    state.videoEnabled = false;
-    io.emit('video_emit', { video: 'videoOff' });
+
+  const filePath = path.join(PAUSE_VIDEO_DIR, filename);
+  const resolvedDir = path.resolve(PAUSE_VIDEO_DIR);
+  const resolvedFile = path.resolve(filePath);
+  if (!resolvedFile.startsWith(`${resolvedDir}${path.sep}`)) {
+    return res.status(400).render('video.html', {
+      pauseVideos: listPauseVideos(),
+      maxVideoUploadMb: MAX_VIDEO_UPLOAD_MB,
+      uploadError: 'Percorso video non valido',
+    });
   }
-  saveVideoState(state);
+
+  if (fs.existsSync(resolvedFile)) {
+    fs.unlinkSync(resolvedFile);
+  }
+  return res.redirect('/video');
+});
+
+app.post('/video_upd', loginRequired, (req, res) => {
   res.redirect('/video');
 });
 
@@ -1284,6 +1249,9 @@ function startSerialReader() {
 if (!fs.existsSync(VIDEO_UPLOAD_DIR)) {
   fs.mkdirSync(VIDEO_UPLOAD_DIR, { recursive: true });
 }
+if (!fs.existsSync(PAUSE_VIDEO_DIR)) {
+  fs.mkdirSync(PAUSE_VIDEO_DIR, { recursive: true });
+}
 ensureJsonFile(DATA_FILE, []);
 ensureJsonFile(USERS_FILE, []);
 ensureJsonFile(VIDEO_STATE_FILE, {
@@ -1297,14 +1265,6 @@ io.on('connection', (socket) => {
     if (competitor) {
       socket.emit('competitor_emit', { competitor });
     }
-  }
-  const state = loadVideoState();
-  const activeFile = resolveActiveVideoFilename(state);
-  if (state.videoEnabled && activeFile) {
-    socket.emit('video_emit', {
-      video: 'videoOn',
-      src: buildVideoPublicPath(activeFile),
-    });
   }
 });
 
