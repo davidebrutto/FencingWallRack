@@ -313,12 +313,35 @@
         el.style.backgroundColor = value;
     }
 
+    function setColorIfChanged(id, value) {
+        const el = getEl(id);
+        if (!el) {
+            return;
+        }
+        if (lastRenderedTabellone[`color:${id}`] === value) {
+            return;
+        }
+        lastRenderedTabellone[`color:${id}`] = value;
+        el.style.color = value;
+    }
+
+    function timerColorFromMode(mode) {
+        if (mode === 'N') {
+            return '#FF0000';
+        }
+        if (mode === 'B' || mode === 'J') {
+            return '#FFFF00';
+        }
+        return '#00FF00';
+    }
+
     function renderTabellone(tabellone) {
         const statoDX = tabellone.G == 1 ? '#009900' : (tabellone.W == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
         const statoSX = tabellone.R == 1 ? '#990000' : (tabellone.w == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
         setBgIfChanged('statoDXbig', statoDX);
         setBgIfChanged('statoSXbig', statoSX);
 
+        setColorIfChanged('timerText', timerColorFromMode(tabellone.timerMode));
         setTextIfChanged('timerText', String(tabellone.timer || '').trim());
         setTextIfChanged('XX', tabellone.XX);
         setTextIfChanged('YY', tabellone.YY);

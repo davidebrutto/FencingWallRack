@@ -668,7 +668,7 @@ function normalizeTimerText(raw) {
 }
 
 function parseMessage2Frame(frameBuf) {
-  // Message 2: [SOH][DC3]Z[STX]«MM:SS.DC»[EOT] => 13 bytes
+  // Message 2: [SOH][DC3][R/N/B/J][STX]«MM:SS.DC»[EOT] => 13 bytes
   if (frameBuf.length !== 13) {
     return null;
   }
@@ -942,6 +942,11 @@ function parseLegacyAsciiTabellone(s1) {
     P: s1.slice(i + h + 46, i + h + 47),
     PR: s1.slice(i + h + 48, i + h + 49),
   };
+
+  const timerMode = s1.slice(2, 3);
+  if (['R', 'N', 'B', 'J'].includes(timerMode)) {
+    tabellone.timerMode = timerMode;
+  }
 
   if (s1.slice(i + h + 15, i + h + 17) === ' 0') {
     const secChunk = s1.slice(i + h + 18, i + h + 20);
