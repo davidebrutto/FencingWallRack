@@ -1018,6 +1018,21 @@ function parsePassivityFrame(frameBuf) {
   };
 }
 
+function parseEmbeddedPassivityFrame(frameBuf) {
+  const pattern = Buffer.from([SOH, CMD_DC3, 0x55, 0x46]);
+  const start = frameBuf.indexOf(pattern);
+  if (start === -1) {
+    return null;
+  }
+
+  const end = frameBuf.indexOf(EOT, start + pattern.length);
+  if (end === -1) {
+    return null;
+  }
+
+  return parsePassivityFrame(frameBuf.subarray(start, end + 1));
+}
+
 function parseCompetitorInfoFrame(frameBuf) {
   // Message 5/6: [SOH][DC3]N[L/R][STX]Bib[STX]Name[STX]Nat[EOT]
   // We recognize these frames so they never get interpreted as scoreboard data.
@@ -1079,6 +1094,10 @@ function parseKnownFrame(frameBuf) {
   const passivity = parsePassivityFrame(frameBuf);
   if (passivity) {
     return { type: 'message_passivity_cards', tabellone: passivity };
+  }
+  const embeddedPassivity = parseEmbeddedPassivityFrame(frameBuf);
+  if (embeddedPassivity) {
+    return { type: 'message_passivity_cards_embedded', tabellone: embeddedPassivity };
   }
   const competitorInfo = parseCompetitorInfoFrame(frameBuf);
   if (competitorInfo) {
@@ -1275,6 +1294,9 @@ function startSerialReader() {
     }
 
     const tabellone = mergeTabelloneState(parsed.tabellone);
+    if (parsed.type.startsWith('message_passivity_cards')) {
+      logSerialDebug('passivity_emit', `right=${tabellone.passivityRight} left=${tabellone.passivityLeft}`);
+    }
     schedulePuntiEmit(tabellone, parsed.type);
   }
 
