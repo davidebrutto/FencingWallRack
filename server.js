@@ -56,6 +56,10 @@ const MAX_VIDEO_UPLOAD_MB = Number(process.env.MAX_VIDEO_UPLOAD_MB || 500);
 const MAX_PHOTO_UPLOAD_MB = Number(process.env.MAX_PHOTO_UPLOAD_MB || 20);
 const ALLOWED_VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogg']);
 const ALLOWED_PHOTO_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const REMOTE_ASSET_BASE_URL = String(process.env.REMOTE_ASSET_BASE_URL || '').replace(/\/+$/, '');
+const REMOTE_VIDEO_MANIFEST_PATH = process.env.REMOTE_VIDEO_MANIFEST_PATH || '/pause-videos/manifest.json';
+const REMOTE_PHOTO_MANIFEST_PATH = process.env.REMOTE_PHOTO_MANIFEST_PATH || '/athlete-photos/manifest.json';
+const REMOTE_ASSET_TIMEOUT_MS = Number(process.env.REMOTE_ASSET_TIMEOUT_MS || 15000);
 
 const ROUTES = {
   index: '/',
@@ -202,6 +206,230 @@ function buildAthletePhotoMap() {
 
 function emitAthletePhotosChanged() {
   io.emit('athlete_photos_changed');
+}
+
+function remoteAssetsEnabled() {
+  return REMOTE_ASSET_BASE_URL.length > 0;
+}
+
+function removeManagedFiles(dir, allowedExtensions) {
+  if (!fs.existsSync(dir)) {
+    return;
+  }
+  for (const file of fs.readdirSync(dir)) {
+    const ext = path.extname(file).toLowerCase();
+    if (!allowedExtensions.has(ext)) {
+      continue;
+    }
+    fs.unlinkSync(path.join(dir, file));
+  }
+}
+
+function joinRemoteUrl(relativeOrAbsolute) {
+  if (!remoteAssetsEnabled()) {
+    return '';
+  }
+  return new URL(relativeOrAbsolute, `${REMOTE_ASSET_BASE_URL}/`).toString();
+}
+
+function remoteFolderFileUrl(folder, filename) {
+  return joinRemoteUrl(`${folder}/${encodeURIComponent(filename)}`);
+}
+
+async function fetchJsonWithTimeout(url) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REMOTE_ASSET_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function downloadFileWithTimeout(url, destinationPath) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REMOTE_ASSET_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const bytes = Buffer.from(await response.arrayBuffer());
+    fs.writeFileSync(destinationPath, bytes);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function readManifestItems(manifest, keys) {
+  if (Array.isArray(manifest)) {
+    return manifest;
+  }
+  if (!manifest || typeof manifest !== 'object') {
+    return [];
+  }
+  for (const key of keys) {
+    if (Array.isArray(manifest[key])) {
+      return manifest[key];
+    }
+  }
+  return [];
+}
+
+function normalizeManifestItem(item, folder, allowedExtensions) {
+  if (typeof item === 'string') {
+    const filename = path.basename(item);
+    const ext = path.extname(filename).toLowerCase();
+    if (!allowedExtensions.has(ext)) {
+      return null;
+    }
+    return {
+      filename,
+      url: remoteFolderFileUrl(folder, filename),
+      athleteName: path.basename(filename, ext),
+    };
+  }
+
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const rawFilename = item.filename || item.file || item.name || '';
+  const filename = path.basename(String(rawFilename));
+  const ext = path.extname(filename).toLowerCase();
+  if (!filename || !allowedExtensions.has(ext)) {
+    return null;
+  }
+
+  return {
+    filename,
+    url: item.url ? new URL(String(item.url), `${REMOTE_ASSET_BASE_URL}/`).toString() : remoteFolderFileUrl(folder, filename),
+    athleteName: item.athleteName || item.athlete || item.name || path.basename(filename, ext),
+  };
+}
+
+let remotePhotoManifest = null;
+let remotePhotoManifestPromise = null;
+const pendingRemotePhotoDownloads = new Map();
+
+async function loadRemotePhotoManifest(forceReload = false) {
+  if (!remoteAssetsEnabled()) {
+    return [];
+  }
+  if (forceReload) {
+    remotePhotoManifest = null;
+    remotePhotoManifestPromise = null;
+  }
+  if (remotePhotoManifest) {
+    return remotePhotoManifest;
+  }
+  if (remotePhotoManifestPromise) {
+    return remotePhotoManifestPromise;
+  }
+
+  remotePhotoManifestPromise = fetchJsonWithTimeout(joinRemoteUrl(REMOTE_PHOTO_MANIFEST_PATH))
+    .then((manifest) => readManifestItems(manifest, ['photos', 'files', 'items']))
+    .then((items) => items
+      .map((item) => normalizeManifestItem(item, 'athlete-photos', ALLOWED_PHOTO_EXTENSIONS))
+      .filter(Boolean)
+      .map((item) => ({
+        ...item,
+        normalizedName: normalizeAthleteName(item.athleteName),
+      })))
+    .then((items) => {
+      remotePhotoManifest = items;
+      return remotePhotoManifest;
+    })
+    .catch((error) => {
+      remotePhotoManifest = [];
+      console.warn(`Remote photo manifest unavailable: ${error.message}`);
+      return remotePhotoManifest;
+    })
+    .finally(() => {
+      remotePhotoManifestPromise = null;
+    });
+
+  return remotePhotoManifestPromise;
+}
+
+async function syncPauseVideosFromRemote() {
+  if (!remoteAssetsEnabled()) {
+    return;
+  }
+
+  console.log(`Remote video sync from ${REMOTE_ASSET_BASE_URL}${REMOTE_VIDEO_MANIFEST_PATH}`);
+  removeManagedFiles(PAUSE_VIDEO_DIR, ALLOWED_VIDEO_EXTENSIONS);
+
+  try {
+    const manifest = await fetchJsonWithTimeout(joinRemoteUrl(REMOTE_VIDEO_MANIFEST_PATH));
+    const videos = readManifestItems(manifest, ['videos', 'files', 'items'])
+      .map((item) => normalizeManifestItem(item, 'pause-videos', ALLOWED_VIDEO_EXTENSIONS))
+      .filter(Boolean);
+
+    for (const video of videos) {
+      const destinationPath = path.join(PAUSE_VIDEO_DIR, video.filename);
+      try {
+        await downloadFileWithTimeout(video.url, destinationPath);
+        console.log(`Downloaded pause video: ${video.filename}`);
+      } catch (error) {
+        console.warn(`Pause video download failed (${video.filename}): ${error.message}`);
+      }
+    }
+  } catch (error) {
+    console.warn(`Remote video sync failed: ${error.message}`);
+  }
+}
+
+async function ensureRemoteAthletePhoto(athleteName) {
+  if (!remoteAssetsEnabled()) {
+    return null;
+  }
+
+  const normalizedName = normalizeAthleteName(athleteName);
+  if (!normalizedName) {
+    return null;
+  }
+
+  const localMatch = listAthletePhotos().find((photo) => photo.normalizedName === normalizedName);
+  if (localMatch) {
+    return localMatch.src;
+  }
+
+  if (pendingRemotePhotoDownloads.has(normalizedName)) {
+    return pendingRemotePhotoDownloads.get(normalizedName);
+  }
+
+  const downloadPromise = (async () => {
+    const manifest = await loadRemotePhotoManifest();
+    const remotePhoto = manifest.find((photo) => photo.normalizedName === normalizedName);
+    if (!remotePhoto) {
+      return null;
+    }
+
+    const ext = path.extname(remotePhoto.filename).toLowerCase();
+    const safeBase = sanitizeAthletePhotoBase(remotePhoto.athleteName || athleteName);
+    const localFilename = uniqueFilePath(ATHLETE_PHOTO_DIR, safeBase, ext, remotePhoto.filename);
+    const destinationPath = path.join(ATHLETE_PHOTO_DIR, localFilename);
+
+    try {
+      await downloadFileWithTimeout(remotePhoto.url, destinationPath);
+      console.log(`Downloaded athlete photo: ${localFilename}`);
+      emitAthletePhotosChanged();
+      return `/static/athlete-photos/${encodeURIComponent(localFilename)}`;
+    } catch (error) {
+      console.warn(`Athlete photo download failed (${remotePhoto.filename}): ${error.message}`);
+      return null;
+    }
+  })().finally(() => {
+    pendingRemotePhotoDownloads.delete(normalizedName);
+  });
+
+  pendingRemotePhotoDownloads.set(normalizedName, downloadPromise);
+  return downloadPromise;
 }
 
 function buildVideoPublicPath(filename) {
@@ -1285,6 +1513,9 @@ function startSerialReader() {
       lastCompetitorInfoState[parsed.info.side] = parsed.info;
       logSerialDebug('competitor_emit', `side=${parsed.info.side} name=${parsed.info.name} nation=${parsed.info.nation}`);
       io.emit('competitor_emit', { competitor: parsed.info });
+      ensureRemoteAthletePhoto(parsed.info.name).catch((error) => {
+        console.warn(`Remote athlete photo lookup failed (${parsed.info.name}): ${error.message}`);
+      });
       return;
     }
 
@@ -1525,17 +1756,37 @@ ensureJsonFile(VIDEO_STATE_FILE, {
   videoEnabled: false,
 });
 
+async function prepareRemoteAssetsOnStartup() {
+  if (!remoteAssetsEnabled()) {
+    return;
+  }
+
+  console.log(`Remote assets enabled: ${REMOTE_ASSET_BASE_URL}`);
+  removeManagedFiles(ATHLETE_PHOTO_DIR, ALLOWED_PHOTO_EXTENSIONS);
+  await syncPauseVideosFromRemote();
+  await loadRemotePhotoManifest(true);
+}
+
 io.on('connection', (socket) => {
   socket.emit('punti_emit', { tabellone: { ...lastTabelloneState } });
   for (const competitor of Object.values(lastCompetitorInfoState)) {
     if (competitor) {
       socket.emit('competitor_emit', { competitor });
+      ensureRemoteAthletePhoto(competitor.name).catch((error) => {
+        console.warn(`Remote athlete photo lookup failed (${competitor.name}): ${error.message}`);
+      });
     }
   }
 });
 
-startSerialReader();
+prepareRemoteAssetsOnStartup()
+  .catch((error) => {
+    console.warn(`Remote asset startup preparation failed: ${error.message}`);
+  })
+  .finally(() => {
+    startSerialReader();
 
-server.listen(PORT, HOST, () => {
-  console.log(`dmbScore Node server listening on http://${HOST}:${PORT}`);
-});
+    server.listen(PORT, HOST, () => {
+      console.log(`dmbScore Node server listening on http://${HOST}:${PORT}`);
+    });
+  });
