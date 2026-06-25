@@ -200,6 +200,10 @@ function buildAthletePhotoMap() {
   return map;
 }
 
+function emitAthletePhotosChanged() {
+  io.emit('athlete_photos_changed');
+}
+
 function buildVideoPublicPath(filename) {
   if (!filename) {
     return '';
@@ -671,6 +675,7 @@ app.post('/photo_upload', loginRequired, (req, res) => {
       });
     }
 
+    emitAthletePhotosChanged();
     return res.redirect('/photos');
   });
 });
@@ -711,6 +716,7 @@ app.post('/photo_rename', loginRequired, (req, res) => {
   if (newFilename !== filename) {
     fs.renameSync(oldPath, newPath);
   }
+  emitAthletePhotosChanged();
   return res.redirect('/photos');
 });
 
@@ -738,6 +744,7 @@ app.post('/photo_delete', loginRequired, (req, res) => {
   if (fs.existsSync(photoPath)) {
     fs.unlinkSync(photoPath);
   }
+  emitAthletePhotosChanged();
   return res.redirect('/photos');
 });
 

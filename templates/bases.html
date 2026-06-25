@@ -193,6 +193,7 @@
     const containerDX = document.querySelector('.nomeDX');
     let athletePhotoMap = {};
     let athletePhotoMapPromise = null;
+    let currentAthleteNames = { left: '', right: '' };
     let ranking = 0;
 
     function updateText(selector, value) {
@@ -217,7 +218,10 @@
             .replace(/\s+/g, ' ');
     }
 
-    async function loadAthletePhotoMap() {
+    async function loadAthletePhotoMap(forceReload = false) {
+        if (forceReload) {
+            athletePhotoMapPromise = null;
+        }
         if (athletePhotoMapPromise) {
             return athletePhotoMapPromise;
         }
@@ -246,13 +250,26 @@
         }
 
         const map = await loadAthletePhotoMap();
-        const photoSrc = map[normalizedName] || '';
+        let photoSrc = map[normalizedName] || '';
+        if (!photoSrc) {
+            const freshMap = await loadAthletePhotoMap(true);
+            photoSrc = freshMap[normalizedName] || '';
+        }
         document.querySelectorAll(photoSelector).forEach((el) => {
             el.style.backgroundImage = photoSrc ? `url("${photoSrc}")` : '';
             el.style.backgroundSize = 'cover';
             el.style.backgroundPosition = 'center';
             el.style.backgroundRepeat = 'no-repeat';
         });
+    }
+
+    function refreshAthletePhotosFromPage() {
+        const leftName = document.querySelector('.nomeSX')?.textContent || '';
+        const rightName = document.querySelector('.nomeDX')?.textContent || '';
+        currentAthleteNames.left = leftName;
+        currentAthleteNames.right = rightName;
+        updateAthletePhoto('left', leftName);
+        updateAthletePhoto('right', rightName);
     }
 
     function updateCompetitorFromSerial(payload) {
@@ -268,6 +285,7 @@
         const nation = (competitor.nation || '').trim().toUpperCase();
         const flagCode = window.nocToFlag ? window.nocToFlag(nation) : '';
 
+        currentAthleteNames[competitor.side] = competitor.name || '';
         updateText(nameSelector, (competitor.name || '').trim());
         updateText(countrySelector, nation);
         updateAthletePhoto(competitor.side, competitor.name || '');
@@ -388,6 +406,7 @@
     }
 
     socket.connect();
+    refreshAthletePhotosFromPage();
 
     socket.on("video_emit", function(video) {
         if (video.video == 'videoOn'){
@@ -427,6 +446,13 @@
 
     socket.on("competitor_emit", function(payload) {
         updateCompetitorFromSerial(payload);
+    })
+
+    socket.on("athlete_photos_changed", function() {
+        athletePhotoMap = {};
+        athletePhotoMapPromise = null;
+        updateAthletePhoto('left', currentAthleteNames.left);
+        updateAthletePhoto('right', currentAthleteNames.right);
     })
 
     socket.on("punti_emit", function(tabellone) {
