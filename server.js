@@ -980,6 +980,44 @@ function parseMessage4Frame(frameBuf) {
   };
 }
 
+function parsePassivityFrame(frameBuf) {
+  // Passivity: [SOH][DC3]UF[STX]m:ss[STX]PCard_Right[STX]PCard_Left[EOT]
+  if (frameBuf.length < 11) {
+    return null;
+  }
+  if (frameBuf[0] !== SOH || frameBuf[1] !== CMD_DC3 || frameBuf[2] !== 0x55 || frameBuf[3] !== 0x46 || frameBuf[frameBuf.length - 1] !== EOT) {
+    return null;
+  }
+
+  const segments = [];
+  let idx = 4;
+  while (idx < frameBuf.length - 1) {
+    if (frameBuf[idx] !== STX) {
+      return null;
+    }
+    idx += 1;
+    const start = idx;
+    while (idx < frameBuf.length - 1 && frameBuf[idx] !== STX) {
+      idx += 1;
+    }
+    segments.push(frameBuf.subarray(start, idx));
+  }
+
+  if (segments.length < 3) {
+    return null;
+  }
+
+  const normalizePCard = (segment) => {
+    const value = Number.parseInt(segmentToPrintableString(segment).trim(), 10);
+    return Number.isInteger(value) && value >= 0 && value <= 3 ? String(value) : '0';
+  };
+
+  return {
+    passivityRight: normalizePCard(segments[1]),
+    passivityLeft: normalizePCard(segments[2]),
+  };
+}
+
 function parseCompetitorInfoFrame(frameBuf) {
   // Message 5/6: [SOH][DC3]N[L/R][STX]Bib[STX]Name[STX]Nat[EOT]
   // We recognize these frames so they never get interpreted as scoreboard data.
@@ -1038,6 +1076,10 @@ function parseKnownFrame(frameBuf) {
   if (msg4) {
     return { type: 'message4_status_info', tabellone: null };
   }
+  const passivity = parsePassivityFrame(frameBuf);
+  if (passivity) {
+    return { type: 'message_passivity_cards', tabellone: passivity };
+  }
   const competitorInfo = parseCompetitorInfoFrame(frameBuf);
   if (competitorInfo) {
     return { type: `message_competitor_info_${competitorInfo.side}`, tabellone: null, info: competitorInfo };
@@ -1063,6 +1105,8 @@ const lastTabelloneState = {
   PR: '0',
   scoreSep: ':',
   timerMode: 'R',
+  passivityRight: '0',
+  passivityLeft: '0',
 };
 
 const lastCompetitorInfoState = {

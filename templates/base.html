@@ -512,6 +512,15 @@
         return Number.isFinite(count) && count > 0 ? count : 0;
     }
 
+    function renderPassivityCard(value, yellowId, redId) {
+        const cardValue = Number.parseInt(String(value ?? '0').trim(), 10) || 0;
+        setBgIfChanged(yellowId, cardValue === 1 ? '#FFFF00' : 'rgba(255,255,255,0%)');
+        setTextIfChanged(yellowId, cardValue === 1 ? 'P' : '');
+
+        setBgIfChanged(redId, cardValue >= 2 ? '#FF0000' : 'rgba(255,255,255,0%)');
+        setTextIfChanged(redId, cardValue === 2 ? 'P' : (cardValue === 3 ? 'P2' : ''));
+    }
+
     function renderTabellone(tabellone) {
         const statoDX = tabellone.G == 1 ? '#009900' : (tabellone.W == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
         const statoSX = tabellone.R == 1 ? '#990000' : (tabellone.w == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
@@ -531,6 +540,8 @@
         setBgIfChanged('CGSX', tabellone.C >= 1 ? '#FFFF00' : 'rgba(255,255,255,0%)');
         setBgIfChanged('CRSX', redCardsSX > 0 ? '#FF0000' : 'rgba(255,255,255,0%)');
         setTextIfChanged('CRSX', redCardsSX > 1 ? redCardsSX : '');
+        renderPassivityCard(tabellone.passivityRight, 'CGPDX', 'CRPDX');
+        renderPassivityCard(tabellone.passivityLeft, 'CGPSX', 'CRPSX');
 
         setTextIfChanged('prioritaDX', tabellone.P == 1 ? 'P' : '');
         setTextIfChanged('prioritaSX', tabellone.P == 2 ? 'P' : '');
