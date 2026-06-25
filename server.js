@@ -982,7 +982,7 @@ function parseMessage4Frame(frameBuf) {
 
 function parsePassivityFrame(frameBuf) {
   // Passivity: [SOH][DC3]UF[STX]m:ss[STX]PCard_Right[STX]PCard_Left[EOT]
-  if (frameBuf.length < 11) {
+  if (frameBuf.length < 8) {
     return null;
   }
   if (frameBuf[0] !== SOH || frameBuf[1] !== CMD_DC3 || frameBuf[2] !== 0x55 || frameBuf[3] !== 0x46 || frameBuf[frameBuf.length - 1] !== EOT) {
