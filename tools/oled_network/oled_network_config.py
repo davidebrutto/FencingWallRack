@@ -18,6 +18,7 @@ from PIL import Image, ImageDraw, ImageFont
 WIDTH = int(os.getenv("OLED_WIDTH", "128"))
 HEIGHT = int(os.getenv("OLED_HEIGHT", "64"))
 ROTATE = int(os.getenv("OLED_ROTATE", "0"))
+FLIP_180 = os.getenv("OLED_FLIP_180", "1").strip().lower() not in ("0", "false", "no", "off")
 SPI_PORT = int(os.getenv("OLED_SPI_PORT", "0"))
 SPI_DEVICE = int(os.getenv("OLED_SPI_DEVICE", "0"))
 GPIO_DC = int(os.getenv("OLED_GPIO_DC", "24"))
@@ -196,6 +197,12 @@ class OledNetworkApp:
 
         self.setup_buttons()
 
+    def display_image(self, image):
+        if FLIP_180:
+            rotate_180 = getattr(getattr(Image, "Transpose", Image), "ROTATE_180")
+            image = image.transpose(rotate_180)
+        self.device.display(image)
+
     def setup_buttons(self):
         for name, pin in PINS.items():
             if name == "k3":
@@ -337,7 +344,7 @@ class OledNetworkApp:
         for idx, (line, cursor_offset) in enumerate(lines):
             self.draw_line_with_cursor(draw, idx * 10, line, cursor_offset)
         with self.render_lock:
-            self.device.display(image)
+            self.display_image(image)
 
     def saving_animation(self, stop_event):
         frames = ["|", "/", "-", "\\"]
@@ -350,7 +357,7 @@ class OledNetworkApp:
             draw.text((0, 32), self.iface[:21], font=self.font, fill=255)
             draw.text((0, 48), f"{self.cfg['ip']}/{self.cfg['prefix']}"[:21], font=self.font, fill=255)
             with self.render_lock:
-                self.device.display(image)
+                self.display_image(image)
             frame += 1
             stop_event.wait(0.2)
 

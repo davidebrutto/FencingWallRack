@@ -1,3 +1,4 @@
 .DS_Store
 instance/db.sqlite
 scores.json
+remote-portal/config.php

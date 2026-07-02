@@ -1,0 +1,10 @@
+DirectoryIndex index.php
+Options -Indexes
+
+<Files "config.php">
+  Require all denied
+</Files>
+
+<Files "config.example.php">
+  Require all denied
+</Files>
