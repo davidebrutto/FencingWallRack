@@ -19,6 +19,7 @@ WIDTH = int(os.getenv("OLED_WIDTH", "128"))
 HEIGHT = int(os.getenv("OLED_HEIGHT", "64"))
 ROTATE = int(os.getenv("OLED_ROTATE", "0"))
 FLIP_180 = os.getenv("OLED_FLIP_180", "1").strip().lower() not in ("0", "false", "no", "off")
+INPUT_FLIP_180 = os.getenv("OLED_INPUT_FLIP_180", "1" if FLIP_180 else "0").strip().lower() not in ("0", "false", "no", "off")
 SPI_PORT = int(os.getenv("OLED_SPI_PORT", "0"))
 SPI_DEVICE = int(os.getenv("OLED_SPI_DEVICE", "0"))
 GPIO_DC = int(os.getenv("OLED_GPIO_DC", "24"))
@@ -203,6 +204,16 @@ class OledNetworkApp:
             image = image.transpose(rotate_180)
         self.device.display(image)
 
+    def normalize_input_event(self, event):
+        if not INPUT_FLIP_180:
+            return event
+        return {
+            "up": "down",
+            "down": "up",
+            "left": "right",
+            "right": "left",
+        }.get(event, event)
+
     def setup_buttons(self):
         for name, pin in PINS.items():
             if name == "k3":
@@ -279,6 +290,8 @@ class OledNetworkApp:
         draw.text((left, y), char, font=self.font, fill=0)
 
     def handle_event(self, event):
+        event = self.normalize_input_event(event)
+
         if event == "k2":
             stop_animation = threading.Event()
             animation = threading.Thread(target=self.saving_animation, args=(stop_animation,), daemon=True)
