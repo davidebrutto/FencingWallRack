@@ -3,6 +3,8 @@ set -Eeuo pipefail
 
 APP_DIR="${APP_DIR:-/home/pi/FencingWallRack}"
 KIOSK_URL="${KIOSK_URL:-http://127.0.0.1:5000}"
+KIOSK_LEFT_URL="${KIOSK_LEFT_URL:-${KIOSK_URL}}"
+KIOSK_RIGHT_URL="${KIOSK_RIGHT_URL:-${KIOSK_URL%/}/rear}"
 DISPLAY="${DISPLAY:-:0}"
 XAUTHORITY="${XAUTHORITY:-/home/pi/.Xauthority}"
 CHROMIUM_PROFILE_DIR="${CHROMIUM_PROFILE_DIR:-/home/pi/.config/fencing-kiosk}"
@@ -182,7 +184,7 @@ launch_dual_windows() {
     --noerrdialogs \
     --no-first-run \
     --ozone-platform=x11 \
-    --app="${KIOSK_URL}" \
+    --app="${KIOSK_LEFT_URL}" \
     --user-data-dir="${KIOSK_LEFT_PROFILE_DIR}" \
     --class="kiosk_sinistro" \
     --name="kiosk_sinistro" \
@@ -202,7 +204,7 @@ launch_dual_windows() {
     --noerrdialogs \
     --no-first-run \
     --ozone-platform=x11 \
-    --app="${KIOSK_URL}" \
+    --app="${KIOSK_RIGHT_URL}" \
     --user-data-dir="${KIOSK_RIGHT_PROFILE_DIR}" \
     --class="kiosk_destro" \
     --name="kiosk_destro" \

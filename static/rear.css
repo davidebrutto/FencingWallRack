@@ -1,0 +1,11 @@
+/*
+ * Rear display overrides.
+ *
+ * This stylesheet is loaded only by /rear. The realtime data is already
+ * mirrored in JavaScript, so use this file only for layout/position tweaks
+ * needed by the lower physical display.
+ */
+
+body.rear-view {
+    background: #000000;
+}

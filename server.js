@@ -699,6 +699,26 @@ function buildColori() {
   };
 }
 
+function buildRearScores(scores) {
+  return scores.map((game) => ({
+    ...game,
+    team1: game.team2,
+    team2: game.team1,
+    score1: game.score2,
+    score2: game.score1,
+    country1: game.country2,
+    country2: game.country1,
+    flag1: game.flag2,
+    flag2: game.flag1,
+    rank1: game.rank2,
+    rank2: game.rank1,
+    classgir1: game.classgir2,
+    classgir2: game.classgir1,
+    gruppo1: game.gruppo2,
+    gruppo2: game.gruppo1,
+  }));
+}
+
 app.get('/', (req, res) => {
   const scores = loadScores();
   res.render('index.html', {
@@ -706,6 +726,18 @@ app.get('/', (req, res) => {
     miapath: __dirname,
     instancepath: path.join(__dirname, 'instance'),
     colori: buildColori(),
+  });
+});
+
+app.get('/rear', (req, res) => {
+  const scores = buildRearScores(loadScores());
+  res.render('index.html', {
+    scores,
+    miapath: __dirname,
+    instancepath: path.join(__dirname, 'instance'),
+    colori: buildColori(),
+    rearView: true,
+    bodyClass: 'rear-view',
   });
 });
 

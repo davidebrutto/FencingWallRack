@@ -7,6 +7,9 @@
     <title>{% block title %}Scherma Score App{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="/static/logo.jpg">
     <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='mystyle.css')}}"/>
+    {% if rearView %}
+    <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='rear.css')}}"/>
+    {% endif %}
 {#    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js" integrity="sha384-c79GN5VsunZvi+Q/WObgk2in0CbZsHnjEqvFxC5DxHn9lTfNce2WW6h2pH6u/kF+" crossorigin="anonymous"></script>#}
     <script type="text/javascript" src="/socket.io/socket.io.js"></script>
     <style>
@@ -165,7 +168,7 @@
 
     </style>
 </head>
-<body>
+<body class="{{ bodyClass | default('') }}">
     <div class="container">
         <div class="header">
             <h1>🏆 Sports Score Tracker</h1>
@@ -187,6 +190,7 @@
 </body>
 <script type="application/javascript" src="/static/noc-to-flag.js"></script>
 <script type="application/javascript">
+    const IS_REAR_VIEW = {% if rearView %}true{% else %}false{% endif %};
     const socket = io({
         autoConnect: false,
         transports: ['websocket'],
@@ -214,6 +218,38 @@
     let athletePhotoMapPromise = null;
     let currentAthleteNames = { left: '', right: '' };
     let ranking = 0;
+
+    const rearIdMap = {
+        statoDXbig: 'statoSXbig',
+        statoSXbig: 'statoDXbig',
+        XX: 'YY',
+        YY: 'XX',
+        CGDX: 'CGSX',
+        CGSX: 'CGDX',
+        CRDX: 'CRSX',
+        CRSX: 'CRDX',
+        CGPDX: 'CGPSX',
+        CGPSX: 'CGPDX',
+        CRPDX: 'CRPSX',
+        CRPSX: 'CRPDX',
+        prioritaDX: 'prioritaSX',
+        prioritaSX: 'prioritaDX'
+    };
+
+    function viewId(id) {
+        return IS_REAR_VIEW ? (rearIdMap[id] || id) : id;
+    }
+
+    function viewSide(side) {
+        if (!IS_REAR_VIEW) {
+            return side;
+        }
+        return side === 'left' ? 'right' : (side === 'right' ? 'left' : side);
+    }
+
+    function sideSelector(displaySide, sxSelector, dxSelector) {
+        return displaySide === 'left' ? sxSelector : dxSelector;
+    }
 
     function showPauseFallback(reason) {
         if (fallbackActive) {
@@ -387,7 +423,7 @@
     }
 
     async function updateAthletePhoto(side, athleteName) {
-        const photoSelector = side === 'left' ? '.fotoSX' : '.fotoDX';
+        const photoSelector = sideSelector(side, '.fotoSX', '.fotoDX');
         const normalizedName = normalizeAthleteNameForPhoto(athleteName);
         if (!normalizedName) {
             document.querySelectorAll(photoSelector).forEach((el) => {
@@ -425,17 +461,17 @@
             return;
         }
 
-        const isLeft = competitor.side === 'left';
-        const nameSelector = isLeft ? '.nomeSX' : '.nomeDX';
-        const countrySelector = isLeft ? '.countrySX' : '.countryDX';
-        const flagSelector = isLeft ? '.flagSX img' : '.flagDX img';
+        const displaySide = viewSide(competitor.side);
+        const nameSelector = sideSelector(displaySide, '.nomeSX', '.nomeDX');
+        const countrySelector = sideSelector(displaySide, '.countrySX', '.countryDX');
+        const flagSelector = sideSelector(displaySide, '.flagSX img', '.flagDX img');
         const nation = (competitor.nation || '').trim().toUpperCase();
         const flagCode = window.nocToFlag ? window.nocToFlag(nation) : '';
 
-        currentAthleteNames[competitor.side] = competitor.name || '';
+        currentAthleteNames[displaySide] = competitor.name || '';
         updateText(nameSelector, (competitor.name || '').trim());
         updateText(countrySelector, nation);
-        updateAthletePhoto(competitor.side, competitor.name || '');
+        updateAthletePhoto(displaySide, competitor.name || '');
 
         if (flagCode) {
             const nextSrc = `/static/flags/${flagCode}.svg`;
@@ -454,6 +490,7 @@
     let renderScheduled = false;
 
     function getEl(id) {
+        id = viewId(id);
         if (!elCache[id]) {
             elCache[id] = document.getElementById(id);
         }
