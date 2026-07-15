@@ -122,7 +122,7 @@ def get_ipv4_config(iface):
         method = cmd_ok(["nmcli", "-g", "ipv4.method", "con", "show", conn])
         mode = "DHCP" if method == "auto" else "STATIC"
 
-    return {"ip": ip, "prefix": prefix, "gateway": gateway, "mode": mode}
+    return {"ip": ip, "prefix": prefix, "netmask": prefix_to_netmask(prefix), "gateway": gateway, "mode": mode}
 
 
 def valid_ip(value):
@@ -131,6 +131,21 @@ def valid_ip(value):
         return True
     except ValueError:
         return False
+
+
+def prefix_to_netmask(prefix):
+    return str(ipaddress.IPv4Network(f"0.0.0.0/{int(prefix)}").netmask)
+
+
+def netmask_to_prefix(netmask):
+    try:
+        mask = ipaddress.IPv4Address(netmask)
+        network = ipaddress.IPv4Network(f"0.0.0.0/{netmask}", strict=False)
+        if str(network.netmask) != str(mask):
+            raise ValueError("hostmask is not accepted")
+        return int(network.prefixlen)
+    except ValueError as exc:
+        raise RuntimeError("Subnet mask is not valid") from exc
 
 
 def apply_network(iface, cfg):
@@ -143,12 +158,13 @@ def apply_network(iface, cfg):
     else:
         if not valid_ip(cfg["ip"]) or not valid_ip(cfg["gateway"]):
             raise RuntimeError("IP or gateway is not valid")
-        if not (1 <= int(cfg["prefix"]) <= 32):
-            raise RuntimeError("Subnet prefix must be 1-32")
+        prefix = netmask_to_prefix(cfg.get("netmask", prefix_to_netmask(cfg["prefix"])))
+        if not (1 <= prefix <= 32):
+            raise RuntimeError("Subnet mask is not valid")
         run([
             "nmcli", "con", "mod", conn,
             "ipv4.method", "manual",
-            "ipv4.addresses", f'{cfg["ip"]}/{cfg["prefix"]}',
+            "ipv4.addresses", f'{cfg["ip"]}/{prefix}',
             "ipv4.gateway", cfg["gateway"],
             "ipv4.dns", cfg["gateway"],
         ])
@@ -169,7 +185,7 @@ def numeric_positions(chars):
 
 
 class OledNetworkApp:
-    fields = ["ip", "prefix", "gateway"]
+    fields = ["ip", "netmask", "gateway"]
 
     def __init__(self):
         serial = spi(port=SPI_PORT, device=SPI_DEVICE, gpio_DC=GPIO_DC, gpio_RST=GPIO_RST)
@@ -189,6 +205,7 @@ class OledNetworkApp:
         self.selected = 0
         self.editing = False
         self.ip_chars = ip_to_chars(self.cfg["ip"])
+        self.netmask_chars = ip_to_chars(self.cfg["netmask"])
         self.gw_chars = ip_to_chars(self.cfg["gateway"])
         self.cursor = 0
         self.status = ""
@@ -232,15 +249,25 @@ class OledNetworkApp:
         self.iface = self.ifaces[self.iface_index]
         self.cfg = get_ipv4_config(self.iface)
         self.ip_chars = ip_to_chars(self.cfg["ip"])
+        self.netmask_chars = ip_to_chars(self.cfg["netmask"])
         self.gw_chars = ip_to_chars(self.cfg["gateway"])
         self.cursor = 0
 
+    def chars_for_field(self, field):
+        if field == "ip":
+            return self.ip_chars
+        if field == "netmask":
+            return self.netmask_chars
+        return self.gw_chars
+
+    def display_value_for_field(self, field):
+        if self.editing and self.fields[self.selected] == field:
+            return "".join(self.chars_for_field(field))
+        return str(self.cfg["gateway"] if field == "gateway" else self.cfg[field])
+
     def move_cursor(self, delta):
         field = self.fields[self.selected]
-        if field == "prefix":
-            self.cfg["prefix"] = max(1, min(32, self.cfg["prefix"] + delta))
-            return
-        chars = self.ip_chars if field == "ip" else self.gw_chars
+        chars = self.chars_for_field(field)
         positions = numeric_positions(chars)
         if not positions:
             return
@@ -249,10 +276,7 @@ class OledNetworkApp:
 
     def change_digit(self, delta):
         field = self.fields[self.selected]
-        if field == "prefix":
-            self.cfg["prefix"] = max(1, min(32, self.cfg["prefix"] + delta))
-            return
-        chars = self.ip_chars if field == "ip" else self.gw_chars
+        chars = self.chars_for_field(field)
         if self.cursor >= len(chars) or not chars[self.cursor].isdigit():
             positions = numeric_positions(chars)
             self.cursor = positions[0]
@@ -260,6 +284,8 @@ class OledNetworkApp:
         chars[self.cursor] = str(value)
         if field == "ip":
             self.cfg["ip"] = chars_to_ip(chars)
+        elif field == "netmask":
+            self.cfg["netmask"] = chars_to_ip(chars)
         else:
             self.cfg["gateway"] = chars_to_ip(chars)
 
@@ -268,10 +294,7 @@ class OledNetworkApp:
         if not self.editing or self.fields[self.selected] != field_name:
             return text, None
 
-        if field_name == "prefix":
-            cursor_offset = len(prefix) + max(0, len(str(value)) - 1)
-        else:
-            cursor_offset = len(prefix) + self.cursor
+        cursor_offset = len(prefix) + self.cursor
         return text, cursor_offset
 
     def draw_line_with_cursor(self, draw, y, text, cursor_offset=None):
@@ -345,13 +368,13 @@ class OledNetworkApp:
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
         mode = "*" if self.editing else " "
-        ip_line, ip_cursor = self.field_text_and_cursor("ip", f"{'>' if self.selected == 0 else ' '}IP ", self.cfg["ip"])
-        prefix_line, prefix_cursor = self.field_text_and_cursor("prefix", f"{'>' if self.selected == 1 else ' '}SN /", self.cfg["prefix"])
-        gateway_line, gateway_cursor = self.field_text_and_cursor("gateway", f"{'>' if self.selected == 2 else ' '}GW ", self.cfg["gateway"])
+        ip_line, ip_cursor = self.field_text_and_cursor("ip", f"{'>' if self.selected == 0 else ' '}IP ", self.display_value_for_field("ip"))
+        netmask_line, netmask_cursor = self.field_text_and_cursor("netmask", f"{'>' if self.selected == 1 else ' '}SN ", self.display_value_for_field("netmask"))
+        gateway_line, gateway_cursor = self.field_text_and_cursor("gateway", f"{'>' if self.selected == 2 else ' '}GW ", self.display_value_for_field("gateway"))
         lines = [
             (f"{self.iface} {self.cfg['mode']} {mode}", None),
             (ip_line, ip_cursor),
-            (prefix_line, prefix_cursor),
+            (netmask_line, netmask_cursor),
             (gateway_line, gateway_cursor),
         ]
         for idx, (line, cursor_offset) in enumerate(lines):
@@ -368,7 +391,7 @@ class OledNetworkApp:
             draw.text((0, 0), "Saving network", font=self.font, fill=255)
             draw.text((0, 16), f"Please wait {frames[frame % len(frames)]}", font=self.font, fill=255)
             draw.text((0, 32), self.iface[:21], font=self.font, fill=255)
-            draw.text((0, 48), f"{self.cfg['ip']}/{self.cfg['prefix']}"[:21], font=self.font, fill=255)
+            draw.text((0, 48), f"SN {self.cfg['netmask']}"[:21], font=self.font, fill=255)
             with self.render_lock:
                 self.display_image(image)
             frame += 1
