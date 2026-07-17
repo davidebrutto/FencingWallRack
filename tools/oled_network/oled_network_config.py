@@ -23,6 +23,9 @@ FLIP_180 = os.getenv("OLED_FLIP_180", "1").strip().lower() not in ("0", "false",
 INPUT_FLIP_180 = os.getenv("OLED_INPUT_FLIP_180", "1" if FLIP_180 else "0").strip().lower() not in ("0", "false", "no", "off")
 LOGO_PATH = os.getenv("OLED_LOGO_PATH", os.path.join(SCRIPT_DIR, "logo.png"))
 LOGO_TIMEOUT_SEC = float(os.getenv("OLED_LOGO_TIMEOUT_SEC", "10"))
+KIOSK_ENV_PATH = os.getenv("KIOSK_ENV_PATH", "/etc/default/fencingwallrack-kiosk")
+KIOSK_SERVICE = os.getenv("KIOSK_SERVICE", "fencingwallrack-kiosk.service")
+RESTART_KIOSK_ON_PROFILE_SAVE = os.getenv("OLED_RESTART_KIOSK_ON_PROFILE_SAVE", "1").strip().lower() not in ("0", "false", "no", "off")
 SPI_PORT = int(os.getenv("OLED_SPI_PORT", "0"))
 SPI_DEVICE = int(os.getenv("OLED_SPI_DEVICE", "0"))
 GPIO_DC = int(os.getenv("OLED_GPIO_DC", "24"))
@@ -42,7 +45,9 @@ PINS = {
 DEFAULT_IP = os.getenv("OLED_DEFAULT_IP", "192.168.1.50")
 DEFAULT_PREFIX = int(os.getenv("OLED_DEFAULT_PREFIX", "24"))
 DEFAULT_GATEWAY = os.getenv("OLED_DEFAULT_GATEWAY", "192.168.1.1")
+DEFAULT_DISPLAY_PROFILE = os.getenv("OLED_DEFAULT_DISPLAY_PROFILE", "ledwall")
 PREFERRED_IFACE = os.getenv("NET_IFACE", "").strip()
+DISPLAY_PROFILES = ["ledwall", "sottopedana"]
 
 
 def run(cmd, check=True):
@@ -187,8 +192,86 @@ def numeric_positions(chars):
     return [i for i, ch in enumerate(chars) if ch.isdigit()]
 
 
+def normalize_display_profile(value):
+    value = (value or "").strip().lower()
+    if value in ("sottopedana", "underfloor", "pedana"):
+        return "sottopedana"
+    return "ledwall"
+
+
+def display_profile_label(value):
+    return "SOTTOPEDANA" if normalize_display_profile(value) == "sottopedana" else "LEDWALL"
+
+
+def read_env_value(path, key):
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            for line in file:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#") or "=" not in stripped:
+                    continue
+                current_key, current_value = stripped.split("=", 1)
+                if current_key == key:
+                    return current_value.strip().strip('"').strip("'")
+    except FileNotFoundError:
+        return ""
+    return ""
+
+
+def write_env_value(path, key, value):
+    lines = []
+    found = False
+    changed = True
+
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+    except FileNotFoundError:
+        lines = []
+
+    next_line = f"{key}={value}\n"
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("#") or "=" not in stripped:
+            continue
+        current_key, _ = stripped.split("=", 1)
+        if current_key == key:
+            found = True
+            changed = line != next_line
+            lines[idx] = next_line
+            break
+
+    if not found:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(next_line)
+
+    if changed or not found:
+        tmp_path = f"{path}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as file:
+            file.writelines(lines)
+        os.replace(tmp_path, path)
+        return True
+    return False
+
+
+def load_kiosk_display_profile():
+    value = read_env_value(KIOSK_ENV_PATH, "KIOSK_DISPLAY_PROFILE") or DEFAULT_DISPLAY_PROFILE
+    return normalize_display_profile(value)
+
+
+def apply_kiosk_display_profile(profile):
+    return write_env_value(KIOSK_ENV_PATH, "KIOSK_DISPLAY_PROFILE", normalize_display_profile(profile))
+
+
+def restart_kiosk_service():
+    if not RESTART_KIOSK_ON_PROFILE_SAVE:
+        return
+    run(["systemctl", "restart", KIOSK_SERVICE])
+
+
 class OledNetworkApp:
-    fields = ["ip", "netmask", "gateway"]
+    fields = ["display_profile", "ip", "netmask", "gateway"]
 
     def __init__(self):
         serial = spi(port=SPI_PORT, device=SPI_DEVICE, gpio_DC=GPIO_DC, gpio_RST=GPIO_RST)
@@ -205,6 +288,7 @@ class OledNetworkApp:
             self.iface_index = 0
         self.iface = self.ifaces[self.iface_index]
         self.cfg = get_ipv4_config(self.iface)
+        self.display_profile = load_kiosk_display_profile()
         self.selected = 0
         self.editing = False
         self.ip_chars = ip_to_chars(self.cfg["ip"])
@@ -272,6 +356,7 @@ class OledNetworkApp:
         self.iface_index %= len(self.ifaces)
         self.iface = self.ifaces[self.iface_index]
         self.cfg = get_ipv4_config(self.iface)
+        self.display_profile = load_kiosk_display_profile()
         self.ip_chars = ip_to_chars(self.cfg["ip"])
         self.netmask_chars = ip_to_chars(self.cfg["netmask"])
         self.gw_chars = ip_to_chars(self.cfg["gateway"])
@@ -284,13 +369,23 @@ class OledNetworkApp:
             return self.netmask_chars
         return self.gw_chars
 
+    def toggle_display_profile(self, delta=1):
+        current = normalize_display_profile(self.display_profile)
+        current_index = DISPLAY_PROFILES.index(current) if current in DISPLAY_PROFILES else 0
+        self.display_profile = DISPLAY_PROFILES[(current_index + delta) % len(DISPLAY_PROFILES)]
+
     def display_value_for_field(self, field):
+        if field == "display_profile":
+            return display_profile_label(self.display_profile)
         if self.editing and self.fields[self.selected] == field:
             return "".join(self.chars_for_field(field))
         return str(self.cfg["gateway"] if field == "gateway" else self.cfg[field])
 
     def move_cursor(self, delta):
         field = self.fields[self.selected]
+        if field == "display_profile":
+            self.toggle_display_profile(delta)
+            return
         chars = self.chars_for_field(field)
         positions = numeric_positions(chars)
         if not positions:
@@ -300,6 +395,9 @@ class OledNetworkApp:
 
     def change_digit(self, delta):
         field = self.fields[self.selected]
+        if field == "display_profile":
+            self.toggle_display_profile(delta)
+            return
         chars = self.chars_for_field(field)
         if self.cursor >= len(chars) or not chars[self.cursor].isdigit():
             positions = numeric_positions(chars)
@@ -316,6 +414,9 @@ class OledNetworkApp:
     def field_text_and_cursor(self, field_name, prefix, value):
         text = f"{prefix}{value}"
         if not self.editing or self.fields[self.selected] != field_name:
+            return text, None
+
+        if field_name == "display_profile":
             return text, None
 
         cursor_offset = len(prefix) + self.cursor
@@ -353,8 +454,11 @@ class OledNetworkApp:
             animation.start()
             try:
                 apply_network(self.iface, self.cfg)
+                profile_changed = apply_kiosk_display_profile(self.display_profile)
                 self.status = "Saved. Re-reading..."
                 self.refresh_iface()
+                if profile_changed:
+                    restart_kiosk_service()
                 self.editing = False
                 self.status = "Saved"
             except Exception as exc:
@@ -412,11 +516,13 @@ class OledNetworkApp:
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
         mode = "*" if self.editing else " "
-        ip_line, ip_cursor = self.field_text_and_cursor("ip", f"{'>' if self.selected == 0 else ' '}IP ", self.display_value_for_field("ip"))
-        netmask_line, netmask_cursor = self.field_text_and_cursor("netmask", f"{'>' if self.selected == 1 else ' '}SN ", self.display_value_for_field("netmask"))
-        gateway_line, gateway_cursor = self.field_text_and_cursor("gateway", f"{'>' if self.selected == 2 else ' '}GW ", self.display_value_for_field("gateway"))
+        profile_line, profile_cursor = self.field_text_and_cursor("display_profile", f"{'>' if self.selected == 0 else ' '}OUT ", self.display_value_for_field("display_profile"))
+        ip_line, ip_cursor = self.field_text_and_cursor("ip", f"{'>' if self.selected == 1 else ' '}IP ", self.display_value_for_field("ip"))
+        netmask_line, netmask_cursor = self.field_text_and_cursor("netmask", f"{'>' if self.selected == 2 else ' '}SN ", self.display_value_for_field("netmask"))
+        gateway_line, gateway_cursor = self.field_text_and_cursor("gateway", f"{'>' if self.selected == 3 else ' '}GW ", self.display_value_for_field("gateway"))
         lines = [
             (f"{self.iface} {self.cfg['mode']} {mode}", None),
+            (profile_line, profile_cursor),
             (ip_line, ip_cursor),
             (netmask_line, netmask_cursor),
             (gateway_line, gateway_cursor),

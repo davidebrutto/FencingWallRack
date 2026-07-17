@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=2688, initial-scale=1.0">
+    <title>FencingWallRack - Sottopedana {{ sideLabel }}</title>
+    <link rel="icon" type="image/x-icon" href="/static/logo.jpg">
+    <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='underfloor.css')}}"/>
+    <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+</head>
+<body class="underfloor underfloor-{{ side }}">
+    <main class="underfloor-stage" data-side="{{ side }}">
+        <div class="underfloor-placeholder">
+            <span>SOTTOPEDANA {{ sideLabel }}</span>
+        </div>
+    </main>
+    <script>
+        const socket = io({
+            autoConnect: true,
+            transports: ['websocket'],
+            upgrade: false
+        });
+
+        socket.on('punti_emit', function(payload) {
+            window.lastUnderfloorScore = payload && payload.tabellone ? payload.tabellone : {};
+        });
+
+        socket.on('competitor_emit', function(payload) {
+            window.lastUnderfloorCompetitor = payload && payload.competitor ? payload.competitor : payload;
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 2688px;
+    height: 96px;
+    margin: 0;
+    overflow: hidden;
+    background: #000000;
+}
+
+.underfloor-stage {
+    position: relative;
+    width: 2688px;
+    height: 96px;
+    background: #000000;
+    color: #ffffff;
+    font-family: sans-serif;
+}
+
+.underfloor-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #222222;
+    color: #444444;
+    font-size: 42px;
+    letter-spacing: 0.12em;
+}

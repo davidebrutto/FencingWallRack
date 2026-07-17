@@ -741,6 +741,20 @@ app.get('/rear', (req, res) => {
   });
 });
 
+app.get('/underfloor-left', (_req, res) => {
+  res.render('underfloor.html', {
+    side: 'left',
+    sideLabel: 'SX',
+  });
+});
+
+app.get('/underfloor-right', (_req, res) => {
+  res.render('underfloor.html', {
+    side: 'right',
+    sideLabel: 'DX',
+  });
+});
+
 app.get('/index_single', (req, res) => {
   const scores = loadScores();
   res.render('index_single.html', {
