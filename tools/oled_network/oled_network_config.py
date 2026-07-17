@@ -15,11 +15,14 @@ from luma.oled.device import sh1106
 from PIL import Image, ImageDraw, ImageFont
 
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WIDTH = int(os.getenv("OLED_WIDTH", "128"))
 HEIGHT = int(os.getenv("OLED_HEIGHT", "64"))
 ROTATE = int(os.getenv("OLED_ROTATE", "0"))
 FLIP_180 = os.getenv("OLED_FLIP_180", "1").strip().lower() not in ("0", "false", "no", "off")
 INPUT_FLIP_180 = os.getenv("OLED_INPUT_FLIP_180", "1" if FLIP_180 else "0").strip().lower() not in ("0", "false", "no", "off")
+LOGO_PATH = os.getenv("OLED_LOGO_PATH", os.path.join(SCRIPT_DIR, "logo.png"))
+LOGO_TIMEOUT_SEC = float(os.getenv("OLED_LOGO_TIMEOUT_SEC", "10"))
 SPI_PORT = int(os.getenv("OLED_SPI_PORT", "0"))
 SPI_DEVICE = int(os.getenv("OLED_SPI_DEVICE", "0"))
 GPIO_DC = int(os.getenv("OLED_GPIO_DC", "24"))
@@ -212,8 +215,26 @@ class OledNetworkApp:
         self.render_lock = threading.Lock()
         self.blink_on = True
         self.last_blink_at = time.monotonic()
+        self.screen = "logo"
+        self.last_activity_at = time.monotonic()
+        self.logo_image = self.load_logo_image()
 
         self.setup_buttons()
+
+    def load_logo_image(self):
+        if not LOGO_PATH or not os.path.exists(LOGO_PATH):
+            return None
+        try:
+            image = Image.open(LOGO_PATH).convert("1")
+            image.thumbnail((WIDTH, HEIGHT), getattr(getattr(Image, "Resampling", Image), "LANCZOS"))
+            canvas = Image.new("1", (WIDTH, HEIGHT), 0)
+            x = max(0, (WIDTH - image.width) // 2)
+            y = max(0, (HEIGHT - image.height) // 2)
+            canvas.paste(image, (x, y))
+            return canvas
+        except Exception as exc:
+            print(f"Logo load error: {exc}", file=sys.stderr)
+            return None
 
     def display_image(self, image):
         if FLIP_180:
@@ -240,6 +261,9 @@ class OledNetworkApp:
                 button = Button(pin, pull_up=True, bounce_time=0.08)
                 button.when_pressed = lambda event=name: self.events.put(event)
             self.buttons.append(button)
+
+    def mark_activity(self):
+        self.last_activity_at = time.monotonic()
 
     def refresh_iface(self):
         self.ifaces = list_connected_ifaces()
@@ -315,6 +339,14 @@ class OledNetworkApp:
     def handle_event(self, event):
         event = self.normalize_input_event(event)
 
+        if self.screen == "logo":
+            if event == "press":
+                self.screen = "config"
+                self.mark_activity()
+            return
+
+        self.mark_activity()
+
         if event == "k2":
             stop_animation = threading.Event()
             animation = threading.Thread(target=self.saving_animation, args=(stop_animation,), daemon=True)
@@ -330,6 +362,7 @@ class OledNetworkApp:
             finally:
                 stop_animation.set()
                 animation.join(timeout=1)
+                self.mark_activity()
             return
 
         if event == "k3_hold":
@@ -364,7 +397,18 @@ class OledNetworkApp:
         elif event == "right":
             self.move_cursor(1)
 
-    def draw(self):
+    def draw_logo(self):
+        if self.logo_image:
+            image = self.logo_image.copy()
+        else:
+            image = Image.new("1", (WIDTH, HEIGHT), 0)
+            draw = ImageDraw.Draw(image)
+            draw.text((0, 18), "FencingWallRack", font=self.font, fill=255)
+            draw.text((0, 34), "Press joystick", font=self.font, fill=255)
+        with self.render_lock:
+            self.display_image(image)
+
+    def draw_config(self):
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
         mode = "*" if self.editing else " "
@@ -381,6 +425,12 @@ class OledNetworkApp:
             self.draw_line_with_cursor(draw, idx * 10, line, cursor_offset)
         with self.render_lock:
             self.display_image(image)
+
+    def draw(self):
+        if self.screen == "logo":
+            self.draw_logo()
+        else:
+            self.draw_config()
 
     def saving_animation(self, stop_event):
         frames = ["|", "/", "-", "\\"]
@@ -408,6 +458,9 @@ class OledNetworkApp:
                 if self.editing and (time.monotonic() - self.last_blink_at) >= 0.5:
                     self.blink_on = not self.blink_on
                     self.last_blink_at = time.monotonic()
+                    self.draw()
+                elif self.screen == "config" and not self.editing and (time.monotonic() - self.last_activity_at) >= LOGO_TIMEOUT_SEC:
+                    self.screen = "logo"
                     self.draw()
 
 
