@@ -414,20 +414,25 @@ class OledNetworkApp:
     def field_text_and_cursor(self, field_name, prefix, value):
         text = f"{prefix}{value}"
         if not self.editing or self.fields[self.selected] != field_name:
-            return text, None
+            return text, None, False
 
         if field_name == "display_profile":
-            return text, None
+            return text, None, True
 
         cursor_offset = len(prefix) + self.cursor
-        return text, cursor_offset
+        return text, cursor_offset, False
 
-    def draw_line_with_cursor(self, draw, y, text, cursor_offset=None):
-        draw.text((0, y), text[:21], font=self.font, fill=255)
+    def draw_line_with_cursor(self, draw, y, text, cursor_offset=None, blink_line=False):
+        visible_text = text[:21]
+        if blink_line and self.blink_on:
+            draw.rectangle((0, y, WIDTH - 1, y + 9), fill=255)
+            draw.text((0, y), visible_text, font=self.font, fill=0)
+            return
+
+        draw.text((0, y), visible_text, font=self.font, fill=255)
         if cursor_offset is None or not self.blink_on:
             return
 
-        visible_text = text[:21]
         if cursor_offset < 0 or cursor_offset >= len(visible_text):
             return
 
@@ -516,19 +521,19 @@ class OledNetworkApp:
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
         mode = "*" if self.editing else " "
-        profile_line, profile_cursor = self.field_text_and_cursor("display_profile", f"{'>' if self.selected == 0 else ' '}OUT ", self.display_value_for_field("display_profile"))
-        ip_line, ip_cursor = self.field_text_and_cursor("ip", f"{'>' if self.selected == 1 else ' '}IP ", self.display_value_for_field("ip"))
-        netmask_line, netmask_cursor = self.field_text_and_cursor("netmask", f"{'>' if self.selected == 2 else ' '}SN ", self.display_value_for_field("netmask"))
-        gateway_line, gateway_cursor = self.field_text_and_cursor("gateway", f"{'>' if self.selected == 3 else ' '}GW ", self.display_value_for_field("gateway"))
+        profile_line, profile_cursor, profile_blink = self.field_text_and_cursor("display_profile", f"{'>' if self.selected == 0 else ' '}OUT ", self.display_value_for_field("display_profile"))
+        ip_line, ip_cursor, ip_blink = self.field_text_and_cursor("ip", f"{'>' if self.selected == 1 else ' '}IP ", self.display_value_for_field("ip"))
+        netmask_line, netmask_cursor, netmask_blink = self.field_text_and_cursor("netmask", f"{'>' if self.selected == 2 else ' '}SN ", self.display_value_for_field("netmask"))
+        gateway_line, gateway_cursor, gateway_blink = self.field_text_and_cursor("gateway", f"{'>' if self.selected == 3 else ' '}GW ", self.display_value_for_field("gateway"))
         lines = [
-            (f"{self.iface} {self.cfg['mode']} {mode}", None),
-            (profile_line, profile_cursor),
-            (ip_line, ip_cursor),
-            (netmask_line, netmask_cursor),
-            (gateway_line, gateway_cursor),
+            (f"{self.iface} {self.cfg['mode']} {mode}", None, False),
+            (profile_line, profile_cursor, profile_blink),
+            (ip_line, ip_cursor, ip_blink),
+            (netmask_line, netmask_cursor, netmask_blink),
+            (gateway_line, gateway_cursor, gateway_blink),
         ]
-        for idx, (line, cursor_offset) in enumerate(lines):
-            self.draw_line_with_cursor(draw, idx * 10, line, cursor_offset)
+        for idx, (line, cursor_offset, blink_line) in enumerate(lines):
+            self.draw_line_with_cursor(draw, idx * 10, line, cursor_offset, blink_line)
         with self.render_lock:
             self.display_image(image)
 
