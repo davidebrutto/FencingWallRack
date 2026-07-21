@@ -26,6 +26,8 @@ LOGO_TIMEOUT_SEC = float(os.getenv("OLED_LOGO_TIMEOUT_SEC", "10"))
 KIOSK_ENV_PATH = os.getenv("KIOSK_ENV_PATH", "/etc/default/fencingwallrack-kiosk")
 KIOSK_SERVICE = os.getenv("KIOSK_SERVICE", "fencingwallrack-kiosk.service")
 RESTART_KIOSK_ON_PROFILE_SAVE = os.getenv("OLED_RESTART_KIOSK_ON_PROFILE_SAVE", "1").strip().lower() not in ("0", "false", "no", "off")
+REBOOT_ON_PROFILE_SAVE = os.getenv("OLED_REBOOT_ON_PROFILE_SAVE", "1").strip().lower() not in ("0", "false", "no", "off")
+REBOOT_DELAY_SEC = float(os.getenv("OLED_REBOOT_DELAY_SEC", "2"))
 SPI_PORT = int(os.getenv("OLED_SPI_PORT", "0"))
 SPI_DEVICE = int(os.getenv("OLED_SPI_DEVICE", "0"))
 GPIO_DC = int(os.getenv("OLED_GPIO_DC", "24"))
@@ -270,6 +272,10 @@ def restart_kiosk_service():
     run(["systemctl", "restart", KIOSK_SERVICE])
 
 
+def reboot_system():
+    run(["systemctl", "reboot"], check=False)
+
+
 class OledNetworkApp:
     fields = ["display_profile", "ip", "netmask", "gateway"]
 
@@ -457,21 +463,30 @@ class OledNetworkApp:
             stop_animation = threading.Event()
             animation = threading.Thread(target=self.saving_animation, args=(stop_animation,), daemon=True)
             animation.start()
+            reboot_needed = False
             try:
                 apply_network(self.iface, self.cfg)
                 profile_changed = apply_kiosk_display_profile(self.display_profile)
                 self.status = "Saved. Re-reading..."
                 self.refresh_iface()
-                if profile_changed:
+                if profile_changed and REBOOT_ON_PROFILE_SAVE:
+                    reboot_needed = True
+                    self.status = "Saved. Reboot..."
+                elif profile_changed:
                     restart_kiosk_service()
                 self.editing = False
-                self.status = "Saved"
+                if not reboot_needed:
+                    self.status = "Saved"
             except Exception as exc:
                 self.status = f"ERR {exc}"[:21]
             finally:
                 stop_animation.set()
                 animation.join(timeout=1)
                 self.mark_activity()
+            if reboot_needed:
+                self.draw_message(["Profile saved", "Rebooting...", display_profile_label(self.display_profile)])
+                time.sleep(REBOOT_DELAY_SEC)
+                reboot_system()
             return
 
         if event == "k3_hold":
@@ -542,6 +557,14 @@ class OledNetworkApp:
             self.draw_logo()
         else:
             self.draw_config()
+
+    def draw_message(self, lines):
+        image = Image.new("1", (WIDTH, HEIGHT), 0)
+        draw = ImageDraw.Draw(image)
+        for idx, line in enumerate(lines[:6]):
+            draw.text((0, idx * 10), line[:21], font=self.font, fill=255)
+        with self.render_lock:
+            self.display_image(image)
 
     def saving_animation(self, stop_event):
         frames = ["|", "/", "-", "\\"]
