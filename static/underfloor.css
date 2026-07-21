@@ -170,8 +170,8 @@ body {
 .uf-state-light {
     position: absolute;
     top: 0;
-    left: 746px;
-    width: 966px;
+    left: 716px;
+    width: 1056px;
     height: 96px;
     background: transparent;
     clip-path: polygon(0 0, calc(100% - 58px) 0, 100% 50%, calc(100% - 58px) 100%, 0 100%, 58px 50%);
