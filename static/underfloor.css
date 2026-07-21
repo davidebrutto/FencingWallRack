@@ -54,14 +54,14 @@ body {
 .uf-strip {
     position: absolute;
     inset: 0;
-    display: grid;
-    grid-template-columns: 118px 142px 88px 165px 88px 108px 1222px 160px 597px;
-    align-items: center;
+    display: block;
     height: 96px;
     overflow: hidden;
 }
 
 .uf-block {
+    position: absolute;
+    top: 0;
     height: 96px;
     display: flex;
     align-items: center;
@@ -69,6 +69,8 @@ body {
 }
 
 .uf-flag-block {
+    left: 0;
+    width: 118px;
     padding: 14px 10px;
 }
 
@@ -82,6 +84,8 @@ body {
 }
 
 .uf-country {
+    left: 118px;
+    width: 142px;
     justify-content: flex-start;
     padding-left: 8px;
     font-size: 52px;
@@ -90,22 +94,20 @@ body {
 }
 
 .uf-cards {
+    position: absolute;
+    top: 0;
+    left: 348px;
+    width: 260px;
     height: 96px;
     display: grid;
-    grid-template-rows: 1fr 1fr;
-    gap: 5px;
-    align-content: center;
-    padding: 10px 8px;
-}
-
-.uf-card-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(4, 1fr);
     gap: 7px;
+    align-items: center;
+    padding: 8px 0;
 }
 
 .uf-card {
-    height: 31px;
+    height: 80px;
     border: 3px solid rgba(255, 255, 255, 0.18);
     background: rgba(255, 255, 255, 0.03);
     color: #000000;
@@ -131,41 +133,33 @@ body {
 }
 
 .uf-chevron {
-    position: relative;
+    position: absolute;
+    top: 0;
     height: 96px;
     width: 88px;
-}
-
-.uf-chevron::before,
-.uf-chevron::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    right: 16px;
-    width: 70px;
-    height: 10px;
     background: var(--uf-red);
-    transform-origin: right center;
+    clip-path: polygon(0 0, 20px 0, 88px 50%, 20px 100%, 0 100%, 68px 50%);
     box-shadow: 0 0 14px rgba(255, 49, 45, 0.36);
 }
 
-.uf-chevron::before {
-    transform: translateY(-50%) rotate(42deg);
+.uf-chevron-country {
+    left: 260px;
 }
 
-.uf-chevron::after {
-    transform: translateY(-50%) rotate(-42deg);
+.uf-chevron-priority {
+    left: 716px;
 }
 
-.uf-chevron::before {
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-}
-
-.uf-chevron::after {
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+.uf-chevron-name {
+    left: 1684px;
 }
 
 .uf-priority {
+    position: absolute;
+    top: 0;
+    left: 608px;
+    width: 108px;
+    height: 96px;
     color: var(--uf-yellow);
     font-size: 60px;
     font-weight: 900;
@@ -174,11 +168,36 @@ body {
     text-shadow: 0 0 16px rgba(244, 220, 41, 0.65);
 }
 
+.uf-state-light {
+    position: absolute;
+    top: 0;
+    left: 804px;
+    width: 880px;
+    height: 96px;
+    background: transparent;
+    transition: background-color 40ms linear, box-shadow 40ms linear;
+}
+
+.uf-state-light.is-red {
+    background: radial-gradient(circle at 50% 50%, #ff2d2d 0%, #990000 58%, #250000 100%);
+    box-shadow: inset 0 0 36px rgba(255, 0, 0, 0.9), 0 0 24px rgba(255, 0, 0, 0.45);
+}
+
+.uf-state-light.is-white {
+    background: radial-gradient(circle at 50% 50%, #ffffff 0%, #e8e8e8 62%, #606060 100%);
+    box-shadow: inset 0 0 30px rgba(255, 255, 255, 0.95), 0 0 20px rgba(255, 255, 255, 0.45);
+}
+
 .uf-name {
+    position: absolute;
+    top: 0;
+    left: 1772px;
+    width: 520px;
+    height: 96px;
     min-width: 0;
-    padding: 0 22px 0 22px;
+    padding: 0 18px 0 22px;
     color: #ffffff;
-    font-size: 58px;
+    font-size: 52px;
     font-weight: 900;
     letter-spacing: 0.015em;
     line-height: 96px;
@@ -190,7 +209,10 @@ body {
 }
 
 .uf-score-wrap {
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 2292px;
+    width: 160px;
     height: 96px;
     display: flex;
     align-items: center;
@@ -209,6 +231,10 @@ body {
 }
 
 .uf-timer {
+    position: absolute;
+    top: 0;
+    left: 2452px;
+    width: 236px;
     height: 96px;
     padding: 0 28px 0 10px;
     color: #00ff47;

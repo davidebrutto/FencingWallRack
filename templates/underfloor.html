@@ -18,21 +18,19 @@
                     <img id="ufFlagSX" class="uf-flag" src="/static/flags/it.svg" alt="">
                 </div>
                 <div class="uf-block uf-country" id="ufCountrySX">ITA</div>
-                <div class="uf-chevron uf-chevron-red"></div>
+                <div class="uf-chevron uf-chevron-country"></div>
 
                 <div class="uf-cards" aria-label="Cartellini sinistra">
-                    <div class="uf-card-row">
-                        <div class="uf-card uf-card-yellow" id="ufCGSX"></div>
-                        <div class="uf-card uf-card-red" id="ufCRSX"></div>
-                    </div>
-                    <div class="uf-card-row">
-                        <div class="uf-card uf-card-p-yellow" id="ufCGPSX"></div>
-                        <div class="uf-card uf-card-p-red" id="ufCRPSX"></div>
-                    </div>
+                    <div class="uf-card uf-card-yellow" id="ufCGSX"></div>
+                    <div class="uf-card uf-card-red" id="ufCRSX"></div>
+                    <div class="uf-card uf-card-p-yellow" id="ufCGPSX"></div>
+                    <div class="uf-card uf-card-p-red" id="ufCRPSX"></div>
                 </div>
 
-                <div class="uf-chevron uf-chevron-red"></div>
                 <div class="uf-priority" id="ufPrioritaSX"></div>
+                <div class="uf-chevron uf-chevron-priority"></div>
+                <div class="uf-state-light" id="ufStatoSXbig"></div>
+                <div class="uf-chevron uf-chevron-name"></div>
                 <div class="uf-name" id="ufNomeSX">-</div>
                 <div class="uf-score-wrap">
                     <div class="uf-score" id="ufScoreSX">0</div>
@@ -106,9 +104,12 @@
 
         function renderLeftScoreboard(tabellone) {
             const redCardsSX = cardCount(tabellone.D);
+            const statoSX = tabellone.R == 1 ? 'red' : (tabellone.w == 1 ? 'white' : 'off');
             setTextIfChanged('ufScoreSX', tabellone.YY || '0');
             setTextIfChanged('ufTimerText', tabellone.timer || '3:00');
             setTimerMode(tabellone.timerMode);
+            setClassState('ufStatoSXbig', 'is-red', statoSX === 'red');
+            setClassState('ufStatoSXbig', 'is-white', statoSX === 'white');
             setClassState('ufCGSX', 'is-on', Number.parseInt(String(tabellone.C ?? '0').trim(), 10) >= 1);
             setClassState('ufCRSX', 'is-on', redCardsSX > 0);
             setTextIfChanged('ufCRSX', redCardsSX > 1 ? redCardsSX : '');
