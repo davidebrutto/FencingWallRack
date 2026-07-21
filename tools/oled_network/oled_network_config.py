@@ -290,7 +290,28 @@ def restart_kiosk_service():
 
 
 def reboot_system():
-    run(["systemctl", "reboot"], check=False)
+    commands = [
+        ["/usr/bin/systemctl", "--no-block", "reboot"],
+        ["/bin/systemctl", "--no-block", "reboot"],
+        ["/usr/sbin/reboot"],
+        ["/sbin/reboot"],
+        ["reboot"],
+    ]
+    last_error = None
+    for cmd in commands:
+        if os.path.isabs(cmd[0]) and not os.path.exists(cmd[0]):
+            continue
+        try:
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+            return
+        except OSError as exc:
+            last_error = exc
+    raise RuntimeError(f"Reboot command failed: {last_error}")
+
+
+def reboot_after_delay(delay_sec):
+    time.sleep(delay_sec)
+    reboot_system()
 
 
 class OledNetworkApp:
@@ -481,12 +502,13 @@ class OledNetworkApp:
             animation = threading.Thread(target=self.saving_animation, args=(stop_animation,), daemon=True)
             animation.start()
             reboot_needed = False
+            selected_field = self.fields[self.selected]
             try:
                 apply_network(self.iface, self.cfg)
                 profile_changed = apply_kiosk_display_profile(self.display_profile)
                 self.status = "Saved. Re-reading..."
                 self.refresh_iface()
-                if profile_changed and REBOOT_ON_PROFILE_SAVE:
+                if REBOOT_ON_PROFILE_SAVE and (profile_changed or selected_field == "display_profile"):
                     reboot_needed = True
                     self.status = "Saved. Reboot..."
                 elif profile_changed:
@@ -502,8 +524,7 @@ class OledNetworkApp:
                 self.mark_activity()
             if reboot_needed:
                 self.draw_message(["Profile saved", "Rebooting...", display_profile_label(self.display_profile)])
-                time.sleep(REBOOT_DELAY_SEC)
-                reboot_system()
+                threading.Thread(target=reboot_after_delay, args=(REBOOT_DELAY_SEC,), daemon=True).start()
             return
 
         if event == "k3_hold":
