@@ -6,16 +6,17 @@ KIOSK_URL="${KIOSK_URL:-http://127.0.0.1:5000}"
 KIOSK_DISPLAY_PROFILE="${KIOSK_DISPLAY_PROFILE:-ledwall}"
 DISPLAY="${DISPLAY:-:0}"
 XAUTHORITY="${XAUTHORITY:-/home/pi/.Xauthority}"
-CHROMIUM_PROFILE_DIR="${CHROMIUM_PROFILE_DIR:-/home/pi/.config/fencing-kiosk}"
+KIOSK_HOME="${KIOSK_HOME:-${XAUTHORITY%/.Xauthority}}"
+CHROMIUM_PROFILE_DIR="${CHROMIUM_PROFILE_DIR:-${KIOSK_HOME}/.config/fencing-kiosk}"
 STARTUP_TIMEOUT_SEC="${STARTUP_TIMEOUT_SEC:-90}"
 CHROMIUM_START_DELAY_SEC="${CHROMIUM_START_DELAY_SEC:-8}"
 KIOSK_WINDOW_MODE="${KIOSK_WINDOW_MODE:-dual}"
-KIOSK_LEFT_PROFILE_DIR="${KIOSK_LEFT_PROFILE_DIR:-/home/pi/.config/chrome-profile-1}"
-KIOSK_RIGHT_PROFILE_DIR="${KIOSK_RIGHT_PROFILE_DIR:-/home/pi/.config/chrome-profile-2}"
-KIOSK_UNDERFLOOR_LEFT_A_PROFILE_DIR="${KIOSK_UNDERFLOOR_LEFT_A_PROFILE_DIR:-/home/pi/.config/chrome-underfloor-left-a}"
-KIOSK_UNDERFLOOR_LEFT_B_PROFILE_DIR="${KIOSK_UNDERFLOOR_LEFT_B_PROFILE_DIR:-/home/pi/.config/chrome-underfloor-left-b}"
-KIOSK_UNDERFLOOR_RIGHT_A_PROFILE_DIR="${KIOSK_UNDERFLOOR_RIGHT_A_PROFILE_DIR:-/home/pi/.config/chrome-underfloor-right-a}"
-KIOSK_UNDERFLOOR_RIGHT_B_PROFILE_DIR="${KIOSK_UNDERFLOOR_RIGHT_B_PROFILE_DIR:-/home/pi/.config/chrome-underfloor-right-b}"
+KIOSK_LEFT_PROFILE_DIR="${KIOSK_LEFT_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-profile-1}"
+KIOSK_RIGHT_PROFILE_DIR="${KIOSK_RIGHT_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-profile-2}"
+KIOSK_UNDERFLOOR_LEFT_A_PROFILE_DIR="${KIOSK_UNDERFLOOR_LEFT_A_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-underfloor-left-a}"
+KIOSK_UNDERFLOOR_LEFT_B_PROFILE_DIR="${KIOSK_UNDERFLOOR_LEFT_B_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-underfloor-left-b}"
+KIOSK_UNDERFLOOR_RIGHT_A_PROFILE_DIR="${KIOSK_UNDERFLOOR_RIGHT_A_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-underfloor-right-a}"
+KIOSK_UNDERFLOOR_RIGHT_B_PROFILE_DIR="${KIOSK_UNDERFLOOR_RIGHT_B_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-underfloor-right-b}"
 
 case "${KIOSK_DISPLAY_PROFILE}" in
   ledwall|LEDWALL)
@@ -124,16 +125,21 @@ wait_for_x_display() {
 }
 
 wait_for_http() {
+  wait_for_http_url "${KIOSK_URL}"
+}
+
+wait_for_http_url() {
+  local url="$1"
   local elapsed=0
   local step=2
-  while ! curl -fsS --max-time 2 "${KIOSK_URL}" >/dev/null 2>&1; do
+  while ! curl -fsS --max-time 2 "${url}" >/dev/null 2>&1; do
     if ! kill -0 "${NODE_PID}" 2>/dev/null; then
       echo "Node terminato durante attesa HTTP" >&2
       return 1
     fi
     elapsed=$((elapsed + step))
     if (( elapsed >= STARTUP_TIMEOUT_SEC )); then
-      echo "Timeout attesa endpoint ${KIOSK_URL}" >&2
+      echo "Timeout attesa endpoint ${url}" >&2
       return 1
     fi
     sleep "${step}"
@@ -224,6 +230,8 @@ launch_chromium_app_window() {
   mkdir -p "${profile_dir}"
   pkill -f "${CHROMIUM_BIN}.*${profile_dir}" >/dev/null 2>&1 || true
 
+  echo "Avvio ${class_name}: url=${url} geometry=${geometry} profile=${profile_dir}"
+
   local args=(
     --disable-gpu
     --disable-software-rasterizer
@@ -249,6 +257,11 @@ launch_chromium_app_window() {
 
   "${CHROMIUM_BIN}" "${args[@]}" &
   LAST_CHROME_PID=$!
+  sleep 0.4
+  if ! kill -0 "${LAST_CHROME_PID}" 2>/dev/null; then
+    echo "Chromium ${class_name} terminato subito dopo l'avvio" >&2
+    return 1
+  fi
 }
 
 launch_dual_windows() {
@@ -315,6 +328,12 @@ launch_dual_windows() {
 }
 
 launch_underfloor_windows() {
+  echo "Profilo sottopedana: 4 finestre 1344x96"
+  wait_for_http_url "${KIOSK_UNDERFLOOR_LEFT_A_URL}"
+  wait_for_http_url "${KIOSK_UNDERFLOOR_LEFT_B_URL}"
+  wait_for_http_url "${KIOSK_UNDERFLOOR_RIGHT_A_URL}"
+  wait_for_http_url "${KIOSK_UNDERFLOOR_RIGHT_B_URL}"
+
   launch_chromium_app_window "${KIOSK_UNDERFLOOR_LEFT_A_URL}" "${KIOSK_UNDERFLOOR_LEFT_A_PROFILE_DIR}" "kiosk_sottopedana_sx_a" "${KIOSK_UNDERFLOOR_LEFT_A_GEOMETRY}"
   CHROME_UNDERFLOOR_LEFT_A_PID="${LAST_CHROME_PID}"
   launch_chromium_app_window "${KIOSK_UNDERFLOOR_LEFT_B_URL}" "${KIOSK_UNDERFLOOR_LEFT_B_PROFILE_DIR}" "kiosk_sottopedana_sx_b" "${KIOSK_UNDERFLOOR_LEFT_B_GEOMETRY}" "1"
