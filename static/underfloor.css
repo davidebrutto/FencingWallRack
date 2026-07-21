@@ -55,16 +55,14 @@ body {
     position: absolute;
     inset: 0;
     display: grid;
-    grid-template-columns: 118px 142px 165px 90px 108px 980px 160px 90px 835px;
+    grid-template-columns: 118px 142px 88px 165px 88px 108px 1222px 160px 597px;
     align-items: center;
     height: 96px;
-    border-top: 4px solid var(--uf-yellow);
-    border-bottom: 4px solid var(--uf-yellow);
     overflow: hidden;
 }
 
 .uf-block {
-    height: 88px;
+    height: 96px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -92,7 +90,7 @@ body {
 }
 
 .uf-cards {
-    height: 88px;
+    height: 96px;
     display: grid;
     grid-template-rows: 1fr 1fr;
     gap: 5px;
@@ -134,8 +132,8 @@ body {
 
 .uf-chevron {
     position: relative;
-    height: 88px;
-    width: 90px;
+    height: 96px;
+    width: 88px;
 }
 
 .uf-chevron::before,
@@ -143,19 +141,28 @@ body {
     content: "";
     position: absolute;
     top: 50%;
-    width: 74px;
-    height: 8px;
+    right: 16px;
+    width: 70px;
+    height: 10px;
     background: var(--uf-red);
     transform-origin: right center;
-    box-shadow: 0 0 12px rgba(255, 49, 45, 0.28);
+    box-shadow: 0 0 14px rgba(255, 49, 45, 0.36);
 }
 
 .uf-chevron::before {
-    transform: translateY(-50%) rotate(47deg);
+    transform: translateY(-50%) rotate(42deg);
 }
 
 .uf-chevron::after {
-    transform: translateY(-50%) rotate(-47deg);
+    transform: translateY(-50%) rotate(-42deg);
+}
+
+.uf-chevron::before {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.uf-chevron::after {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
 }
 
 .uf-priority {
@@ -163,18 +170,18 @@ body {
     font-size: 60px;
     font-weight: 900;
     text-align: center;
-    line-height: 88px;
+    line-height: 96px;
     text-shadow: 0 0 16px rgba(244, 220, 41, 0.65);
 }
 
 .uf-name {
     min-width: 0;
-    padding: 0 35px 0 22px;
+    padding: 0 22px 0 22px;
     color: #ffffff;
     font-size: 58px;
     font-weight: 900;
     letter-spacing: 0.015em;
-    line-height: 88px;
+    line-height: 96px;
     overflow: hidden;
     text-align: right;
     text-overflow: ellipsis;
@@ -184,7 +191,7 @@ body {
 
 .uf-score-wrap {
     position: relative;
-    height: 88px;
+    height: 96px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -201,18 +208,14 @@ body {
     text-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
 }
 
-.uf-chevron-after-score {
-    margin-left: -6px;
-}
-
 .uf-timer {
-    height: 88px;
-    padding: 0 48px 0 10px;
+    height: 96px;
+    padding: 0 28px 0 10px;
     color: #00ff47;
     font-size: 68px;
     font-weight: 950;
-    line-height: 88px;
-    text-align: left;
+    line-height: 96px;
+    text-align: right;
     text-shadow: 0 0 18px rgba(0, 255, 71, 0.35);
     white-space: nowrap;
 }
