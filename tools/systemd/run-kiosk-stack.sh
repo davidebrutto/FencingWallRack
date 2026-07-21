@@ -10,6 +10,7 @@ KIOSK_HOME="${KIOSK_HOME:-${XAUTHORITY%/.Xauthority}}"
 KIOSK_SET_WALLPAPER="${KIOSK_SET_WALLPAPER:-1}"
 KIOSK_WALLPAPER_MODE="${KIOSK_WALLPAPER_MODE:-fit}"
 KIOSK_WALLPAPER_BACKEND="${KIOSK_WALLPAPER_BACKEND:-auto}"
+KIOSK_PCMANFM_PROFILE="${KIOSK_PCMANFM_PROFILE:-LXDE-pi}"
 CHROMIUM_PROFILE_DIR="${CHROMIUM_PROFILE_DIR:-${KIOSK_HOME}/.config/fencing-kiosk}"
 STARTUP_TIMEOUT_SEC="${STARTUP_TIMEOUT_SEC:-90}"
 CHROMIUM_START_DELAY_SEC="${CHROMIUM_START_DELAY_SEC:-8}"
@@ -219,6 +220,149 @@ configure_window() {
   done
 }
 
+pcmanfm_wallpaper_mode() {
+  case "${KIOSK_WALLPAPER_MODE}" in
+    fill) echo "crop" ;;
+    scale) echo "stretch" ;;
+    max) echo "fit" ;;
+    *) echo "${KIOSK_WALLPAPER_MODE}" ;;
+  esac
+}
+
+feh_wallpaper_flag() {
+  case "${KIOSK_WALLPAPER_MODE}" in
+    fit) echo "--bg-scale" ;;
+    fill|crop) echo "--bg-fill" ;;
+    center) echo "--bg-center" ;;
+    tile) echo "--bg-tile" ;;
+    max) echo "--bg-max" ;;
+    stretch|scale) echo "--bg-scale" ;;
+    *) echo "--bg-scale" ;;
+  esac
+}
+
+write_pcmanfm_wallpaper_config() {
+  local config_file="$1"
+  local config_dir
+  local config_tmp
+  local pcmanfm_mode
+
+  config_dir="$(dirname "${config_file}")"
+  config_tmp="${config_file}.tmp"
+  pcmanfm_mode="$(pcmanfm_wallpaper_mode)"
+  mkdir -p "${config_dir}"
+
+  if [[ ! -f "${config_file}" ]]; then
+    cat >"${config_file}" <<EOF
+[*]
+wallpaper=${KIOSK_WALLPAPER}
+wallpaper_mode=${pcmanfm_mode}
+desktop_bg=#000000
+desktop_fg=#ffffff
+desktop_shadow=#000000
+show_wm_menu=0
+show_documents=0
+show_trash=0
+show_mounts=0
+EOF
+    return 0
+  fi
+
+  awk -v wallpaper="${KIOSK_WALLPAPER}" -v wallpaper_mode="${pcmanfm_mode}" '
+    BEGIN {
+      in_default = 0
+      saw_default = 0
+      saw_wallpaper = 0
+      saw_wallpaper_mode = 0
+    }
+    /^\[\*\]$/ {
+      in_default = 1
+      saw_default = 1
+      print
+      next
+    }
+    /^\[/ && $0 !~ /^\[\*\]$/ {
+      if (in_default) {
+        if (!saw_wallpaper) print "wallpaper=" wallpaper
+        if (!saw_wallpaper_mode) print "wallpaper_mode=" wallpaper_mode
+      }
+      in_default = 0
+      print
+      next
+    }
+    in_default && /^wallpaper=/ {
+      print "wallpaper=" wallpaper
+      saw_wallpaper = 1
+      next
+    }
+    in_default && /^wallpaper_mode=/ {
+      print "wallpaper_mode=" wallpaper_mode
+      saw_wallpaper_mode = 1
+      next
+    }
+    { print }
+    END {
+      if (!saw_default) {
+        print "[*]"
+        print "wallpaper=" wallpaper
+        print "wallpaper_mode=" wallpaper_mode
+      } else if (in_default) {
+        if (!saw_wallpaper) print "wallpaper=" wallpaper
+        if (!saw_wallpaper_mode) print "wallpaper_mode=" wallpaper_mode
+      }
+    }
+  ' "${config_file}" >"${config_tmp}"
+  mv "${config_tmp}" "${config_file}"
+}
+
+set_pcmanfm_wallpaper() {
+  local pcmanfm_dir="${KIOSK_HOME}/.config/pcmanfm"
+  local config_file
+  local profile
+  local wrote_config=0
+  local profiles=(
+    "${KIOSK_PCMANFM_PROFILE}"
+    "LXDE-pi"
+    "rpd-x"
+    "default"
+  )
+
+  for profile in "${profiles[@]}"; do
+    [[ -z "${profile}" ]] && continue
+    config_file="${pcmanfm_dir}/${profile}/desktop-items-0.conf"
+    write_pcmanfm_wallpaper_config "${config_file}"
+    wrote_config=1
+  done
+
+  for config_file in "${pcmanfm_dir}"/*/desktop-items-0.conf; do
+    [[ -e "${config_file}" ]] || continue
+    write_pcmanfm_wallpaper_config "${config_file}"
+    wrote_config=1
+  done
+
+  if (( wrote_config == 0 )); then
+    return 1
+  fi
+
+  if command -v pcmanfm >/dev/null 2>&1; then
+    pcmanfm --desktop --profile="${KIOSK_PCMANFM_PROFILE}" >/dev/null 2>&1 &
+  fi
+
+  echo "Wallpaper desktop configurato: ${KIOSK_WALLPAPER}"
+  return 0
+}
+
+set_feh_wallpaper() {
+  local feh_flag
+
+  if ! command -v feh >/dev/null 2>&1; then
+    return 1
+  fi
+
+  feh_flag="$(feh_wallpaper_flag)"
+  feh "${feh_flag}" "${KIOSK_WALLPAPER}" >/dev/null 2>&1
+}
+
 set_desktop_wallpaper() {
   if [[ "${KIOSK_SET_WALLPAPER}" == "0" ]] || [[ -z "${KIOSK_WALLPAPER}" ]]; then
     return 0
@@ -229,25 +373,21 @@ set_desktop_wallpaper() {
     return 0
   fi
 
-  if [[ "${KIOSK_WALLPAPER_BACKEND}" == "auto" || "${KIOSK_WALLPAPER_BACKEND}" == "feh" ]]; then
-    if command -v feh >/dev/null 2>&1; then
-      feh "--bg-${KIOSK_WALLPAPER_MODE}" "${KIOSK_WALLPAPER}" >/dev/null 2>&1 || \
-        echo "Impossibile impostare wallpaper con feh: ${KIOSK_WALLPAPER}" >&2
+  if [[ "${KIOSK_WALLPAPER_BACKEND}" == "auto" || "${KIOSK_WALLPAPER_BACKEND}" == "pcmanfm" ]]; then
+    if set_pcmanfm_wallpaper; then
       return 0
     fi
   fi
 
-  if [[ "${KIOSK_WALLPAPER_BACKEND}" == "auto" || "${KIOSK_WALLPAPER_BACKEND}" == "pcmanfm" ]]; then
-    if command -v pcmanfm >/dev/null 2>&1 && pgrep -u "$(id -u)" -x pcmanfm >/dev/null 2>&1; then
-      pcmanfm --set-wallpaper="${KIOSK_WALLPAPER}" --wallpaper-mode="${KIOSK_WALLPAPER_MODE}" >/dev/null 2>&1 || \
-        echo "Impossibile impostare wallpaper con pcmanfm: ${KIOSK_WALLPAPER}" >&2
+  if [[ "${KIOSK_WALLPAPER_BACKEND}" == "auto" || "${KIOSK_WALLPAPER_BACKEND}" == "feh" ]]; then
+    if set_feh_wallpaper; then
       return 0
     fi
   fi
 
   if [[ "${KIOSK_WALLPAPER_BACKEND}" == "auto" || "${KIOSK_WALLPAPER_BACKEND}" == "pcmanfm-qt" ]]; then
     if command -v pcmanfm-qt >/dev/null 2>&1 && pgrep -u "$(id -u)" -x pcmanfm-qt >/dev/null 2>&1; then
-      pcmanfm-qt --set-wallpaper="${KIOSK_WALLPAPER}" --wallpaper-mode="${KIOSK_WALLPAPER_MODE}" >/dev/null 2>&1 || \
+      pcmanfm-qt --set-wallpaper="${KIOSK_WALLPAPER}" --wallpaper-mode="$(pcmanfm_wallpaper_mode)" >/dev/null 2>&1 || \
         echo "Impossibile impostare wallpaper con pcmanfm-qt: ${KIOSK_WALLPAPER}" >&2
       return 0
     fi
@@ -258,7 +398,7 @@ set_desktop_wallpaper() {
     return 0
   fi
 
-  echo "Nessun gestore wallpaper attivo: installa feh o lascia KIOSK_SET_WALLPAPER=0" >&2
+  echo "Nessun gestore wallpaper attivo: installa feh oppure usa KIOSK_WALLPAPER_BACKEND=pcmanfm" >&2
 }
 
 launch_chromium_app_window() {
