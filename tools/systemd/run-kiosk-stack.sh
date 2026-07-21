@@ -345,7 +345,10 @@ set_pcmanfm_wallpaper() {
   fi
 
   if command -v pcmanfm >/dev/null 2>&1; then
+    pcmanfm --desktop-off >/dev/null 2>&1 || true
+    sleep 0.4
     pcmanfm --desktop --profile="${KIOSK_PCMANFM_PROFILE}" >/dev/null 2>&1 &
+    sleep 0.4
   fi
 
   echo "Wallpaper desktop configurato: ${KIOSK_WALLPAPER}"
