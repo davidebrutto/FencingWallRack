@@ -15,19 +15,36 @@ from luma.oled.device import sh1106
 from PIL import Image, ImageDraw, ImageFont
 
 
+def env_bool(name, default):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in ("0", "false", "no", "off")
+
+
+def env_float(name, default):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return float(value.strip().split()[0])
+    except (IndexError, ValueError):
+        return default
+
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WIDTH = int(os.getenv("OLED_WIDTH", "128"))
 HEIGHT = int(os.getenv("OLED_HEIGHT", "64"))
 ROTATE = int(os.getenv("OLED_ROTATE", "0"))
-FLIP_180 = os.getenv("OLED_FLIP_180", "1").strip().lower() not in ("0", "false", "no", "off")
-INPUT_FLIP_180 = os.getenv("OLED_INPUT_FLIP_180", "1" if FLIP_180 else "0").strip().lower() not in ("0", "false", "no", "off")
+FLIP_180 = env_bool("OLED_FLIP_180", True)
+INPUT_FLIP_180 = env_bool("OLED_INPUT_FLIP_180", FLIP_180)
 LOGO_PATH = os.getenv("OLED_LOGO_PATH", os.path.join(SCRIPT_DIR, "logo.png"))
-LOGO_TIMEOUT_SEC = float(os.getenv("OLED_LOGO_TIMEOUT_SEC", "10"))
+LOGO_TIMEOUT_SEC = env_float("OLED_LOGO_TIMEOUT_SEC", 10)
 KIOSK_ENV_PATH = os.getenv("KIOSK_ENV_PATH", "/etc/default/fencingwallrack-kiosk")
 KIOSK_SERVICE = os.getenv("KIOSK_SERVICE", "fencingwallrack-kiosk.service")
-RESTART_KIOSK_ON_PROFILE_SAVE = os.getenv("OLED_RESTART_KIOSK_ON_PROFILE_SAVE", "1").strip().lower() not in ("0", "false", "no", "off")
-REBOOT_ON_PROFILE_SAVE = os.getenv("OLED_REBOOT_ON_PROFILE_SAVE", "1").strip().lower() not in ("0", "false", "no", "off")
-REBOOT_DELAY_SEC = float(os.getenv("OLED_REBOOT_DELAY_SEC", "2"))
+RESTART_KIOSK_ON_PROFILE_SAVE = env_bool("OLED_RESTART_KIOSK_ON_PROFILE_SAVE", True)
+REBOOT_ON_PROFILE_SAVE = env_bool("OLED_REBOOT_ON_PROFILE_SAVE", True)
+REBOOT_DELAY_SEC = env_float("OLED_REBOOT_DELAY_SEC", 2)
 SPI_PORT = int(os.getenv("OLED_SPI_PORT", "0"))
 SPI_DEVICE = int(os.getenv("OLED_SPI_DEVICE", "0"))
 GPIO_DC = int(os.getenv("OLED_GPIO_DC", "24"))
