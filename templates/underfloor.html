@@ -7,28 +7,147 @@
     <link rel="icon" type="image/x-icon" href="/static/logo.jpg">
     <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='underfloor.css')}}"/>
     <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript" src="/static/noc-to-flag.js"></script>
 </head>
 <body class="underfloor underfloor-{{ side }} underfloor-segment-{{ segment }}">
     <main class="underfloor-viewport" data-side="{{ side }}" data-segment="{{ segment }}">
         <div class="underfloor-canvas">
+            {% if side == 'left' %}
+            <section class="uf-strip uf-strip-left" aria-label="Sottopedana sinistra">
+                <div class="uf-block uf-flag-block">
+                    <img id="ufFlagSX" class="uf-flag" src="/static/flags/it.svg" alt="">
+                </div>
+                <div class="uf-block uf-country" id="ufCountrySX">ITA</div>
+
+                <div class="uf-cards" aria-label="Cartellini sinistra">
+                    <div class="uf-card-row">
+                        <div class="uf-card uf-card-yellow" id="ufCGSX"></div>
+                        <div class="uf-card uf-card-red" id="ufCRSX"></div>
+                    </div>
+                    <div class="uf-card-row">
+                        <div class="uf-card uf-card-p-red" id="ufCRPSX"></div>
+                        <div class="uf-card uf-card-p-yellow" id="ufCGPSX"></div>
+                    </div>
+                </div>
+
+                <div class="uf-chevron uf-chevron-red"></div>
+                <div class="uf-priority" id="ufPrioritaSX"></div>
+                <div class="uf-name" id="ufNomeSX">-</div>
+                <div class="uf-score-wrap">
+                    <div class="uf-score" id="ufScoreSX">0</div>
+                </div>
+                <div class="uf-chevron uf-chevron-red uf-chevron-after-score"></div>
+                <div class="uf-timer" id="ufTimerText">3:00</div>
+            </section>
+            {% else %}
             <div class="underfloor-placeholder">
                 <span>SOTTOPEDANA {{ sideLabel }} - META {{ segmentLabel }}</span>
             </div>
+            {% endif %}
         </div>
     </main>
     <script>
+        const currentSide = document.querySelector('.underfloor-viewport')?.dataset.side || '{{ side }}';
+        const lastRenderedUnderfloor = {};
+
         const socket = io({
             autoConnect: true,
             transports: ['websocket'],
             upgrade: false
         });
 
+        function setTextIfChanged(id, value) {
+            const el = document.getElementById(id);
+            if (!el) {
+                return;
+            }
+            const text = String(value ?? '').trim();
+            if (lastRenderedUnderfloor[`text:${id}`] === text) {
+                return;
+            }
+            lastRenderedUnderfloor[`text:${id}`] = text;
+            el.textContent = text;
+        }
+
+        function setClassState(id, className, enabled) {
+            const el = document.getElementById(id);
+            if (!el) {
+                return;
+            }
+            const key = `class:${id}:${className}`;
+            if (lastRenderedUnderfloor[key] === enabled) {
+                return;
+            }
+            lastRenderedUnderfloor[key] = enabled;
+            el.classList.toggle(className, enabled);
+        }
+
+        function setTimerMode(mode) {
+            const timer = document.getElementById('ufTimerText');
+            if (!timer) {
+                return;
+            }
+            timer.classList.toggle('uf-timer-stopped', mode === 'N');
+            timer.classList.toggle('uf-timer-warning', mode === 'B' || mode === 'J');
+        }
+
+        function cardCount(value) {
+            const count = Number.parseInt(String(value ?? '').trim(), 10);
+            return Number.isFinite(count) && count > 0 ? count : 0;
+        }
+
+        function renderPassivityCard(value) {
+            const cardValue = Number.parseInt(String(value ?? '0').trim(), 10) || 0;
+            setClassState('ufCGPSX', 'is-on', cardValue === 1);
+            setTextIfChanged('ufCGPSX', cardValue === 1 ? 'P' : '');
+            setClassState('ufCRPSX', 'is-on', cardValue >= 2);
+            setTextIfChanged('ufCRPSX', cardValue === 2 ? 'P' : (cardValue === 3 ? 'P2' : ''));
+        }
+
+        function renderLeftScoreboard(tabellone) {
+            const redCardsSX = cardCount(tabellone.D);
+            setTextIfChanged('ufScoreSX', tabellone.YY || '0');
+            setTextIfChanged('ufTimerText', tabellone.timer || '3:00');
+            setTimerMode(tabellone.timerMode);
+            setClassState('ufCGSX', 'is-on', Number.parseInt(String(tabellone.C ?? '0').trim(), 10) >= 1);
+            setClassState('ufCRSX', 'is-on', redCardsSX > 0);
+            setTextIfChanged('ufCRSX', redCardsSX > 1 ? redCardsSX : '');
+            renderPassivityCard(tabellone.passivityLeft);
+            setTextIfChanged('ufPrioritaSX', tabellone.P == 2 ? 'P' : '');
+        }
+
+        function renderLeftCompetitor(payload) {
+            const competitor = payload && payload.competitor ? payload.competitor : payload;
+            if (!competitor || competitor.side !== 'left') {
+                return;
+            }
+            const nation = String(competitor.nation || '').trim().toUpperCase();
+            const flagCode = window.nocToFlag ? window.nocToFlag(nation) : '';
+
+            setTextIfChanged('ufNomeSX', competitor.name || '-');
+            setTextIfChanged('ufCountrySX', nation || '');
+
+            if (flagCode) {
+                const flag = document.getElementById('ufFlagSX');
+                const nextSrc = `/static/flags/${flagCode}.svg`;
+                if (flag && !flag.src.endsWith(nextSrc)) {
+                    flag.src = nextSrc;
+                }
+            }
+        }
+
         socket.on('punti_emit', function(payload) {
             window.lastUnderfloorScore = payload && payload.tabellone ? payload.tabellone : {};
+            if (currentSide === 'left') {
+                renderLeftScoreboard(window.lastUnderfloorScore);
+            }
         });
 
         socket.on('competitor_emit', function(payload) {
             window.lastUnderfloorCompetitor = payload && payload.competitor ? payload.competitor : payload;
+            if (currentSide === 'left') {
+                renderLeftCompetitor(payload);
+            }
         });
     </script>
 </body>
