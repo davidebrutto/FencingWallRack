@@ -138,6 +138,7 @@ body {
     background: var(--uf-red);
     clip-path: polygon(0 0, 24px 0, 88px 50%, 24px 100%, 0 100%, 58px 50%);
     box-shadow: 0 0 14px rgba(255, 49, 45, 0.36);
+    z-index: 3;
 }
 
 .uf-chevron-country {
@@ -169,12 +170,13 @@ body {
 .uf-state-light {
     position: absolute;
     top: 0;
-    left: 804px;
-    width: 880px;
+    left: 746px;
+    width: 966px;
     height: 96px;
     background: transparent;
-    clip-path: polygon(0 50%, 58px 0, calc(100% - 64px) 0, 100% 50%, calc(100% - 64px) 100%, 58px 100%);
+    clip-path: polygon(0 0, calc(100% - 58px) 0, 100% 50%, calc(100% - 58px) 100%, 0 100%, 58px 50%);
     transition: background-color 40ms linear, box-shadow 40ms linear;
+    z-index: 1;
 }
 
 .uf-state-light.is-red {
