@@ -7,6 +7,8 @@ KIOSK_DISPLAY_PROFILE="${KIOSK_DISPLAY_PROFILE:-ledwall}"
 DISPLAY="${DISPLAY:-:0}"
 XAUTHORITY="${XAUTHORITY:-/home/pi/.Xauthority}"
 KIOSK_HOME="${KIOSK_HOME:-${XAUTHORITY%/.Xauthority}}"
+KIOSK_SET_WALLPAPER="${KIOSK_SET_WALLPAPER:-1}"
+KIOSK_WALLPAPER_MODE="${KIOSK_WALLPAPER_MODE:-fit}"
 CHROMIUM_PROFILE_DIR="${CHROMIUM_PROFILE_DIR:-${KIOSK_HOME}/.config/fencing-kiosk}"
 STARTUP_TIMEOUT_SEC="${STARTUP_TIMEOUT_SEC:-90}"
 CHROMIUM_START_DELAY_SEC="${CHROMIUM_START_DELAY_SEC:-8}"
@@ -26,6 +28,7 @@ case "${KIOSK_DISPLAY_PROFILE}" in
     KIOSK_RIGHT_URL="${KIOSK_LEDWALL_RIGHT_URL:-${KIOSK_RIGHT_URL:-${KIOSK_URL%/}/rear}}"
     KIOSK_LEFT_GEOMETRY="${KIOSK_LEDWALL_LEFT_GEOMETRY:-${KIOSK_LEFT_GEOMETRY:-0,1,768,414}}"
     KIOSK_RIGHT_GEOMETRY="${KIOSK_LEDWALL_RIGHT_GEOMETRY:-${KIOSK_RIGHT_GEOMETRY:-0,514,768,414}}"
+    KIOSK_WALLPAPER="${KIOSK_LEDWALL_WALLPAPER:-${KIOSK_WALLPAPER:-}}"
     ;;
   sottopedana|SOTTOPEDANA|underfloor|UNDERFLOOR)
     KIOSK_DISPLAY_PROFILE="sottopedana"
@@ -38,6 +41,7 @@ case "${KIOSK_DISPLAY_PROFILE}" in
     KIOSK_UNDERFLOOR_LEFT_B_GEOMETRY="${KIOSK_UNDERFLOOR_LEFT_B_GEOMETRY:-30,226,1344,96}"
     KIOSK_UNDERFLOOR_RIGHT_A_GEOMETRY="${KIOSK_UNDERFLOOR_RIGHT_A_GEOMETRY:-30,422,1344,96}"
     KIOSK_UNDERFLOOR_RIGHT_B_GEOMETRY="${KIOSK_UNDERFLOOR_RIGHT_B_GEOMETRY:-30,618,1344,96}"
+    KIOSK_WALLPAPER="${KIOSK_UNDERFLOOR_WALLPAPER:-${KIOSK_WALLPAPER:-}}"
     ;;
   *)
     echo "KIOSK_DISPLAY_PROFILE non valido: ${KIOSK_DISPLAY_PROFILE}" >&2
@@ -214,6 +218,31 @@ configure_window() {
   done
 }
 
+set_desktop_wallpaper() {
+  if [[ "${KIOSK_SET_WALLPAPER}" == "0" ]] || [[ -z "${KIOSK_WALLPAPER}" ]]; then
+    return 0
+  fi
+
+  if [[ ! -f "${KIOSK_WALLPAPER}" ]]; then
+    echo "Wallpaper non trovato: ${KIOSK_WALLPAPER}" >&2
+    return 0
+  fi
+
+  if command -v pcmanfm >/dev/null 2>&1; then
+    pcmanfm --set-wallpaper="${KIOSK_WALLPAPER}" --wallpaper-mode="${KIOSK_WALLPAPER_MODE}" >/dev/null 2>&1 || \
+      echo "Impossibile impostare wallpaper con pcmanfm: ${KIOSK_WALLPAPER}" >&2
+    return 0
+  fi
+
+  if command -v pcmanfm-qt >/dev/null 2>&1; then
+    pcmanfm-qt --set-wallpaper="${KIOSK_WALLPAPER}" --wallpaper-mode="${KIOSK_WALLPAPER_MODE}" >/dev/null 2>&1 || \
+      echo "Impossibile impostare wallpaper con pcmanfm-qt: ${KIOSK_WALLPAPER}" >&2
+    return 0
+  fi
+
+  echo "pcmanfm non trovato: salto cambio wallpaper" >&2
+}
+
 launch_chromium_app_window() {
   local url="$1"
   local profile_dir="$2"
@@ -381,6 +410,7 @@ echo "Node avviato PID=${NODE_PID}"
 
 wait_for_x_display
 wait_for_http
+set_desktop_wallpaper
 sleep "${CHROMIUM_START_DELAY_SEC}"
 
 if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]]; then
