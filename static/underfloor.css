@@ -156,7 +156,7 @@ body {
 }
 
 .uf-chevron-name {
-    left: 1684px;
+    left: 1484px;
 }
 
 .uf-priority {
@@ -177,7 +177,7 @@ body {
     position: absolute;
     top: 0;
     left: 716px;
-    width: 1051px;
+    width: 851px;
     height: 96px;
     background: transparent;
     clip-path: polygon(0 0, calc(100% - 58px) 0, 100% 50%, calc(100% - 58px) 100%, 0 100%, 58px 50%);
@@ -206,8 +206,8 @@ body {
 .uf-name {
     position: absolute;
     top: 0;
-    left: 1772px;
-    width: 520px;
+    left: 1572px;
+    width: 720px;
     height: 96px;
     min-width: 0;
     padding: 0 18px 0 22px;
@@ -288,17 +288,18 @@ body {
 
 .uf-strip-right .uf-name {
     left: 396px;
+    width: 824px;
     padding: 0 22px 0 18px;
     text-align: left;
 }
 
 .uf-strip-right .uf-chevron-name {
-    left: 916px;
+    left: 1220px;
 }
 
 .uf-strip-right .uf-state-light {
-    left: 921px;
-    width: 1051px;
+    left: 1225px;
+    width: 747px;
     clip-path: polygon(58px 0, 100% 0, calc(100% - 58px) 50%, 100% 100%, 58px 100%, 0 50%);
 }
 
