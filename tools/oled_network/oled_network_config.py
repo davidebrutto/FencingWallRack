@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import ipaddress
+import glob
 import os
 import queue
 import re
@@ -283,6 +284,143 @@ def apply_kiosk_display_profile(profile):
     return write_env_value(KIOSK_ENV_PATH, "KIOSK_DISPLAY_PROFILE", normalize_display_profile(profile))
 
 
+def pcmanfm_wallpaper_mode(value):
+    mode = (value or "fit").strip().lower()
+    if mode == "fill":
+        return "crop"
+    if mode == "scale":
+        return "stretch"
+    if mode == "max":
+        return "fit"
+    return mode
+
+
+def kiosk_home_from_env():
+    kiosk_home = read_env_value(KIOSK_ENV_PATH, "KIOSK_HOME")
+    if kiosk_home:
+        return kiosk_home
+
+    xauthority = read_env_value(KIOSK_ENV_PATH, "XAUTHORITY")
+    if xauthority.endswith("/.Xauthority"):
+        return os.path.dirname(xauthority)
+
+    return "/home/fencewall"
+
+
+def kiosk_wallpaper_for_profile(profile):
+    normalized_profile = normalize_display_profile(profile)
+    if normalized_profile == "sottopedana":
+        wallpaper = read_env_value(KIOSK_ENV_PATH, "KIOSK_UNDERFLOOR_WALLPAPER")
+    else:
+        wallpaper = read_env_value(KIOSK_ENV_PATH, "KIOSK_LEDWALL_WALLPAPER")
+    return wallpaper or read_env_value(KIOSK_ENV_PATH, "KIOSK_WALLPAPER")
+
+
+def chown_like_home(path, kiosk_home):
+    try:
+        home_stat = os.stat(kiosk_home)
+        os.chown(path, home_stat.st_uid, home_stat.st_gid)
+    except OSError:
+        pass
+
+
+def update_pcmanfm_wallpaper_config(config_path, wallpaper, wallpaper_mode, kiosk_home):
+    config_dir = os.path.dirname(config_path)
+    os.makedirs(config_dir, exist_ok=True)
+    chown_like_home(config_dir, kiosk_home)
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+    except FileNotFoundError:
+        lines = []
+
+    output = []
+    in_default = False
+    saw_default = False
+    saw_wallpaper = False
+    saw_wallpaper_mode = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "[*]":
+            in_default = True
+            saw_default = True
+            output.append(line)
+            continue
+
+        if stripped.startswith("[") and stripped.endswith("]") and in_default:
+            if not saw_wallpaper:
+                output.append(f"wallpaper={wallpaper}\n")
+            if not saw_wallpaper_mode:
+                output.append(f"wallpaper_mode={wallpaper_mode}\n")
+            in_default = False
+            output.append(line)
+            continue
+
+        if in_default and stripped.startswith("wallpaper="):
+            output.append(f"wallpaper={wallpaper}\n")
+            saw_wallpaper = True
+            continue
+
+        if in_default and stripped.startswith("wallpaper_mode="):
+            output.append(f"wallpaper_mode={wallpaper_mode}\n")
+            saw_wallpaper_mode = True
+            continue
+
+        output.append(line)
+
+    if not saw_default:
+        if output and not output[-1].endswith("\n"):
+            output[-1] += "\n"
+        output.extend([
+            "[*]\n",
+            f"wallpaper={wallpaper}\n",
+            f"wallpaper_mode={wallpaper_mode}\n",
+            "desktop_bg=#000000\n",
+            "desktop_fg=#ffffff\n",
+            "desktop_shadow=#000000\n",
+            "show_wm_menu=0\n",
+            "show_documents=0\n",
+            "show_trash=0\n",
+            "show_mounts=0\n",
+        ])
+    elif in_default:
+        if not saw_wallpaper:
+            output.append(f"wallpaper={wallpaper}\n")
+        if not saw_wallpaper_mode:
+            output.append(f"wallpaper_mode={wallpaper_mode}\n")
+
+    tmp_path = f"{config_path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as file:
+        file.writelines(output)
+    os.replace(tmp_path, config_path)
+    chown_like_home(config_path, kiosk_home)
+
+
+def prepare_desktop_wallpaper_for_profile(profile):
+    wallpaper = kiosk_wallpaper_for_profile(profile)
+    if not wallpaper or not os.path.exists(wallpaper):
+        print(f"Wallpaper not found for {profile}: {wallpaper}", file=sys.stderr)
+        return
+
+    kiosk_home = kiosk_home_from_env()
+    pcmanfm_dir = os.path.join(kiosk_home, ".config", "pcmanfm")
+    wallpaper_mode = pcmanfm_wallpaper_mode(read_env_value(KIOSK_ENV_PATH, "KIOSK_WALLPAPER_MODE") or "fit")
+    preferred_profile = read_env_value(KIOSK_ENV_PATH, "KIOSK_PCMANFM_PROFILE") or "LXDE-pi"
+    profiles = [preferred_profile, "LXDE-pi", "rpd-x", "default"]
+    config_paths = []
+
+    for pcmanfm_profile in profiles:
+        if pcmanfm_profile:
+            config_paths.append(os.path.join(pcmanfm_dir, pcmanfm_profile, "desktop-items-0.conf"))
+
+    config_paths.extend(glob.glob(os.path.join(pcmanfm_dir, "*", "desktop-items-0.conf")))
+
+    for config_path in dict.fromkeys(config_paths):
+        update_pcmanfm_wallpaper_config(config_path, wallpaper, wallpaper_mode, kiosk_home)
+
+
 def restart_kiosk_service():
     if not RESTART_KIOSK_ON_PROFILE_SAVE:
         return
@@ -503,16 +641,18 @@ class OledNetworkApp:
             animation.start()
             reboot_needed = False
             selected_field = self.fields[self.selected]
+            target_profile = normalize_display_profile(self.display_profile)
             try:
                 apply_network(self.iface, self.cfg)
-                profile_changed = apply_kiosk_display_profile(self.display_profile)
+                profile_changed = apply_kiosk_display_profile(target_profile)
                 self.status = "Saved. Re-reading..."
-                self.refresh_iface()
                 if REBOOT_ON_PROFILE_SAVE and (profile_changed or selected_field == "display_profile"):
+                    prepare_desktop_wallpaper_for_profile(target_profile)
                     reboot_needed = True
                     self.status = "Saved. Reboot..."
                 elif profile_changed:
                     restart_kiosk_service()
+                self.refresh_iface()
                 self.editing = False
                 if not reboot_needed:
                     self.status = "Saved"
