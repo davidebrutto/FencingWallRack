@@ -37,10 +37,31 @@
                 </div>
                 <div class="uf-timer" id="ufTimerText">3:00</div>
             </section>
-            {% else %}
-            <div class="underfloor-placeholder">
-                <span>SOTTOPEDANA {{ sideLabel }} - META {{ segmentLabel }}</span>
-            </div>
+            {% elif side == 'right' %}
+            <section class="uf-strip uf-strip-right" aria-label="Sottopedana destra">
+                <div class="uf-period" id="ufPeriodDX">1</div>
+                <div class="uf-score-wrap">
+                    <div class="uf-score" id="ufScoreDX">0</div>
+                </div>
+                <div class="uf-name" id="ufNomeDX">-</div>
+                <div class="uf-chevron uf-chevron-name"></div>
+                <div class="uf-state-light" id="ufStatoDXbig"></div>
+                <div class="uf-chevron uf-chevron-priority"></div>
+                <div class="uf-priority" id="ufPrioritaDX"></div>
+
+                <div class="uf-cards" aria-label="Cartellini destra">
+                    <div class="uf-card uf-card-yellow" id="ufCGDX"></div>
+                    <div class="uf-card uf-card-red" id="ufCRDX"></div>
+                    <div class="uf-card uf-card-p-yellow" id="ufCGPDX"></div>
+                    <div class="uf-card uf-card-p-red" id="ufCRPDX"></div>
+                </div>
+
+                <div class="uf-chevron uf-chevron-country"></div>
+                <div class="uf-block uf-country" id="ufCountryDX">ITA</div>
+                <div class="uf-block uf-flag-block">
+                    <img id="ufFlagDX" class="uf-flag" src="/static/flags/it.svg" alt="">
+                </div>
+            </section>
             {% endif %}
         </div>
     </main>
@@ -94,12 +115,12 @@
             return Number.isFinite(count) && count > 0 ? count : 0;
         }
 
-        function renderPassivityCard(value) {
+        function renderPassivityCard(value, yellowId, redId) {
             const cardValue = Number.parseInt(String(value ?? '0').trim(), 10) || 0;
-            setClassState('ufCGPSX', 'is-on', cardValue === 1);
-            setTextIfChanged('ufCGPSX', cardValue === 1 ? 'P' : '');
-            setClassState('ufCRPSX', 'is-on', cardValue >= 2);
-            setTextIfChanged('ufCRPSX', cardValue === 2 ? 'P' : (cardValue === 3 ? 'P2' : ''));
+            setClassState(yellowId, 'is-on', cardValue === 1);
+            setTextIfChanged(yellowId, cardValue === 1 ? 'P' : '');
+            setClassState(redId, 'is-on', cardValue >= 2);
+            setTextIfChanged(redId, cardValue === 2 ? 'P' : (cardValue === 3 ? 'P2' : ''));
         }
 
         function renderLeftScoreboard(tabellone) {
@@ -113,8 +134,22 @@
             setClassState('ufCGSX', 'is-on', Number.parseInt(String(tabellone.C ?? '0').trim(), 10) >= 1);
             setClassState('ufCRSX', 'is-on', redCardsSX > 0);
             setTextIfChanged('ufCRSX', redCardsSX > 1 ? redCardsSX : '');
-            renderPassivityCard(tabellone.passivityLeft);
+            renderPassivityCard(tabellone.passivityLeft, 'ufCGPSX', 'ufCRPSX');
             setTextIfChanged('ufPrioritaSX', tabellone.P == 2 ? 'P' : '');
+        }
+
+        function renderRightScoreboard(tabellone) {
+            const redCardsDX = cardCount(tabellone.B);
+            const statoDX = tabellone.G == 1 ? 'green' : (tabellone.W == 1 ? 'white' : 'off');
+            setTextIfChanged('ufScoreDX', tabellone.XX || '0');
+            setTextIfChanged('ufPeriodDX', tabellone.PR || '1');
+            setClassState('ufStatoDXbig', 'is-green', statoDX === 'green');
+            setClassState('ufStatoDXbig', 'is-white', statoDX === 'white');
+            setClassState('ufCGDX', 'is-on', Number.parseInt(String(tabellone.A ?? '0').trim(), 10) >= 1);
+            setClassState('ufCRDX', 'is-on', redCardsDX > 0);
+            setTextIfChanged('ufCRDX', redCardsDX > 1 ? redCardsDX : '');
+            renderPassivityCard(tabellone.passivityRight, 'ufCGPDX', 'ufCRPDX');
+            setTextIfChanged('ufPrioritaDX', tabellone.P == 1 ? 'P' : '');
         }
 
         function renderLeftCompetitor(payload) {
@@ -137,10 +172,32 @@
             }
         }
 
+        function renderRightCompetitor(payload) {
+            const competitor = payload && payload.competitor ? payload.competitor : payload;
+            if (!competitor || competitor.side !== 'right') {
+                return;
+            }
+            const nation = String(competitor.nation || '').trim().toUpperCase();
+            const flagCode = window.nocToFlag ? window.nocToFlag(nation) : '';
+
+            setTextIfChanged('ufNomeDX', competitor.name || '-');
+            setTextIfChanged('ufCountryDX', nation || '');
+
+            if (flagCode) {
+                const flag = document.getElementById('ufFlagDX');
+                const nextSrc = `/static/flags/${flagCode}.svg`;
+                if (flag && !flag.src.endsWith(nextSrc)) {
+                    flag.src = nextSrc;
+                }
+            }
+        }
+
         socket.on('punti_emit', function(payload) {
             window.lastUnderfloorScore = payload && payload.tabellone ? payload.tabellone : {};
             if (currentSide === 'left') {
                 renderLeftScoreboard(window.lastUnderfloorScore);
+            } else if (currentSide === 'right') {
+                renderRightScoreboard(window.lastUnderfloorScore);
             }
         });
 
@@ -148,6 +205,8 @@
             window.lastUnderfloorCompetitor = payload && payload.competitor ? payload.competitor : payload;
             if (currentSide === 'left') {
                 renderLeftCompetitor(payload);
+            } else if (currentSide === 'right') {
+                renderRightCompetitor(payload);
             }
         });
     </script>

@@ -141,6 +141,12 @@ body {
     z-index: 3;
 }
 
+.uf-strip-right .uf-chevron {
+    background: var(--uf-green);
+    clip-path: polygon(88px 0, 64px 0, 0 50%, 64px 100%, 88px 100%, 30px 50%);
+    box-shadow: 0 0 14px rgba(0, 134, 92, 0.42);
+}
+
 .uf-chevron-country {
     left: 250px;
 }
@@ -185,6 +191,12 @@ body {
     box-shadow: inset 0 0 36px rgba(255, 0, 0, 0.9), 0 0 24px rgba(255, 0, 0, 0.45);
 }
 
+.uf-state-light.is-green {
+    background:
+        radial-gradient(circle at 50% 50%, #00ff9a 0%, #00865c 54%, #00251d 100%);
+    box-shadow: inset 0 0 36px rgba(0, 255, 154, 0.88), 0 0 24px rgba(0, 255, 154, 0.42);
+}
+
 .uf-state-light.is-white {
     background:
         radial-gradient(circle at 50% 50%, #ffffff 0%, #f1f1f1 58%, #606060 100%);
@@ -224,6 +236,11 @@ body {
     clip-path: polygon(0 0, calc(100% - 33px) 0, 100% 50%, calc(100% - 33px) 100%, 0 100%, 33px 50%);
 }
 
+.uf-strip-right .uf-score-wrap {
+    background: var(--uf-green);
+    clip-path: polygon(33px 0, 100% 0, calc(100% - 33px) 50%, 100% 100%, 33px 100%, 0 50%);
+}
+
 .uf-score {
     color: #ffffff;
     font-size: 66px;
@@ -247,6 +264,69 @@ body {
     text-align: right;
     text-shadow: 0 0 18px rgba(0, 255, 71, 0.35);
     white-space: nowrap;
+}
+
+.uf-period {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 236px;
+    height: 96px;
+    padding: 0 10px 0 28px;
+    color: #ffffff;
+    font-size: 62px;
+    font-weight: 950;
+    line-height: 96px;
+    text-align: left;
+    text-shadow: 0 0 14px rgba(255, 255, 255, 0.28);
+    white-space: nowrap;
+}
+
+.uf-strip-right .uf-score-wrap {
+    left: 236px;
+}
+
+.uf-strip-right .uf-name {
+    left: 396px;
+    padding: 0 22px 0 18px;
+    text-align: left;
+}
+
+.uf-strip-right .uf-chevron-name {
+    left: 916px;
+}
+
+.uf-strip-right .uf-state-light {
+    left: 921px;
+    width: 1051px;
+    clip-path: polygon(58px 0, 100% 0, calc(100% - 58px) 50%, 100% 100%, 58px 100%, 0 50%);
+}
+
+.uf-strip-right .uf-chevron-priority {
+    left: 1884px;
+}
+
+.uf-strip-right .uf-priority {
+    left: 1972px;
+}
+
+.uf-strip-right .uf-cards {
+    left: 2080px;
+}
+
+.uf-strip-right .uf-chevron-country {
+    left: 2350px;
+}
+
+.uf-strip-right .uf-country {
+    left: 2428px;
+    justify-content: flex-end;
+    padding-right: 8px;
+    padding-left: 0;
+}
+
+.uf-strip-right .uf-flag-block {
+    left: 2570px;
 }
 
 .uf-timer.uf-timer-stopped {
