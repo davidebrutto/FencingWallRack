@@ -9,6 +9,7 @@ XAUTHORITY="${XAUTHORITY:-/home/pi/.Xauthority}"
 KIOSK_HOME="${KIOSK_HOME:-${XAUTHORITY%/.Xauthority}}"
 KIOSK_SET_WALLPAPER="${KIOSK_SET_WALLPAPER:-1}"
 KIOSK_WALLPAPER_MODE="${KIOSK_WALLPAPER_MODE:-fit}"
+KIOSK_WALLPAPER_BACKEND="${KIOSK_WALLPAPER_BACKEND:-auto}"
 CHROMIUM_PROFILE_DIR="${CHROMIUM_PROFILE_DIR:-${KIOSK_HOME}/.config/fencing-kiosk}"
 STARTUP_TIMEOUT_SEC="${STARTUP_TIMEOUT_SEC:-90}"
 CHROMIUM_START_DELAY_SEC="${CHROMIUM_START_DELAY_SEC:-8}"
@@ -228,19 +229,36 @@ set_desktop_wallpaper() {
     return 0
   fi
 
-  if command -v pcmanfm >/dev/null 2>&1; then
-    pcmanfm --set-wallpaper="${KIOSK_WALLPAPER}" --wallpaper-mode="${KIOSK_WALLPAPER_MODE}" >/dev/null 2>&1 || \
-      echo "Impossibile impostare wallpaper con pcmanfm: ${KIOSK_WALLPAPER}" >&2
+  if [[ "${KIOSK_WALLPAPER_BACKEND}" == "auto" || "${KIOSK_WALLPAPER_BACKEND}" == "feh" ]]; then
+    if command -v feh >/dev/null 2>&1; then
+      feh "--bg-${KIOSK_WALLPAPER_MODE}" "${KIOSK_WALLPAPER}" >/dev/null 2>&1 || \
+        echo "Impossibile impostare wallpaper con feh: ${KIOSK_WALLPAPER}" >&2
+      return 0
+    fi
+  fi
+
+  if [[ "${KIOSK_WALLPAPER_BACKEND}" == "auto" || "${KIOSK_WALLPAPER_BACKEND}" == "pcmanfm" ]]; then
+    if command -v pcmanfm >/dev/null 2>&1 && pgrep -u "$(id -u)" -x pcmanfm >/dev/null 2>&1; then
+      pcmanfm --set-wallpaper="${KIOSK_WALLPAPER}" --wallpaper-mode="${KIOSK_WALLPAPER_MODE}" >/dev/null 2>&1 || \
+        echo "Impossibile impostare wallpaper con pcmanfm: ${KIOSK_WALLPAPER}" >&2
+      return 0
+    fi
+  fi
+
+  if [[ "${KIOSK_WALLPAPER_BACKEND}" == "auto" || "${KIOSK_WALLPAPER_BACKEND}" == "pcmanfm-qt" ]]; then
+    if command -v pcmanfm-qt >/dev/null 2>&1 && pgrep -u "$(id -u)" -x pcmanfm-qt >/dev/null 2>&1; then
+      pcmanfm-qt --set-wallpaper="${KIOSK_WALLPAPER}" --wallpaper-mode="${KIOSK_WALLPAPER_MODE}" >/dev/null 2>&1 || \
+        echo "Impossibile impostare wallpaper con pcmanfm-qt: ${KIOSK_WALLPAPER}" >&2
+      return 0
+    fi
+  fi
+
+  if [[ "${KIOSK_WALLPAPER_BACKEND}" != "auto" ]]; then
+    echo "Backend wallpaper non disponibile o non attivo: ${KIOSK_WALLPAPER_BACKEND}" >&2
     return 0
   fi
 
-  if command -v pcmanfm-qt >/dev/null 2>&1; then
-    pcmanfm-qt --set-wallpaper="${KIOSK_WALLPAPER}" --wallpaper-mode="${KIOSK_WALLPAPER_MODE}" >/dev/null 2>&1 || \
-      echo "Impossibile impostare wallpaper con pcmanfm-qt: ${KIOSK_WALLPAPER}" >&2
-    return 0
-  fi
-
-  echo "pcmanfm non trovato: salto cambio wallpaper" >&2
+  echo "Nessun gestore wallpaper attivo: installa feh o lascia KIOSK_SET_WALLPAPER=0" >&2
 }
 
 launch_chromium_app_window() {
