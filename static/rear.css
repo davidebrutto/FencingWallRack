@@ -9,3 +9,11 @@
 body.rear-view {
     background: #000000;
 }
+
+body.rear-view #statoDXbig {
+    border-color: #880000 !important;
+}
+
+body.rear-view #statoSXbig {
+    border-color: #008800 !important;
+}
