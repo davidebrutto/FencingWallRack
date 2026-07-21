@@ -741,18 +741,19 @@ app.get('/rear', (req, res) => {
   });
 });
 
-app.get('/underfloor-left', (_req, res) => {
+app.get('/underfloor-:side(left|right)-:segment(a|b)', (req, res) => {
+  const side = req.params.side;
+  const segment = req.params.segment;
   res.render('underfloor.html', {
-    side: 'left',
-    sideLabel: 'SX',
+    side,
+    sideLabel: side === 'left' ? 'SX' : 'DX',
+    segment,
+    segmentLabel: segment.toUpperCase(),
   });
 });
 
-app.get('/underfloor-right', (_req, res) => {
-  res.render('underfloor.html', {
-    side: 'right',
-    sideLabel: 'DX',
-  });
+app.get('/underfloor-:side(left|right)', (req, res) => {
+  res.redirect(`/underfloor-${req.params.side}-a`);
 });
 
 app.get('/index_single', (req, res) => {

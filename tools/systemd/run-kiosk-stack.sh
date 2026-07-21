@@ -12,6 +12,10 @@ CHROMIUM_START_DELAY_SEC="${CHROMIUM_START_DELAY_SEC:-8}"
 KIOSK_WINDOW_MODE="${KIOSK_WINDOW_MODE:-dual}"
 KIOSK_LEFT_PROFILE_DIR="${KIOSK_LEFT_PROFILE_DIR:-/home/pi/.config/chrome-profile-1}"
 KIOSK_RIGHT_PROFILE_DIR="${KIOSK_RIGHT_PROFILE_DIR:-/home/pi/.config/chrome-profile-2}"
+KIOSK_UNDERFLOOR_LEFT_A_PROFILE_DIR="${KIOSK_UNDERFLOOR_LEFT_A_PROFILE_DIR:-/home/pi/.config/chrome-underfloor-left-a}"
+KIOSK_UNDERFLOOR_LEFT_B_PROFILE_DIR="${KIOSK_UNDERFLOOR_LEFT_B_PROFILE_DIR:-/home/pi/.config/chrome-underfloor-left-b}"
+KIOSK_UNDERFLOOR_RIGHT_A_PROFILE_DIR="${KIOSK_UNDERFLOOR_RIGHT_A_PROFILE_DIR:-/home/pi/.config/chrome-underfloor-right-a}"
+KIOSK_UNDERFLOOR_RIGHT_B_PROFILE_DIR="${KIOSK_UNDERFLOOR_RIGHT_B_PROFILE_DIR:-/home/pi/.config/chrome-underfloor-right-b}"
 
 case "${KIOSK_DISPLAY_PROFILE}" in
   ledwall|LEDWALL)
@@ -25,10 +29,14 @@ case "${KIOSK_DISPLAY_PROFILE}" in
   sottopedana|SOTTOPEDANA|underfloor|UNDERFLOOR)
     KIOSK_DISPLAY_PROFILE="sottopedana"
     KIOSK_SCALE="${KIOSK_UNDERFLOOR_SCALE:-1}"
-    KIOSK_LEFT_URL="${KIOSK_UNDERFLOOR_LEFT_URL:-${KIOSK_URL%/}/underfloor-left}"
-    KIOSK_RIGHT_URL="${KIOSK_UNDERFLOOR_RIGHT_URL:-${KIOSK_URL%/}/underfloor-right}"
-    KIOSK_LEFT_GEOMETRY="${KIOSK_UNDERFLOOR_LEFT_GEOMETRY:-0,0,2688,96}"
-    KIOSK_RIGHT_GEOMETRY="${KIOSK_UNDERFLOOR_RIGHT_GEOMETRY:-0,100,2688,96}"
+    KIOSK_UNDERFLOOR_LEFT_A_URL="${KIOSK_UNDERFLOOR_LEFT_A_URL:-${KIOSK_URL%/}/underfloor-left-a}"
+    KIOSK_UNDERFLOOR_LEFT_B_URL="${KIOSK_UNDERFLOOR_LEFT_B_URL:-${KIOSK_URL%/}/underfloor-left-b}"
+    KIOSK_UNDERFLOOR_RIGHT_A_URL="${KIOSK_UNDERFLOOR_RIGHT_A_URL:-${KIOSK_URL%/}/underfloor-right-a}"
+    KIOSK_UNDERFLOOR_RIGHT_B_URL="${KIOSK_UNDERFLOOR_RIGHT_B_URL:-${KIOSK_URL%/}/underfloor-right-b}"
+    KIOSK_UNDERFLOOR_LEFT_A_GEOMETRY="${KIOSK_UNDERFLOOR_LEFT_A_GEOMETRY:-0,0,1344,96}"
+    KIOSK_UNDERFLOOR_LEFT_B_GEOMETRY="${KIOSK_UNDERFLOOR_LEFT_B_GEOMETRY:-0,120,1344,96}"
+    KIOSK_UNDERFLOOR_RIGHT_A_GEOMETRY="${KIOSK_UNDERFLOOR_RIGHT_A_GEOMETRY:-0,240,1344,96}"
+    KIOSK_UNDERFLOOR_RIGHT_B_GEOMETRY="${KIOSK_UNDERFLOOR_RIGHT_B_GEOMETRY:-0,360,1344,96}"
     ;;
   *)
     echo "KIOSK_DISPLAY_PROFILE non valido: ${KIOSK_DISPLAY_PROFILE}" >&2
@@ -57,9 +65,30 @@ NODE_PID=""
 CHROME_PID=""
 CHROME_LEFT_PID=""
 CHROME_RIGHT_PID=""
+CHROME_UNDERFLOOR_LEFT_A_PID=""
+CHROME_UNDERFLOOR_LEFT_B_PID=""
+CHROME_UNDERFLOOR_RIGHT_A_PID=""
+CHROME_UNDERFLOOR_RIGHT_B_PID=""
+LAST_CHROME_PID=""
 
 cleanup() {
   set +e
+  if [[ -n "${CHROME_UNDERFLOOR_LEFT_A_PID}" ]] && kill -0 "${CHROME_UNDERFLOOR_LEFT_A_PID}" 2>/dev/null; then
+    kill "${CHROME_UNDERFLOOR_LEFT_A_PID}" 2>/dev/null
+    wait "${CHROME_UNDERFLOOR_LEFT_A_PID}" 2>/dev/null
+  fi
+  if [[ -n "${CHROME_UNDERFLOOR_LEFT_B_PID}" ]] && kill -0 "${CHROME_UNDERFLOOR_LEFT_B_PID}" 2>/dev/null; then
+    kill "${CHROME_UNDERFLOOR_LEFT_B_PID}" 2>/dev/null
+    wait "${CHROME_UNDERFLOOR_LEFT_B_PID}" 2>/dev/null
+  fi
+  if [[ -n "${CHROME_UNDERFLOOR_RIGHT_A_PID}" ]] && kill -0 "${CHROME_UNDERFLOOR_RIGHT_A_PID}" 2>/dev/null; then
+    kill "${CHROME_UNDERFLOOR_RIGHT_A_PID}" 2>/dev/null
+    wait "${CHROME_UNDERFLOOR_RIGHT_A_PID}" 2>/dev/null
+  fi
+  if [[ -n "${CHROME_UNDERFLOOR_RIGHT_B_PID}" ]] && kill -0 "${CHROME_UNDERFLOOR_RIGHT_B_PID}" 2>/dev/null; then
+    kill "${CHROME_UNDERFLOOR_RIGHT_B_PID}" 2>/dev/null
+    wait "${CHROME_UNDERFLOOR_RIGHT_B_PID}" 2>/dev/null
+  fi
   if [[ -n "${CHROME_LEFT_PID}" ]] && kill -0 "${CHROME_LEFT_PID}" 2>/dev/null; then
     kill "${CHROME_LEFT_PID}" 2>/dev/null
     wait "${CHROME_LEFT_PID}" 2>/dev/null
@@ -179,6 +208,49 @@ configure_window() {
   done
 }
 
+launch_chromium_app_window() {
+  local url="$1"
+  local profile_dir="$2"
+  local class_name="$3"
+  local geometry="$4"
+  local use_bwsi="${5:-0}"
+  local x y w h
+
+  x="$(geometry_part "${geometry}" x)"
+  y="$(geometry_part "${geometry}" y)"
+  w="$(geometry_part "${geometry}" w)"
+  h="$(geometry_part "${geometry}" h)"
+
+  mkdir -p "${profile_dir}"
+  pkill -f "${CHROMIUM_BIN}.*${profile_dir}" >/dev/null 2>&1 || true
+
+  local args=(
+    --disable-gpu
+    --disable-software-rasterizer
+    --autoplay-policy=no-user-gesture-required
+    --disable-infobars
+    --disable-session-crashed-bubble
+    --noerrdialogs
+    --no-first-run
+    --ozone-platform=x11
+    "--app=${url}"
+    "--user-data-dir=${profile_dir}"
+    "--class=${class_name}"
+    "--name=${class_name}"
+    "--window-size=${w},${h}"
+    "--window-position=${x},${y}"
+    "--force-device-scale-factor=${KIOSK_SCALE}"
+    --new-window
+    --disable-features=OverlayScrollbar
+  )
+  if [[ "${use_bwsi}" == "1" ]]; then
+    args+=(--bwsi)
+  fi
+
+  "${CHROMIUM_BIN}" "${args[@]}" &
+  LAST_CHROME_PID=$!
+}
+
 launch_dual_windows() {
   local left_x left_y left_w left_h right_x right_y right_w right_h
   left_x="$(geometry_part "${KIOSK_LEFT_GEOMETRY}" x)"
@@ -242,6 +314,27 @@ launch_dual_windows() {
   echo "Chromium destro avviato PID=${CHROME_RIGHT_PID}"
 }
 
+launch_underfloor_windows() {
+  launch_chromium_app_window "${KIOSK_UNDERFLOOR_LEFT_A_URL}" "${KIOSK_UNDERFLOOR_LEFT_A_PROFILE_DIR}" "kiosk_sottopedana_sx_a" "${KIOSK_UNDERFLOOR_LEFT_A_GEOMETRY}"
+  CHROME_UNDERFLOOR_LEFT_A_PID="${LAST_CHROME_PID}"
+  launch_chromium_app_window "${KIOSK_UNDERFLOOR_LEFT_B_URL}" "${KIOSK_UNDERFLOOR_LEFT_B_PROFILE_DIR}" "kiosk_sottopedana_sx_b" "${KIOSK_UNDERFLOOR_LEFT_B_GEOMETRY}" "1"
+  CHROME_UNDERFLOOR_LEFT_B_PID="${LAST_CHROME_PID}"
+  launch_chromium_app_window "${KIOSK_UNDERFLOOR_RIGHT_A_URL}" "${KIOSK_UNDERFLOOR_RIGHT_A_PROFILE_DIR}" "kiosk_sottopedana_dx_a" "${KIOSK_UNDERFLOOR_RIGHT_A_GEOMETRY}"
+  CHROME_UNDERFLOOR_RIGHT_A_PID="${LAST_CHROME_PID}"
+  launch_chromium_app_window "${KIOSK_UNDERFLOOR_RIGHT_B_URL}" "${KIOSK_UNDERFLOOR_RIGHT_B_PROFILE_DIR}" "kiosk_sottopedana_dx_b" "${KIOSK_UNDERFLOOR_RIGHT_B_GEOMETRY}" "1"
+  CHROME_UNDERFLOOR_RIGHT_B_PID="${LAST_CHROME_PID}"
+
+  configure_window "kiosk_sottopedana_sx_a" "${KIOSK_UNDERFLOOR_LEFT_A_GEOMETRY}" &
+  configure_window "kiosk_sottopedana_sx_b" "${KIOSK_UNDERFLOOR_LEFT_B_GEOMETRY}" &
+  configure_window "kiosk_sottopedana_dx_a" "${KIOSK_UNDERFLOOR_RIGHT_A_GEOMETRY}" &
+  configure_window "kiosk_sottopedana_dx_b" "${KIOSK_UNDERFLOOR_RIGHT_B_GEOMETRY}" &
+
+  echo "Chromium sottopedana SX A avviato PID=${CHROME_UNDERFLOOR_LEFT_A_PID}"
+  echo "Chromium sottopedana SX B avviato PID=${CHROME_UNDERFLOOR_LEFT_B_PID}"
+  echo "Chromium sottopedana DX A avviato PID=${CHROME_UNDERFLOOR_RIGHT_A_PID}"
+  echo "Chromium sottopedana DX B avviato PID=${CHROME_UNDERFLOOR_RIGHT_B_PID}"
+}
+
 launch_single_window() {
   mkdir -p "${CHROMIUM_PROFILE_DIR}"
   # Prevent stale instances from stacking black overlay windows.
@@ -271,14 +364,18 @@ wait_for_x_display
 wait_for_http
 sleep "${CHROMIUM_START_DELAY_SEC}"
 
-if [[ "${KIOSK_WINDOW_MODE}" == "dual" ]]; then
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]]; then
+  launch_underfloor_windows
+elif [[ "${KIOSK_WINDOW_MODE}" == "dual" ]]; then
   launch_dual_windows
 else
   launch_single_window
 fi
 
 set +e
-if [[ "${KIOSK_WINDOW_MODE}" == "dual" ]]; then
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]]; then
+  wait -n "${NODE_PID}" "${CHROME_UNDERFLOOR_LEFT_A_PID}" "${CHROME_UNDERFLOOR_LEFT_B_PID}" "${CHROME_UNDERFLOOR_RIGHT_A_PID}" "${CHROME_UNDERFLOOR_RIGHT_B_PID}"
+elif [[ "${KIOSK_WINDOW_MODE}" == "dual" ]]; then
   wait -n "${NODE_PID}" "${CHROME_LEFT_PID}" "${CHROME_RIGHT_PID}"
 else
   wait -n "${NODE_PID}" "${CHROME_PID}"
@@ -290,16 +387,32 @@ if ! kill -0 "${NODE_PID}" 2>/dev/null; then
   echo "Node terminato, richiesto restart service" >&2
 fi
 
-if [[ "${KIOSK_WINDOW_MODE}" == "single" ]] && ! kill -0 "${CHROME_PID}" 2>/dev/null; then
+if [[ "${KIOSK_DISPLAY_PROFILE}" != "sottopedana" ]] && [[ "${KIOSK_WINDOW_MODE}" == "single" ]] && ! kill -0 "${CHROME_PID}" 2>/dev/null; then
   echo "Chromium terminato, richiesto restart service" >&2
 fi
 
-if [[ "${KIOSK_WINDOW_MODE}" == "dual" ]] && ! kill -0 "${CHROME_LEFT_PID}" 2>/dev/null; then
+if [[ "${KIOSK_DISPLAY_PROFILE}" != "sottopedana" ]] && [[ "${KIOSK_WINDOW_MODE}" == "dual" ]] && ! kill -0 "${CHROME_LEFT_PID}" 2>/dev/null; then
   echo "Chromium sinistro terminato, richiesto restart service" >&2
 fi
 
-if [[ "${KIOSK_WINDOW_MODE}" == "dual" ]] && ! kill -0 "${CHROME_RIGHT_PID}" 2>/dev/null; then
+if [[ "${KIOSK_DISPLAY_PROFILE}" != "sottopedana" ]] && [[ "${KIOSK_WINDOW_MODE}" == "dual" ]] && ! kill -0 "${CHROME_RIGHT_PID}" 2>/dev/null; then
   echo "Chromium destro terminato, richiesto restart service" >&2
+fi
+
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]] && ! kill -0 "${CHROME_UNDERFLOOR_LEFT_A_PID}" 2>/dev/null; then
+  echo "Chromium sottopedana SX A terminato, richiesto restart service" >&2
+fi
+
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]] && ! kill -0 "${CHROME_UNDERFLOOR_LEFT_B_PID}" 2>/dev/null; then
+  echo "Chromium sottopedana SX B terminato, richiesto restart service" >&2
+fi
+
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]] && ! kill -0 "${CHROME_UNDERFLOOR_RIGHT_A_PID}" 2>/dev/null; then
+  echo "Chromium sottopedana DX A terminato, richiesto restart service" >&2
+fi
+
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]] && ! kill -0 "${CHROME_UNDERFLOOR_RIGHT_B_PID}" 2>/dev/null; then
+  echo "Chromium sottopedana DX B terminato, richiesto restart service" >&2
 fi
 
 exit "${EXIT_CODE}"

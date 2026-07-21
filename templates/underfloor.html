@@ -2,16 +2,18 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=2688, initial-scale=1.0">
-    <title>FencingWallRack - Sottopedana {{ sideLabel }}</title>
+    <meta name="viewport" content="width=1344, initial-scale=1.0">
+    <title>FencingWallRack - Sottopedana {{ sideLabel }} {{ segmentLabel }}</title>
     <link rel="icon" type="image/x-icon" href="/static/logo.jpg">
     <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='underfloor.css')}}"/>
     <script type="text/javascript" src="/socket.io/socket.io.js"></script>
 </head>
-<body class="underfloor underfloor-{{ side }}">
-    <main class="underfloor-stage" data-side="{{ side }}">
-        <div class="underfloor-placeholder">
-            <span>SOTTOPEDANA {{ sideLabel }}</span>
+<body class="underfloor underfloor-{{ side }} underfloor-segment-{{ segment }}">
+    <main class="underfloor-viewport" data-side="{{ side }}" data-segment="{{ segment }}">
+        <div class="underfloor-canvas">
+            <div class="underfloor-placeholder">
+                <span>SOTTOPEDANA {{ sideLabel }} - META {{ segmentLabel }}</span>
+            </div>
         </div>
     </main>
     <script>

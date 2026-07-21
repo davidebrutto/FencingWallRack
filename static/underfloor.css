@@ -4,20 +4,34 @@
 
 html,
 body {
-    width: 2688px;
+    width: 1344px;
     height: 96px;
     margin: 0;
     overflow: hidden;
     background: #000000;
 }
 
-.underfloor-stage {
+.underfloor-viewport {
     position: relative;
-    width: 2688px;
+    width: 1344px;
     height: 96px;
+    overflow: hidden;
     background: #000000;
     color: #ffffff;
     font-family: sans-serif;
+}
+
+.underfloor-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2688px;
+    height: 96px;
+    background: #000000;
+}
+
+.underfloor-segment-b .underfloor-canvas {
+    transform: translateX(-1344px);
 }
 
 .underfloor-placeholder {
