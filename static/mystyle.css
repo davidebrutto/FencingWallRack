@@ -23,7 +23,7 @@
 }
 .nomeSX{
     color: #ffffff;
-    font-size: 110px;
+    font-size: 95px;
     line-height: 120px;
     font-family: bigSV;
     position: relative;
@@ -43,11 +43,11 @@
     top: 10px;
     left: 10px;
     overflow: hidden;
-    padding-left:10px;
-    border-radius: 20px;
-    border-width: 7px;
-    border-style: solid;
-    border-color: #880000;
+    border-radius: 0;
+    border-width: 0;
+    border-style: none;
+    border-color: transparent;
+    clip-path: polygon(0 0, calc(100% - 46px) 0, 100% 50%, calc(100% - 46px) 100%, 0 100%, 36px 50%);
 }
 .countrySX {
     height: 110px !important;
@@ -265,7 +265,7 @@
 }
 .nomeDX{
     color: #ffffff;
-    font-size: 110px;
+    font-size: 95px;
     line-height: 120px;
     font-family: bigSV;
     position: relative;
@@ -286,11 +286,11 @@
     top: 10px;
     left: 770px;
     overflow: hidden;
-    padding-left:10px;
-    border-radius: 20px;
-    border-width: 7px;
-    border-style: solid;
-    border-color: #008800;
+    border-radius: 0;
+    border-width: 0;
+    border-style: none;
+    border-color: transparent;
+    clip-path: polygon(46px 0, 100% 0, calc(100% - 36px) 50%, 100% 100%, 46px 100%, 0 50%);
 }
 .countryDX {
     height: 110px !important;
