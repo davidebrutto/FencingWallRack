@@ -213,11 +213,11 @@
 .timerCont{
     height: 200px !important;
     max-height: 200px !important;
-    width: 600px;
+    width: 470px;
     background-color: #FFFFFF;
     position: absolute;
     top: 190px;
-    left: 460px;
+    left: 530px;
     z-index: 800;
     overflow: hidden;
     border-width: 0;
@@ -226,14 +226,14 @@
     border-radius: 0;
     vertical-align: top;
     text-align: right;
-    clip-path: polygon(42px 0, calc(100% - 42px) 0, 100% 50%, calc(100% - 42px) 100%, 42px 100%, 0 50%);
+    clip-path: polygon(50px 0, calc(100% - 50px) 0, 100% 50%, calc(100% - 50px) 100%, 50px 100%, 0 50%);
 }
 .timerCont::before {
     content: "";
     position: absolute;
     inset: 6px;
     background: #000000;
-    clip-path: polygon(36px 0, calc(100% - 36px) 0, 100% 50%, calc(100% - 36px) 100%, 36px 100%, 0 50%);
+    clip-path: polygon(44px 0, calc(100% - 44px) 0, 100% 50%, calc(100% - 44px) 100%, 44px 100%, 0 50%);
     z-index: 0;
 }
 .timerText {
@@ -664,7 +664,7 @@
     inset: 0;
     z-index: 1;
     pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%201530%20768%22%20preserveAspectRatio%3D%22none%22%3E%0A%20%20%3Cpath%20d%3D%22M%20450%20758%20L%20615%20610%20L%20380%20130%22%20fill%3D%22none%22%20stroke%3D%22%23aa0000%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22square%22%20stroke-linejoin%3D%22miter%22/%3E%0A%20%20%3Cpath%20d%3D%22M%201080%20758%20L%20915%20610%20L%201150%20130%22%20fill%3D%22none%22%20stroke%3D%22%2300aa00%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22square%22%20stroke-linejoin%3D%22miter%22/%3E%0A%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%201530%20768%22%20preserveAspectRatio%3D%22none%22%3E%0A%20%20%3Cpath%20d%3D%22M%20500%20758%20L%20615%20610%20L%20380%20130%22%20fill%3D%22none%22%20stroke%3D%22%23aa0000%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22square%22%20stroke-linejoin%3D%22miter%22/%3E%0A%20%20%3Cpath%20d%3D%22M%201030%20758%20L%20915%20610%20L%201150%20130%22%20fill%3D%22none%22%20stroke%3D%22%2300aa00%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22square%22%20stroke-linejoin%3D%22miter%22/%3E%0A%3C/svg%3E");
     background-repeat: no-repeat;
     background-size: 100% 100%;
 }
