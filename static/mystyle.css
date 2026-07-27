@@ -268,7 +268,7 @@
     position: absolute;
     inset: 7px;
     background: #000000;
-    clip-path: polygon(39px 0, 100% 0, calc(100% - 44px) 50%, 100% 100%, 39px 100%, 0 50%);
+    clip-path: polygon(39px 0, 100% 0, calc(100% - 35px) 50%, 100% 100%, 39px 100%, 0 50%);
     z-index: 0;
 }
 .nomeDX{
