@@ -443,7 +443,7 @@
         const finalSrc = photoSrc || placeholderSrc;
         document.querySelectorAll(photoSelector).forEach((el) => {
             el.style.backgroundImage = `url("${finalSrc}")`;
-            el.style.backgroundSize = '100% auto';
+            el.style.backgroundSize = 'contain';
             el.style.backgroundPosition = 'center';
             el.style.backgroundRepeat = 'no-repeat';
         });

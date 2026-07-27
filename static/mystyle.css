@@ -72,7 +72,7 @@
 }
 .fotoSX {
     height: 300px !important;
-    width: 200px;
+    width: 300px;
     background-color: rgba(255,255,255,0%);
     position: absolute;
     left: 10px;
@@ -84,9 +84,9 @@
     vertical-align: center;
     overflow: hidden;
     border-radius: 15px;
-    border-width: 3px;
-    border-style: solid;
-    border-color: #ffffff;
+    border-width: 0;
+    border-style: none;
+    border-color: transparent;
 }
 
 .scoreSX{
@@ -306,10 +306,10 @@
 }
 .fotoDX {
     height: 300px !important;
-    width: 200px;
+    width: 300px;
     background-color: rgba(255,255,255,0%);
     position: absolute;
-    left: 1310px;
+    left: 1210px;
     top: 260px;
     z-index: 900;
     color: #FFFFFF;
@@ -318,9 +318,9 @@
     vertical-align: center;
     overflow: hidden;
     border-radius: 15px;
-    border-width: 3px;
-    border-style: solid;
-    border-color: #ffffff;
+    border-width: 0;
+    border-style: none;
+    border-color: transparent;
 }
 .scoreDX{
     height: 350px !important;
