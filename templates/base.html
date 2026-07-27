@@ -209,6 +209,8 @@
     let lastDataAt = Date.now();
     let lastTimerChangeAt = Date.now();
     let lastTimerValue = null;
+    let lastPeriodValue = null;
+    let lastNamePositionsSignature = '';
     let fallbackActive = false;
     let fallbackReason = '';
     let pauseVideoActive = false;
@@ -318,6 +320,20 @@
             } catch (_) {}
             pauseVideoPlayer.removeAttribute('src');
             pauseVideoPlayer.load();
+        }
+    }
+
+    function exitPauseForLiveChange(reason) {
+        lastDataAt = Date.now();
+        lastTimerChangeAt = Date.now();
+        if (pauseVideoActive) {
+            hidePauseVideos();
+        }
+        if (fallbackActive) {
+            hidePauseFallback();
+        }
+        if (reason) {
+            console.warn('Pause OFF, live change:', reason);
         }
     }
 
@@ -449,11 +465,16 @@
         });
     }
 
+    function namePositionsSignature(names = currentAthleteNames) {
+        return `${normalizeAthleteNameForPhoto(names.left)}|${normalizeAthleteNameForPhoto(names.right)}`;
+    }
+
     function refreshAthletePhotosFromPage() {
         const leftName = document.querySelector('.nomeSX')?.textContent || '';
         const rightName = document.querySelector('.nomeDX')?.textContent || '';
         currentAthleteNames.left = leftName;
         currentAthleteNames.right = rightName;
+        lastNamePositionsSignature = namePositionsSignature();
         updateAthletePhoto('left', leftName);
         updateAthletePhoto('right', rightName);
     }
@@ -471,7 +492,14 @@
         const nation = (competitor.nation || '').trim().toUpperCase();
         const flagCode = window.nocToFlag ? window.nocToFlag(nation) : '';
 
-        currentAthleteNames[displaySide] = competitor.name || '';
+        const previousNamePositionsSignature = lastNamePositionsSignature || namePositionsSignature();
+        currentAthleteNames[displaySide] = (competitor.name || '').trim();
+        const nextNamePositionsSignature = namePositionsSignature();
+        if (previousNamePositionsSignature && nextNamePositionsSignature !== previousNamePositionsSignature) {
+            exitPauseForLiveChange('competitor_name_or_side_changed');
+        }
+        lastNamePositionsSignature = nextNamePositionsSignature;
+
         updateText(nameSelector, (competitor.name || '').trim());
         updateText(countrySelector, nation);
         updateAthletePhoto(displaySide, competitor.name || '');
@@ -692,14 +720,19 @@
     socket.on("punti_emit", function(tabellone) {
             const payload = tabellone.tabellone || {};
             const timerValue = String(payload.timer || '').trim();
+            const periodValue = String(payload.PR || '').trim();
             if (lastTimerValue === null) {
                 lastTimerValue = timerValue;
                 lastTimerChangeAt = Date.now();
             } else if (timerValue !== lastTimerValue) {
                 lastTimerValue = timerValue;
-                lastTimerChangeAt = Date.now();
-                hidePauseVideos();
-                hidePauseFallback();
+                exitPauseForLiveChange('timer_changed');
+            }
+            if (lastPeriodValue === null) {
+                lastPeriodValue = periodValue;
+            } else if (periodValue !== lastPeriodValue) {
+                lastPeriodValue = periodValue;
+                exitPauseForLiveChange('period_changed');
             }
             lastDataAt = Date.now();
             if (pauseVideoReason === 'no_serial_data_timeout') {
