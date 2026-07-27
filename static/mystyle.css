@@ -2,28 +2,37 @@
     height: 120px !important;
     max-height: 120px !important;
     width: 740px;
-    background-color: rgba(255,255,255,0%);
+    background-color: #880000;
     position: absolute;
     top: 10px;
     left: 10px;
     overflow: hidden;
-    padding-left:10px;
-    border-radius: 20px;
-    border-width: 7px;
-    border-style: solid;
-    border-color: #880000;
-
+    border-radius: 0;
+    border-width: 0;
+    border-style: none;
+    border-color: transparent;
+    clip-path: polygon(0 0, calc(100% - 46px) 0, 100% 50%, calc(100% - 46px) 100%, 0 100%, 36px 50%);
+}
+.nomeSXCont::before {
+    content: "";
+    position: absolute;
+    inset: 7px;
+    background: rgba(0, 0, 0, 0.72);
+    clip-path: polygon(0 0, calc(100% - 39px) 0, 100% 50%, calc(100% - 39px) 100%, 0 100%, 29px 50%);
+    z-index: 0;
 }
 .nomeSX{
     color: #ffffff;
     font-size: 110px;
     line-height: 120px;
     font-family: bigSV;
-    z-index: 800;
+    position: relative;
+    z-index: 2;
     text-align: left;
     white-space:nowrap;
     overflow: hidden;
-    width: 740px;
+    width: 650px;
+    padding-left: 54px;
 }
 .statoSXbig {
     height: 120px !important;
@@ -98,8 +107,8 @@
     top: 450px;
     z-index: 900;
     color: #FFFFFF;
-    font-size: 450px;
-    line-height: 370px;
+    font-size: 350px;
+    line-height: 350px;
     font-family: sofiaECV;
     text-align: center;
     overflow-y: clip;
@@ -220,8 +229,8 @@
 }
 .timerText {
     color: #00FF00;
-    font-size: 260px;
-    line-height: 210px;
+    font-size: 200px;
+    line-height: 200px;
     font-family: sofiaECV;
     z-index: 800;
     text-align: center;
@@ -235,29 +244,38 @@
     height: 120px !important;
     max-height: 120px !important;
     width: 740px;
-    background-color: rgba(255,255,255,0%);
+    background-color: #008800;
     position: absolute;
     top: 10px;
     left: 770px;
     overflow: hidden;
-    
-    border-radius: 20px;
-    border-width: 7px;
-    border-style: solid;
-    border-color: #008800;
-
+    border-radius: 0;
+    border-width: 0;
+    border-style: none;
+    border-color: transparent;
+    clip-path: polygon(46px 0, 100% 0, calc(100% - 36px) 50%, 100% 100%, 46px 100%, 0 50%);
+}
+.nomeDXCont::before {
+    content: "";
+    position: absolute;
+    inset: 7px;
+    background: rgba(0, 0, 0, 0.72);
+    clip-path: polygon(39px 0, 100% 0, calc(100% - 29px) 50%, 100% 100%, 39px 100%, 0 50%);
+    z-index: 0;
 }
 .nomeDX{
     color: #ffffff;
     font-size: 110px;
     line-height: 120px;
     font-family: bigSV;
-    z-index: 800;
+    position: relative;
+    z-index: 2;
     text-align: right;
     white-space:nowrap;
     overflow: hidden;
-    width: 740px;
-    padding-right:20px;
+    width: 650px;
+    padding-left: 36px;
+    padding-right: 54px;
 }
 .statoDXbig {
     height: 120px !important;
@@ -331,8 +349,8 @@
     top: 450px;
     z-index: 900;
     color: #FFFFFF;
-    font-size: 450px;
-    line-height: 370px;
+    font-size: 350px;
+    line-height: 350px;
     font-family: sofiaECV;
     text-align: center;
     overflow-y: clip;
