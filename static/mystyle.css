@@ -199,7 +199,7 @@
     background-color: rgba(255,255,255,0%);
     position: absolute;
     left: 630px;
-    top: 430px;
+    top: 540px;
     z-index: 900;
     color: #036cc2;
     font-size: 200px;
@@ -232,7 +232,7 @@
     content: "";
     position: absolute;
     inset: 6px;
-    background: rgba(0, 0, 0, 0.72);
+    background: #000000;
     clip-path: polygon(36px 0, calc(100% - 36px) 0, 100% 50%, calc(100% - 36px) 100%, 36px 100%, 0 50%);
     z-index: 0;
 }
@@ -651,4 +651,32 @@
 @font-face{
     font-family: led6;
     src: url('LCDAT-TPhoneTimeDate.ttf');
+}
+
+.game-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.game-card::before,
+.game-card::after {
+    content: "";
+    position: absolute;
+    top: 130px;
+    height: 638px;
+    width: 760px;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.game-card::before {
+    left: 0;
+    background: linear-gradient(90deg, rgba(136, 0, 0, 0.34), rgba(136, 0, 0, 0.08));
+    clip-path: polygon(0 0, calc(100% - 110px) 0, 100% 77%, calc(100% - 110px) 100%, 0 100%);
+}
+
+.game-card::after {
+    right: 0;
+    background: linear-gradient(270deg, rgba(0, 136, 0, 0.34), rgba(0, 136, 0, 0.08));
+    clip-path: polygon(110px 0, 100% 0, 100% 100%, 110px 100%, 0 77%);
 }
