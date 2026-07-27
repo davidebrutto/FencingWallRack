@@ -214,25 +214,35 @@
     height: 200px !important;
     max-height: 200px !important;
     width: 600px;
-    background-color: rgba(255,255,255,0%);
+    background-color: #FFFFFF;
     position: absolute;
     top: 190px;
     left: 460px;
     z-index: 800;
-    overflow-y: clip;
-    border-width: 5px;
-    border-style: groove;
-    border-color: #FFFFFF;
-    border-radius: 20px;
+    overflow: hidden;
+    border-width: 0;
+    border-style: none;
+    border-color: transparent;
+    border-radius: 0;
     vertical-align: top;
     text-align: right;
+    clip-path: polygon(42px 0, calc(100% - 42px) 0, 100% 50%, calc(100% - 42px) 100%, 42px 100%, 0 50%);
+}
+.timerCont::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    background: rgba(0, 0, 0, 0.72);
+    clip-path: polygon(36px 0, calc(100% - 36px) 0, 100% 50%, calc(100% - 36px) 100%, 36px 100%, 0 50%);
+    z-index: 0;
 }
 .timerText {
     color: #00FF00;
     font-size: 200px;
     line-height: 200px;
     font-family: sofiaECV;
-    z-index: 800;
+    position: relative;
+    z-index: 2;
     text-align: center;
     white-space:nowrap;
     /*width: 1000px;*/
