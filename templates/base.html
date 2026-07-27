@@ -218,6 +218,7 @@
     let athletePhotoMap = {};
     let athletePhotoMapPromise = null;
     let currentAthleteNames = { left: '', right: '' };
+    const ATHLETE_PLACEHOLDER_SRC = '/static/athlete-placeholder.png';
     let ranking = 0;
 
     const rearIdMap = {
@@ -426,21 +427,20 @@
     async function updateAthletePhoto(side, athleteName) {
         const photoSelector = sideSelector(side, '.fotoSX', '.fotoDX');
         const normalizedName = normalizeAthleteNameForPhoto(athleteName);
-        if (!normalizedName) {
-            document.querySelectorAll(photoSelector).forEach((el) => {
-                el.style.backgroundImage = '';
-            });
-            return;
+        let photoSrc = '';
+
+        if (normalizedName) {
+            const map = await loadAthletePhotoMap();
+            photoSrc = map[normalizedName] || '';
+            if (!photoSrc) {
+                const freshMap = await loadAthletePhotoMap(true);
+                photoSrc = freshMap[normalizedName] || '';
+            }
         }
 
-        const map = await loadAthletePhotoMap();
-        let photoSrc = map[normalizedName] || '';
-        if (!photoSrc) {
-            const freshMap = await loadAthletePhotoMap(true);
-            photoSrc = freshMap[normalizedName] || '';
-        }
+        const finalSrc = photoSrc || ATHLETE_PLACEHOLDER_SRC;
         document.querySelectorAll(photoSelector).forEach((el) => {
-            el.style.backgroundImage = photoSrc ? `url("${photoSrc}")` : '';
+            el.style.backgroundImage = `url("${finalSrc}")`;
             el.style.backgroundSize = 'cover';
             el.style.backgroundPosition = 'center';
             el.style.backgroundRepeat = 'no-repeat';
