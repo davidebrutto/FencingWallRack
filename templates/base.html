@@ -218,7 +218,8 @@
     let athletePhotoMap = {};
     let athletePhotoMapPromise = null;
     let currentAthleteNames = { left: '', right: '' };
-    const ATHLETE_PLACEHOLDER_SRC = '/static/athlete-placeholder.png';
+    const ATHLETE_PLACEHOLDER_LEFT_SRC = '/static/athlete-placeholder-sx.png';
+    const ATHLETE_PLACEHOLDER_RIGHT_SRC = '/static/athlete-placeholder.png';
     let ranking = 0;
 
     const rearIdMap = {
@@ -438,7 +439,8 @@
             }
         }
 
-        const finalSrc = photoSrc || ATHLETE_PLACEHOLDER_SRC;
+        const placeholderSrc = side === 'left' ? ATHLETE_PLACEHOLDER_LEFT_SRC : ATHLETE_PLACEHOLDER_RIGHT_SRC;
+        const finalSrc = photoSrc || placeholderSrc;
         document.querySelectorAll(photoSelector).forEach((el) => {
             el.style.backgroundImage = `url("${finalSrc}")`;
             el.style.backgroundSize = 'cover';
