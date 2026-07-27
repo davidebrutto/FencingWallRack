@@ -173,7 +173,7 @@
     background-color: rgba(255,255,255,0%);
     position: absolute;
     left: 380px;
-    top: 260px;
+    top: 140px;
     z-index: 900;
     color: #FFFF00;
     font-size: 150px;
@@ -406,7 +406,7 @@
     background-color: rgba(255,255,255,0%);
     position: absolute;
     left: 1080px;
-    top: 260px;
+    top: 140px;
     z-index: 900;
     color: #FFFF00;
     font-size: 150px;
