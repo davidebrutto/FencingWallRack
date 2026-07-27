@@ -708,6 +708,18 @@ function buildColori() {
   };
 }
 
+function buildInitialDisplayScores(scores) {
+  return scores.map((game) => ({
+    ...game,
+    team1: '--',
+    team2: '--',
+    country1: 'ITA',
+    country2: 'ITA',
+    flag1: 'it.svg',
+    flag2: 'it.svg',
+  }));
+}
+
 function buildRearScores(scores) {
   return scores.map((game) => ({
     ...game,
@@ -729,7 +741,7 @@ function buildRearScores(scores) {
 }
 
 app.get('/', (req, res) => {
-  const scores = loadScores();
+  const scores = buildInitialDisplayScores(loadScores());
   res.render('index.html', {
     scores,
     miapath: __dirname,
@@ -740,7 +752,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/rear', (req, res) => {
-  const scores = buildRearScores(loadScores());
+  const scores = buildRearScores(buildInitialDisplayScores(loadScores()));
   res.render('index.html', {
     scores,
     miapath: __dirname,
@@ -768,7 +780,7 @@ app.get('/underfloor-:side(left|right)', (req, res) => {
 });
 
 app.get('/index_single', (req, res) => {
-  const scores = loadScores();
+  const scores = buildInitialDisplayScores(loadScores());
   res.render('index_single.html', {
     scores,
     miapath: __dirname,
