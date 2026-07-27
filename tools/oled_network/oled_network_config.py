@@ -33,6 +33,16 @@ def env_float(name, default):
         return default
 
 
+def env_int(name, default):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value.strip().split()[0])
+    except (IndexError, ValueError):
+        return default
+
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WIDTH = int(os.getenv("OLED_WIDTH", "128"))
 HEIGHT = int(os.getenv("OLED_HEIGHT", "64"))
@@ -66,8 +76,13 @@ DEFAULT_IP = os.getenv("OLED_DEFAULT_IP", "192.168.1.50")
 DEFAULT_PREFIX = int(os.getenv("OLED_DEFAULT_PREFIX", "24"))
 DEFAULT_GATEWAY = os.getenv("OLED_DEFAULT_GATEWAY", "192.168.1.1")
 DEFAULT_DISPLAY_PROFILE = os.getenv("OLED_DEFAULT_DISPLAY_PROFILE", "ledwall")
+DEFAULT_SPOT_INACTIVITY_MINUTES = env_int("OLED_DEFAULT_SPOT_INACTIVITY_MINUTES", 5)
+SPOT_MIN_MINUTES = env_int("OLED_SPOT_MIN_MINUTES", 1)
+SPOT_MAX_MINUTES = env_int("OLED_SPOT_MAX_MINUTES", 60)
+SPOT_ENV_KEY = os.getenv("OLED_SPOT_ENV_KEY", "SPOT_INACTIVITY_MINUTES")
 PREFERRED_IFACE = os.getenv("NET_IFACE", "").strip()
 DISPLAY_PROFILES = ["ledwall", "sottopedana"]
+MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT"]
 
 
 def run(cmd, check=True):
@@ -284,6 +299,23 @@ def apply_kiosk_display_profile(profile):
     return write_env_value(KIOSK_ENV_PATH, "KIOSK_DISPLAY_PROFILE", normalize_display_profile(profile))
 
 
+def clamp_spot_minutes(value):
+    try:
+        minutes = int(value)
+    except (TypeError, ValueError):
+        minutes = DEFAULT_SPOT_INACTIVITY_MINUTES
+    return max(SPOT_MIN_MINUTES, min(SPOT_MAX_MINUTES, minutes))
+
+
+def load_spot_inactivity_minutes():
+    value = read_env_value(KIOSK_ENV_PATH, SPOT_ENV_KEY)
+    return clamp_spot_minutes(value or DEFAULT_SPOT_INACTIVITY_MINUTES)
+
+
+def apply_spot_inactivity_minutes(minutes):
+    return write_env_value(KIOSK_ENV_PATH, SPOT_ENV_KEY, str(clamp_spot_minutes(minutes)))
+
+
 def pcmanfm_wallpaper_mode(value):
     mode = (value or "fit").strip().lower()
     if mode == "fill":
@@ -453,7 +485,7 @@ def reboot_after_delay(delay_sec):
 
 
 class OledNetworkApp:
-    fields = ["display_profile", "ip", "netmask", "gateway"]
+    network_fields = ["ip", "netmask", "gateway"]
 
     def __init__(self):
         serial = spi(port=SPI_PORT, device=SPI_DEVICE, gpio_DC=GPIO_DC, gpio_RST=GPIO_RST)
@@ -471,7 +503,9 @@ class OledNetworkApp:
         self.iface = self.ifaces[self.iface_index]
         self.cfg = get_ipv4_config(self.iface)
         self.display_profile = load_kiosk_display_profile()
-        self.selected = 0
+        self.spot_minutes = load_spot_inactivity_minutes()
+        self.menu_selected = 0
+        self.network_selected = 0
         self.editing = False
         self.ip_chars = ip_to_chars(self.cfg["ip"])
         self.netmask_chars = ip_to_chars(self.cfg["netmask"])
@@ -486,6 +520,26 @@ class OledNetworkApp:
         self.logo_image = self.load_logo_image()
 
         self.setup_buttons()
+
+    def current_fields(self):
+        if self.screen == "network":
+            return self.network_fields
+        if self.screen == "mode":
+            return ["display_profile"]
+        if self.screen == "spot":
+            return ["spot_minutes"]
+        return []
+
+    def current_selected_index(self):
+        if self.screen == "network":
+            return self.network_selected
+        return 0
+
+    def current_selected_field(self):
+        fields = self.current_fields()
+        if not fields:
+            return ""
+        return fields[self.current_selected_index() % len(fields)]
 
     def load_logo_image(self):
         if not LOGO_PATH or not os.path.exists(LOGO_PATH):
@@ -531,6 +585,10 @@ class OledNetworkApp:
     def mark_activity(self):
         self.last_activity_at = time.monotonic()
 
+    def reset_blink(self):
+        self.blink_on = True
+        self.last_blink_at = time.monotonic()
+
     def refresh_iface(self):
         self.ifaces = list_connected_ifaces()
         if not self.ifaces:
@@ -539,6 +597,7 @@ class OledNetworkApp:
         self.iface = self.ifaces[self.iface_index]
         self.cfg = get_ipv4_config(self.iface)
         self.display_profile = load_kiosk_display_profile()
+        self.spot_minutes = load_spot_inactivity_minutes()
         self.ip_chars = ip_to_chars(self.cfg["ip"])
         self.netmask_chars = ip_to_chars(self.cfg["netmask"])
         self.gw_chars = ip_to_chars(self.cfg["gateway"])
@@ -556,17 +615,25 @@ class OledNetworkApp:
         current_index = DISPLAY_PROFILES.index(current) if current in DISPLAY_PROFILES else 0
         self.display_profile = DISPLAY_PROFILES[(current_index + delta) % len(DISPLAY_PROFILES)]
 
+    def change_spot_minutes(self, delta):
+        self.spot_minutes = clamp_spot_minutes(self.spot_minutes + delta)
+
     def display_value_for_field(self, field):
         if field == "display_profile":
             return display_profile_label(self.display_profile)
-        if self.editing and self.fields[self.selected] == field:
+        if field == "spot_minutes":
+            return f"{self.spot_minutes} min"
+        if self.editing and self.screen == "network" and self.current_selected_field() == field:
             return "".join(self.chars_for_field(field))
         return str(self.cfg["gateway"] if field == "gateway" else self.cfg[field])
 
     def move_cursor(self, delta):
-        field = self.fields[self.selected]
+        field = self.current_selected_field()
         if field == "display_profile":
             self.toggle_display_profile(delta)
+            return
+        if field == "spot_minutes":
+            self.change_spot_minutes(delta)
             return
         chars = self.chars_for_field(field)
         positions = numeric_positions(chars)
@@ -576,9 +643,12 @@ class OledNetworkApp:
         self.cursor = positions[(current + delta) % len(positions)]
 
     def change_digit(self, delta):
-        field = self.fields[self.selected]
+        field = self.current_selected_field()
         if field == "display_profile":
             self.toggle_display_profile(delta)
+            return
+        if field == "spot_minutes":
+            self.change_spot_minutes(delta)
             return
         chars = self.chars_for_field(field)
         if self.cursor >= len(chars) or not chars[self.cursor].isdigit():
@@ -595,10 +665,10 @@ class OledNetworkApp:
 
     def field_text_and_cursor(self, field_name, prefix, value):
         text = f"{prefix}{value}"
-        if not self.editing or self.fields[self.selected] != field_name:
+        if not self.editing or self.current_selected_field() != field_name:
             return text, None, False
 
-        if field_name == "display_profile":
+        if field_name in ("display_profile", "spot_minutes"):
             return text, None, True
 
         cursor_offset = len(prefix) + self.cursor
@@ -624,80 +694,160 @@ class OledNetworkApp:
         draw.rectangle((left, y, left + char_width, y + 8), fill=255)
         draw.text((left, y), char, font=self.font, fill=0)
 
+    def enter_screen(self, screen):
+        self.screen = screen
+        self.editing = False
+        self.status = ""
+        self.cursor = 0
+        self.reset_blink()
+
+    def enter_selected_menu(self):
+        item = MAIN_MENU_ITEMS[self.menu_selected]
+        if item == "NETWORK":
+            self.enter_screen("network")
+        elif item == "MODE":
+            self.enter_screen("mode")
+        elif item == "SPOT":
+            self.enter_screen("spot")
+
+    def save_current_screen(self):
+        if self.screen == "network":
+            self.save_network()
+        elif self.screen == "mode":
+            self.save_mode()
+        elif self.screen == "spot":
+            self.save_spot()
+
+    def save_network(self):
+        stop_animation = threading.Event()
+        animation = threading.Thread(target=self.saving_animation, args=(stop_animation, "Saving network"), daemon=True)
+        animation.start()
+        try:
+            apply_network(self.iface, self.cfg)
+            self.status = "Saved. Re-reading..."
+            self.refresh_iface()
+            self.editing = False
+            self.status = "Saved"
+        except Exception as exc:
+            self.status = f"ERR {exc}"[:21]
+        finally:
+            stop_animation.set()
+            animation.join(timeout=1)
+            self.mark_activity()
+
+    def save_mode(self):
+        stop_animation = threading.Event()
+        animation = threading.Thread(target=self.saving_animation, args=(stop_animation, "Saving mode"), daemon=True)
+        animation.start()
+        reboot_needed = False
+        target_profile = normalize_display_profile(self.display_profile)
+        try:
+            profile_changed = apply_kiosk_display_profile(target_profile)
+            self.status = "Saved"
+            if REBOOT_ON_PROFILE_SAVE:
+                prepare_desktop_wallpaper_for_profile(target_profile)
+                reboot_needed = True
+                self.status = "Saved. Reboot..."
+            elif profile_changed:
+                restart_kiosk_service()
+            self.display_profile = target_profile
+            self.editing = False
+        except Exception as exc:
+            self.status = f"ERR {exc}"[:21]
+        finally:
+            stop_animation.set()
+            animation.join(timeout=1)
+            self.mark_activity()
+        if reboot_needed:
+            self.draw_message(["Mode saved", "Rebooting...", display_profile_label(self.display_profile)])
+            threading.Thread(target=reboot_after_delay, args=(REBOOT_DELAY_SEC,), daemon=True).start()
+
+    def save_spot(self):
+        stop_animation = threading.Event()
+        animation = threading.Thread(target=self.saving_animation, args=(stop_animation, "Saving spot"), daemon=True)
+        animation.start()
+        try:
+            changed = apply_spot_inactivity_minutes(self.spot_minutes)
+            self.spot_minutes = load_spot_inactivity_minutes()
+            self.editing = False
+            self.status = "Saved"
+            if changed:
+                restart_kiosk_service()
+        except Exception as exc:
+            self.status = f"ERR {exc}"[:21]
+        finally:
+            stop_animation.set()
+            animation.join(timeout=1)
+            self.mark_activity()
+
     def handle_event(self, event):
         event = self.normalize_input_event(event)
 
         if self.screen == "logo":
             if event == "press":
-                self.screen = "config"
+                self.screen = "main_menu"
+                self.status = ""
                 self.mark_activity()
+                self.reset_blink()
             return
 
         self.mark_activity()
 
+        if self.screen == "main_menu":
+            if event == "up":
+                self.menu_selected = (self.menu_selected - 1) % len(MAIN_MENU_ITEMS)
+            elif event == "down":
+                self.menu_selected = (self.menu_selected + 1) % len(MAIN_MENU_ITEMS)
+            elif event == "press":
+                self.enter_selected_menu()
+            return
+
         if event == "k2":
-            stop_animation = threading.Event()
-            animation = threading.Thread(target=self.saving_animation, args=(stop_animation,), daemon=True)
-            animation.start()
-            reboot_needed = False
-            selected_field = self.fields[self.selected]
-            target_profile = normalize_display_profile(self.display_profile)
-            try:
-                apply_network(self.iface, self.cfg)
-                profile_changed = apply_kiosk_display_profile(target_profile)
-                self.status = "Saved. Re-reading..."
-                if REBOOT_ON_PROFILE_SAVE and (profile_changed or selected_field == "display_profile"):
-                    prepare_desktop_wallpaper_for_profile(target_profile)
-                    reboot_needed = True
-                    self.status = "Saved. Reboot..."
-                elif profile_changed:
-                    restart_kiosk_service()
-                self.refresh_iface()
-                self.editing = False
-                if not reboot_needed:
-                    self.status = "Saved"
-            except Exception as exc:
-                self.status = f"ERR {exc}"[:21]
-            finally:
-                stop_animation.set()
-                animation.join(timeout=1)
-                self.mark_activity()
-            if reboot_needed:
-                self.draw_message(["Profile saved", "Rebooting...", display_profile_label(self.display_profile)])
-                threading.Thread(target=reboot_after_delay, args=(REBOOT_DELAY_SEC,), daemon=True).start()
+            self.save_current_screen()
             return
 
         if event == "k3_hold":
             self.editing = True
-            self.cfg["mode"] = "STATIC"
+            if self.screen == "network":
+                self.cfg["mode"] = "STATIC"
             self.status = "EDIT"
+            self.reset_blink()
             return
 
         if event in ("k1", "k3"):
             return
 
         if event == "press":
+            self.enter_screen("main_menu")
             return
 
         if not self.editing:
-            if event == "up":
-                self.selected = (self.selected - 1) % len(self.fields)
-            elif event == "down":
-                self.selected = (self.selected + 1) % len(self.fields)
-            elif event == "left":
-                self.move_cursor(-1)
-            elif event == "right":
-                self.move_cursor(1)
+            if self.screen == "network":
+                if event == "up":
+                    self.network_selected = (self.network_selected - 1) % len(self.network_fields)
+                elif event == "down":
+                    self.network_selected = (self.network_selected + 1) % len(self.network_fields)
+                elif event == "left":
+                    self.move_cursor(-1)
+                elif event == "right":
+                    self.move_cursor(1)
             return
 
+        step = 5 if self.screen == "spot" and event in ("left", "right") else 1
         if event == "up":
             self.change_digit(1)
         elif event == "down":
             self.change_digit(-1)
         elif event == "left":
-            self.move_cursor(-1)
+            if self.screen == "spot":
+                self.change_spot_minutes(-step)
+            else:
+                self.move_cursor(-1)
         elif event == "right":
-            self.move_cursor(1)
+            if self.screen == "spot":
+                self.change_spot_minutes(step)
+            else:
+                self.move_cursor(1)
 
     def draw_logo(self):
         if self.logo_image:
@@ -710,31 +860,83 @@ class OledNetworkApp:
         with self.render_lock:
             self.display_image(image)
 
-    def draw_config(self):
+    def draw_main_menu(self):
+        image = Image.new("1", (WIDTH, HEIGHT), 0)
+        draw = ImageDraw.Draw(image)
+        draw.text((0, 0), "MENU", font=self.font, fill=255)
+        for idx, item in enumerate(MAIN_MENU_ITEMS):
+            selected = idx == self.menu_selected
+            prefix = ">" if selected else " "
+            blink = selected and self.blink_on
+            self.draw_line_with_cursor(draw, 16 + idx * 13, f"{prefix}{item}", None, blink)
+        with self.render_lock:
+            self.display_image(image)
+
+    def draw_network(self):
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
         mode = "*" if self.editing else " "
-        profile_line, profile_cursor, profile_blink = self.field_text_and_cursor("display_profile", f"{'>' if self.selected == 0 else ' '}OUT ", self.display_value_for_field("display_profile"))
-        ip_line, ip_cursor, ip_blink = self.field_text_and_cursor("ip", f"{'>' if self.selected == 1 else ' '}IP ", self.display_value_for_field("ip"))
-        netmask_line, netmask_cursor, netmask_blink = self.field_text_and_cursor("netmask", f"{'>' if self.selected == 2 else ' '}SN ", self.display_value_for_field("netmask"))
-        gateway_line, gateway_cursor, gateway_blink = self.field_text_and_cursor("gateway", f"{'>' if self.selected == 3 else ' '}GW ", self.display_value_for_field("gateway"))
+        ip_line, ip_cursor, ip_blink = self.field_text_and_cursor("ip", f"{'>' if self.network_selected == 0 else ' '}IP ", self.display_value_for_field("ip"))
+        netmask_line, netmask_cursor, netmask_blink = self.field_text_and_cursor("netmask", f"{'>' if self.network_selected == 1 else ' '}SN ", self.display_value_for_field("netmask"))
+        gateway_line, gateway_cursor, gateway_blink = self.field_text_and_cursor("gateway", f"{'>' if self.network_selected == 2 else ' '}GW ", self.display_value_for_field("gateway"))
         lines = [
-            (f"{self.iface} {self.cfg['mode']} {mode}", None, False),
-            (profile_line, profile_cursor, profile_blink),
+            (f"NET {self.iface} {self.cfg['mode']} {mode}", None, False),
             (ip_line, ip_cursor, ip_blink),
             (netmask_line, netmask_cursor, netmask_blink),
             (gateway_line, gateway_cursor, gateway_blink),
+            (self.status, None, False),
         ]
         for idx, (line, cursor_offset, blink_line) in enumerate(lines):
-            self.draw_line_with_cursor(draw, idx * 10, line, cursor_offset, blink_line)
+            self.draw_line_with_cursor(draw, idx * 11, line, cursor_offset, blink_line)
+        with self.render_lock:
+            self.display_image(image)
+
+    def draw_mode(self):
+        image = Image.new("1", (WIDTH, HEIGHT), 0)
+        draw = ImageDraw.Draw(image)
+        mode = "*" if self.editing else " "
+        line, cursor, blink = self.field_text_and_cursor("display_profile", ">OUT ", self.display_value_for_field("display_profile"))
+        lines = [
+            (f"MODE {mode}", None, False),
+            (line, cursor, blink),
+            ("K3 hold EDIT", None, False),
+            ("K2 SAVE", None, False),
+            (self.status, None, False),
+        ]
+        for idx, (text, cursor_offset, blink_line) in enumerate(lines):
+            self.draw_line_with_cursor(draw, idx * 11, text, cursor_offset, blink_line)
+        with self.render_lock:
+            self.display_image(image)
+
+    def draw_spot(self):
+        image = Image.new("1", (WIDTH, HEIGHT), 0)
+        draw = ImageDraw.Draw(image)
+        mode = "*" if self.editing else " "
+        line, cursor, blink = self.field_text_and_cursor("spot_minutes", ">AFTER ", self.display_value_for_field("spot_minutes"))
+        lines = [
+            (f"SPOT {mode}", None, False),
+            (line, cursor, blink),
+            (f"Range {SPOT_MIN_MINUTES}-{SPOT_MAX_MINUTES} min"[:21], None, False),
+            ("K3 hold EDIT", None, False),
+            ("K2 SAVE", None, False),
+            (self.status, None, False),
+        ]
+        for idx, (text, cursor_offset, blink_line) in enumerate(lines):
+            self.draw_line_with_cursor(draw, idx * 10, text, cursor_offset, blink_line)
         with self.render_lock:
             self.display_image(image)
 
     def draw(self):
         if self.screen == "logo":
             self.draw_logo()
-        else:
-            self.draw_config()
+        elif self.screen == "main_menu":
+            self.draw_main_menu()
+        elif self.screen == "network":
+            self.draw_network()
+        elif self.screen == "mode":
+            self.draw_mode()
+        elif self.screen == "spot":
+            self.draw_spot()
 
     def draw_message(self, lines):
         image = Image.new("1", (WIDTH, HEIGHT), 0)
@@ -744,16 +946,16 @@ class OledNetworkApp:
         with self.render_lock:
             self.display_image(image)
 
-    def saving_animation(self, stop_event):
+    def saving_animation(self, stop_event, title="Saving"):
         frames = ["|", "/", "-", "\\"]
         frame = 0
         while not stop_event.is_set():
             image = Image.new("1", (WIDTH, HEIGHT), 0)
             draw = ImageDraw.Draw(image)
-            draw.text((0, 0), "Saving network", font=self.font, fill=255)
+            draw.text((0, 0), title[:21], font=self.font, fill=255)
             draw.text((0, 16), f"Please wait {frames[frame % len(frames)]}", font=self.font, fill=255)
-            draw.text((0, 32), self.iface[:21], font=self.font, fill=255)
-            draw.text((0, 48), f"SN {self.cfg['netmask']}"[:21], font=self.font, fill=255)
+            draw.text((0, 32), self.screen.upper()[:21], font=self.font, fill=255)
+            draw.text((0, 48), self.iface[:21], font=self.font, fill=255)
             with self.render_lock:
                 self.display_image(image)
             frame += 1
@@ -767,14 +969,14 @@ class OledNetworkApp:
                 self.handle_event(event)
                 self.draw()
             except queue.Empty:
-                if self.editing and (time.monotonic() - self.last_blink_at) >= 0.5:
+                should_blink = self.editing or self.screen == "main_menu"
+                if should_blink and (time.monotonic() - self.last_blink_at) >= 0.5:
                     self.blink_on = not self.blink_on
                     self.last_blink_at = time.monotonic()
                     self.draw()
-                elif self.screen == "config" and not self.editing and (time.monotonic() - self.last_activity_at) >= LOGO_TIMEOUT_SEC:
+                elif self.screen != "logo" and not self.editing and (time.monotonic() - self.last_activity_at) >= LOGO_TIMEOUT_SEC:
                     self.screen = "logo"
                     self.draw()
-
 
 def main():
     app = OledNetworkApp()

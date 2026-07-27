@@ -60,6 +60,7 @@ const REMOTE_ASSET_BASE_URL = String(process.env.REMOTE_ASSET_BASE_URL || '').re
 const REMOTE_VIDEO_MANIFEST_PATH = process.env.REMOTE_VIDEO_MANIFEST_PATH || '/pause-videos/manifest.json';
 const REMOTE_PHOTO_MANIFEST_PATH = process.env.REMOTE_PHOTO_MANIFEST_PATH || '/athlete-photos/manifest.json';
 const REMOTE_ASSET_TIMEOUT_MS = Number(process.env.REMOTE_ASSET_TIMEOUT_MS || 15000);
+const SPOT_INACTIVITY_MINUTES = clampNumber(process.env.SPOT_INACTIVITY_MINUTES, 5, 1, 240);
 
 const ROUTES = {
   index: '/',
@@ -82,6 +83,14 @@ const ROUTES = {
   update_score: '/update_score/:game_id',
   api_scores: '/api/scores',
 };
+
+function clampNumber(value, defaultValue, min, max) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return defaultValue;
+  }
+  return Math.min(max, Math.max(min, parsed));
+}
 
 function ensureJsonFile(filePath, fallback) {
   if (!fs.existsSync(filePath)) {
@@ -726,6 +735,7 @@ app.get('/', (req, res) => {
     miapath: __dirname,
     instancepath: path.join(__dirname, 'instance'),
     colori: buildColori(),
+    spotInactivityMinutes: SPOT_INACTIVITY_MINUTES,
   });
 });
 
@@ -738,6 +748,7 @@ app.get('/rear', (req, res) => {
     colori: buildColori(),
     rearView: true,
     bodyClass: 'rear-view',
+    spotInactivityMinutes: SPOT_INACTIVITY_MINUTES,
   });
 });
 
@@ -1069,6 +1080,12 @@ app.get('/api/scores', (req, res) => {
 
 app.get('/api/pause-videos', (req, res) => {
   res.json({ videos: listPauseVideos() });
+});
+
+app.get('/api/runtime-config', (req, res) => {
+  res.json({
+    spotInactivityMinutes: SPOT_INACTIVITY_MINUTES,
+  });
 });
 
 app.get('/api/athlete-photos', (req, res) => {

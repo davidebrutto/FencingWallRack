@@ -203,7 +203,8 @@
     const pauseVideoContainer = document.getElementById('videoPausa');
     const pauseVideoPlayer = pauseVideoContainer ? pauseVideoContainer.querySelector('video') : null;
     const NO_SERIAL_TIMEOUT_MS = 10000;
-    const UNCHANGED_TIMER_TIMEOUT_MS = 5 * 60 * 1000;
+    const SPOT_INACTIVITY_MINUTES = {{ spotInactivityMinutes | default(5) | int }};
+    const UNCHANGED_TIMER_TIMEOUT_MS = Math.max(1, SPOT_INACTIVITY_MINUTES) * 60 * 1000;
     const RETRY_INTERVAL_MS = 10000;
     let lastDataAt = Date.now();
     let lastTimerChangeAt = Date.now();
