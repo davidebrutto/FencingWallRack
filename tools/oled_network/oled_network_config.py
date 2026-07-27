@@ -802,6 +802,13 @@ class OledNetworkApp:
                 self.enter_selected_menu()
             return
 
+        if event == "k1":
+            if self.screen in ("network", "mode", "spot"):
+                self.enter_screen("main_menu")
+            elif self.screen == "main_menu":
+                self.enter_screen("logo")
+            return
+
         if event == "k2":
             self.save_current_screen()
             return
@@ -814,7 +821,7 @@ class OledNetworkApp:
             self.reset_blink()
             return
 
-        if event in ("k1", "k3"):
+        if event == "k3":
             return
 
         if event == "press":
