@@ -793,6 +793,13 @@ class OledNetworkApp:
 
         self.mark_activity()
 
+        if event == "k1":
+            if self.screen in ("network", "mode", "spot"):
+                self.enter_screen("main_menu")
+            elif self.screen == "main_menu":
+                self.enter_screen("logo")
+            return
+
         if self.screen == "main_menu":
             if event == "up":
                 self.menu_selected = (self.menu_selected - 1) % len(MAIN_MENU_ITEMS)
@@ -800,13 +807,6 @@ class OledNetworkApp:
                 self.menu_selected = (self.menu_selected + 1) % len(MAIN_MENU_ITEMS)
             elif event == "press":
                 self.enter_selected_menu()
-            return
-
-        if event == "k1":
-            if self.screen in ("network", "mode", "spot"):
-                self.enter_screen("main_menu")
-            elif self.screen == "main_menu":
-                self.enter_screen("logo")
             return
 
         if event == "k2":
