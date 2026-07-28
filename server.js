@@ -61,6 +61,7 @@ const REMOTE_VIDEO_MANIFEST_PATH = process.env.REMOTE_VIDEO_MANIFEST_PATH || '/p
 const REMOTE_PHOTO_MANIFEST_PATH = process.env.REMOTE_PHOTO_MANIFEST_PATH || '/athlete-photos/manifest.json';
 const REMOTE_ASSET_TIMEOUT_MS = Number(process.env.REMOTE_ASSET_TIMEOUT_MS || 15000);
 const SPOT_INACTIVITY_MINUTES = clampNumber(process.env.SPOT_INACTIVITY_MINUTES, 5, 1, 240);
+const ATHLETE_PLACEHOLDER_ENABLED = envBool(process.env.ATHLETE_PLACEHOLDER_ENABLED, true);
 
 const ROUTES = {
   index: '/',
@@ -90,6 +91,13 @@ function clampNumber(value, defaultValue, min, max) {
     return defaultValue;
   }
   return Math.min(max, Math.max(min, parsed));
+}
+
+function envBool(value, defaultValue) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return defaultValue;
+  }
+  return !['0', 'false', 'no', 'off', 'n'].includes(String(value).trim().toLowerCase());
 }
 
 function ensureJsonFile(filePath, fallback) {
@@ -748,6 +756,7 @@ app.get('/', (req, res) => {
     instancepath: path.join(__dirname, 'instance'),
     colori: buildColori(),
     spotInactivityMinutes: SPOT_INACTIVITY_MINUTES,
+    athletePlaceholderEnabled: ATHLETE_PLACEHOLDER_ENABLED,
   });
 });
 
@@ -761,6 +770,7 @@ app.get('/rear', (req, res) => {
     rearView: true,
     bodyClass: 'rear-view',
     spotInactivityMinutes: SPOT_INACTIVITY_MINUTES,
+    athletePlaceholderEnabled: ATHLETE_PLACEHOLDER_ENABLED,
   });
 });
 
@@ -1108,6 +1118,7 @@ app.get('/api/pause-videos', (req, res) => {
 app.get('/api/runtime-config', (req, res) => {
   res.json({
     spotInactivityMinutes: SPOT_INACTIVITY_MINUTES,
+    athletePlaceholderEnabled: ATHLETE_PLACEHOLDER_ENABLED,
   });
 });
 

@@ -4,3 +4,6 @@ scores.json
 remote-portal/config.php
 
 video_state.json
+
+__pycache__/
+*.pyc

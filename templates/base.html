@@ -204,6 +204,7 @@
     const pauseVideoPlayer = pauseVideoContainer ? pauseVideoContainer.querySelector('video') : null;
     const NO_SERIAL_TIMEOUT_MS = 10000;
     const SPOT_INACTIVITY_MINUTES = {{ spotInactivityMinutes | default(5) | int }};
+    const ATHLETE_PLACEHOLDER_ENABLED = {% if athletePlaceholderEnabled | default(true) %}true{% else %}false{% endif %};
     const UNCHANGED_TIMER_TIMEOUT_MS = Math.max(1, SPOT_INACTIVITY_MINUTES) * 60 * 1000;
     const RETRY_INTERVAL_MS = 10000;
     let lastDataAt = Date.now();
@@ -456,9 +457,9 @@
         }
 
         const placeholderSrc = side === 'left' ? ATHLETE_PLACEHOLDER_LEFT_SRC : ATHLETE_PLACEHOLDER_RIGHT_SRC;
-        const finalSrc = photoSrc || placeholderSrc;
+        const finalSrc = photoSrc || (ATHLETE_PLACEHOLDER_ENABLED ? placeholderSrc : '');
         document.querySelectorAll(photoSelector).forEach((el) => {
-            el.style.backgroundImage = `url("${finalSrc}")`;
+            el.style.backgroundImage = finalSrc ? `url("${finalSrc}")` : 'none';
             el.style.backgroundSize = 'contain';
             el.style.backgroundPosition = 'center';
             el.style.backgroundRepeat = 'no-repeat';

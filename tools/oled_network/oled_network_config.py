@@ -43,6 +43,12 @@ def env_int(name, default):
         return default
 
 
+def bool_from_value(value, default):
+    if value is None or str(value).strip() == "":
+        return default
+    return str(value).strip().lower() not in ("0", "false", "no", "off", "n")
+
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WIDTH = int(os.getenv("OLED_WIDTH", "128"))
 HEIGHT = int(os.getenv("OLED_HEIGHT", "64"))
@@ -80,9 +86,11 @@ DEFAULT_SPOT_INACTIVITY_MINUTES = env_int("OLED_DEFAULT_SPOT_INACTIVITY_MINUTES"
 SPOT_MIN_MINUTES = env_int("OLED_SPOT_MIN_MINUTES", 1)
 SPOT_MAX_MINUTES = env_int("OLED_SPOT_MAX_MINUTES", 60)
 SPOT_ENV_KEY = os.getenv("OLED_SPOT_ENV_KEY", "SPOT_INACTIVITY_MINUTES")
+DEFAULT_ATHLETE_PLACEHOLDER_ENABLED = env_bool("OLED_DEFAULT_ATHLETE_PLACEHOLDER_ENABLED", True)
+ATHLETE_PLACEHOLDER_ENV_KEY = os.getenv("OLED_ATHLETE_PLACEHOLDER_ENV_KEY", "ATHLETE_PLACEHOLDER_ENABLED")
 PREFERRED_IFACE = os.getenv("NET_IFACE", "").strip()
 DISPLAY_PROFILES = ["ledwall", "sottopedana"]
-MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT"]
+MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA"]
 
 
 def run(cmd, check=True):
@@ -316,6 +324,15 @@ def apply_spot_inactivity_minutes(minutes):
     return write_env_value(KIOSK_ENV_PATH, SPOT_ENV_KEY, str(clamp_spot_minutes(minutes)))
 
 
+def load_athlete_placeholder_enabled():
+    value = read_env_value(KIOSK_ENV_PATH, ATHLETE_PLACEHOLDER_ENV_KEY)
+    return bool_from_value(value, DEFAULT_ATHLETE_PLACEHOLDER_ENABLED)
+
+
+def apply_athlete_placeholder_enabled(enabled):
+    return write_env_value(KIOSK_ENV_PATH, ATHLETE_PLACEHOLDER_ENV_KEY, "1" if enabled else "0")
+
+
 def pcmanfm_wallpaper_mode(value):
     mode = (value or "fit").strip().lower()
     if mode == "fill":
@@ -504,6 +521,7 @@ class OledNetworkApp:
         self.cfg = get_ipv4_config(self.iface)
         self.display_profile = load_kiosk_display_profile()
         self.spot_minutes = load_spot_inactivity_minutes()
+        self.athlete_placeholder_enabled = load_athlete_placeholder_enabled()
         self.menu_selected = 0
         self.network_selected = 0
         self.editing = False
@@ -528,6 +546,8 @@ class OledNetworkApp:
             return ["display_profile"]
         if self.screen == "spot":
             return ["spot_minutes"]
+        if self.screen == "avatar":
+            return ["athlete_placeholder"]
         return []
 
     def current_selected_index(self):
@@ -598,6 +618,7 @@ class OledNetworkApp:
         self.cfg = get_ipv4_config(self.iface)
         self.display_profile = load_kiosk_display_profile()
         self.spot_minutes = load_spot_inactivity_minutes()
+        self.athlete_placeholder_enabled = load_athlete_placeholder_enabled()
         self.ip_chars = ip_to_chars(self.cfg["ip"])
         self.netmask_chars = ip_to_chars(self.cfg["netmask"])
         self.gw_chars = ip_to_chars(self.cfg["gateway"])
@@ -618,11 +639,16 @@ class OledNetworkApp:
     def change_spot_minutes(self, delta):
         self.spot_minutes = clamp_spot_minutes(self.spot_minutes + delta)
 
+    def toggle_athlete_placeholder(self):
+        self.athlete_placeholder_enabled = not self.athlete_placeholder_enabled
+
     def display_value_for_field(self, field):
         if field == "display_profile":
             return display_profile_label(self.display_profile)
         if field == "spot_minutes":
             return f"{self.spot_minutes} min"
+        if field == "athlete_placeholder":
+            return "SI" if self.athlete_placeholder_enabled else "NO"
         if self.editing and self.screen == "network" and self.current_selected_field() == field:
             return "".join(self.chars_for_field(field))
         return str(self.cfg["gateway"] if field == "gateway" else self.cfg[field])
@@ -634,6 +660,9 @@ class OledNetworkApp:
             return
         if field == "spot_minutes":
             self.change_spot_minutes(delta)
+            return
+        if field == "athlete_placeholder":
+            self.toggle_athlete_placeholder()
             return
         chars = self.chars_for_field(field)
         positions = numeric_positions(chars)
@@ -649,6 +678,9 @@ class OledNetworkApp:
             return
         if field == "spot_minutes":
             self.change_spot_minutes(delta)
+            return
+        if field == "athlete_placeholder":
+            self.toggle_athlete_placeholder()
             return
         chars = self.chars_for_field(field)
         if self.cursor >= len(chars) or not chars[self.cursor].isdigit():
@@ -668,7 +700,7 @@ class OledNetworkApp:
         if not self.editing or self.current_selected_field() != field_name:
             return text, None, False
 
-        if field_name in ("display_profile", "spot_minutes"):
+        if field_name in ("display_profile", "spot_minutes", "athlete_placeholder"):
             return text, None, True
 
         cursor_offset = len(prefix) + self.cursor
@@ -709,6 +741,8 @@ class OledNetworkApp:
             self.enter_screen("mode")
         elif item == "SPOT":
             self.enter_screen("spot")
+        elif item == "AVATAR ATLETA":
+            self.enter_screen("avatar")
 
     def save_current_screen(self):
         if self.screen == "network":
@@ -717,6 +751,8 @@ class OledNetworkApp:
             self.save_mode()
         elif self.screen == "spot":
             self.save_spot()
+        elif self.screen == "avatar":
+            self.save_avatar()
 
     def save_network(self):
         stop_animation = threading.Event()
@@ -780,6 +816,24 @@ class OledNetworkApp:
             animation.join(timeout=1)
             self.mark_activity()
 
+    def save_avatar(self):
+        stop_animation = threading.Event()
+        animation = threading.Thread(target=self.saving_animation, args=(stop_animation, "Saving avatar"), daemon=True)
+        animation.start()
+        try:
+            changed = apply_athlete_placeholder_enabled(self.athlete_placeholder_enabled)
+            self.athlete_placeholder_enabled = load_athlete_placeholder_enabled()
+            self.editing = False
+            self.status = "Saved"
+            if changed:
+                restart_kiosk_service()
+        except Exception as exc:
+            self.status = f"ERR {exc}"[:21]
+        finally:
+            stop_animation.set()
+            animation.join(timeout=1)
+            self.mark_activity()
+
     def handle_event(self, event):
         event = self.normalize_input_event(event)
 
@@ -794,7 +848,7 @@ class OledNetworkApp:
         self.mark_activity()
 
         if event == "k1":
-            if self.screen in ("network", "mode", "spot"):
+            if self.screen in ("network", "mode", "spot", "avatar"):
                 self.enter_screen("main_menu")
             elif self.screen == "main_menu":
                 self.enter_screen("logo")
@@ -933,6 +987,25 @@ class OledNetworkApp:
         with self.render_lock:
             self.display_image(image)
 
+    def draw_avatar(self):
+        image = Image.new("1", (WIDTH, HEIGHT), 0)
+        draw = ImageDraw.Draw(image)
+        mode = "*" if self.editing else " "
+        line, cursor, blink = self.field_text_and_cursor("athlete_placeholder", ">PLACEHOLDER ", self.display_value_for_field("athlete_placeholder"))
+        lines = [
+            (f"AVATAR ATLETA {mode}"[:21], None, False),
+            (line, cursor, blink),
+            ("SI = foto generica", None, False),
+            ("NO = box vuoto", None, False),
+            ("K3 hold EDIT", None, False),
+            ("K2 SAVE", None, False),
+            (self.status, None, False),
+        ]
+        for idx, (text, cursor_offset, blink_line) in enumerate(lines[:6]):
+            self.draw_line_with_cursor(draw, idx * 10, text, cursor_offset, blink_line)
+        with self.render_lock:
+            self.display_image(image)
+
     def draw(self):
         if self.screen == "logo":
             self.draw_logo()
@@ -944,6 +1017,8 @@ class OledNetworkApp:
             self.draw_mode()
         elif self.screen == "spot":
             self.draw_spot()
+        elif self.screen == "avatar":
+            self.draw_avatar()
 
     def draw_message(self, lines):
         image = Image.new("1", (WIDTH, HEIGHT), 0)
