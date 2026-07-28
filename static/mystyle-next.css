@@ -858,7 +858,7 @@
     height: 300px !important;
     border: 0 !important;
     border-radius: 0 !important;
-    background: transparent !important;
+    background-color: transparent !important;
     overflow: hidden;
 }
 
