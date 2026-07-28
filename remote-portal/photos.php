@@ -71,10 +71,13 @@ echo '<input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input ty
 echo '<label>Nome atleta come da seriale</label><input name="athlete_name" placeholder="BRUTTO D." required>';
 echo '<label style="margin-top:12px">Foto</label><input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp" required>';
 echo '<button class="btn" style="margin-top:12px" type="submit">Upload</button></form></section>';
-echo '<section class="card"><h2>Foto caricate</h2><div class="media-list">';
+echo '<section class="card"><div class="section-title-row"><h2>Foto caricate</h2><span class="muted" id="photoSearchCount">' . count($photos) . ' file</span></div>';
+echo '<div class="search-box"><label for="photoSearch">Cerca foto</label><input id="photoSearch" type="search" placeholder="Cerca per nome atleta, riferimento o file. Es: AR"><span class="muted">La ricerca filtra mentre scrivi e trova anche parti interne del testo.</span></div>';
+echo '<div class="media-list" id="photoList">';
 foreach ($photos as $photo) {
     $url = public_asset_url('photo', $photo['filename']);
-    echo '<div class="media-row">';
+    $searchText = implode(' ', [(string) $photo['athlete_name'], (string) $photo['normalized_name'], (string) $photo['filename']]);
+    echo '<div class="media-row" data-filter-row data-search="' . e($searchText) . '">';
     echo '<img class="photo-preview" src="' . e($url) . '" alt="' . e($photo['athlete_name']) . '">';
     echo '<div><strong>' . e($photo['athlete_name']) . '</strong><br><span class="muted">Chiave: ' . e($photo['normalized_name']) . '</span><br><code>' . e($photo['filename']) . '</code></div>';
     echo '<div class="actions">';
@@ -85,5 +88,38 @@ foreach ($photos as $photo) {
 if (!$photos) {
     echo '<p>Nessuna foto caricata.</p>';
 }
+echo '<p class="empty-filter-message" id="photoSearchEmpty" hidden>Nessuna foto trovata con questa ricerca.</p>';
 echo '</div></section>';
+echo <<<'HTML'
+<script>
+(() => {
+  const input = document.getElementById('photoSearch');
+  const rows = Array.from(document.querySelectorAll('#photoList [data-filter-row]'));
+  const empty = document.getElementById('photoSearchEmpty');
+  const count = document.getElementById('photoSearchCount');
+  const normalize = (value) => String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  function applyFilter() {
+    const query = normalize(input.value).trim();
+    let visible = 0;
+    for (const row of rows) {
+      const text = normalize(row.dataset.search);
+      const match = query === '' || text.includes(query);
+      row.hidden = !match;
+      if (match) visible += 1;
+    }
+    if (empty) empty.hidden = visible !== 0 || rows.length === 0;
+    if (count) count.textContent = `${visible} di ${rows.length} file`;
+  }
+
+  if (input) {
+    input.addEventListener('input', applyFilter);
+    applyFilter();
+  }
+})();
+</script>
+HTML;
 render_footer();

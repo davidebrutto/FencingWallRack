@@ -764,6 +764,13 @@ app.get('/rear', (req, res) => {
   });
 });
 
+function underfloorViewportWidth(side, segment) {
+  if (side !== 'right') {
+    return 1344;
+  }
+  return segment === 'a' ? 1536 : 1152;
+}
+
 app.get('/underfloor-:side(left|right)-:segment(a|b)', (req, res) => {
   const side = req.params.side;
   const segment = req.params.segment;
@@ -772,6 +779,7 @@ app.get('/underfloor-:side(left|right)-:segment(a|b)', (req, res) => {
     sideLabel: side === 'left' ? 'SX' : 'DX',
     segment,
     segmentLabel: segment.toUpperCase(),
+    viewportWidth: underfloorViewportWidth(side, segment),
   });
 });
 

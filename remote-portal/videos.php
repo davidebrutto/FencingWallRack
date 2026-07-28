@@ -49,10 +49,13 @@ echo '<form method="post" enctype="multipart/form-data">';
 echo '<input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="upload">';
 echo '<label>Carica video</label><input type="file" name="video" accept=".mp4,.webm,.mov,.m4v,.ogg" required>';
 echo '<button class="btn" style="margin-top:12px" type="submit">Upload</button></form></section>';
-echo '<section class="card"><h2>File caricati</h2><div class="media-list">';
+echo '<section class="card"><div class="section-title-row"><h2>File caricati</h2><span class="muted" id="videoSearchCount">' . count($videos) . ' file</span></div>';
+echo '<div class="search-box"><label for="videoSearch">Cerca video</label><input id="videoSearch" type="search" placeholder="Cerca per nome file o URL"><span class="muted">La ricerca filtra mentre scrivi.</span></div>';
+echo '<div class="media-list" id="videoList">';
 foreach ($videos as $video) {
     $url = public_asset_url('video', $video['filename']);
-    echo '<div class="media-row">';
+    $searchText = implode(' ', [(string) $video['filename'], (string) ($video['original_name'] ?? ''), $url]);
+    echo '<div class="media-row" data-filter-row data-search="' . e($searchText) . '">';
     echo '<video class="preview" src="' . e($url) . '" controls preload="metadata"></video>';
     echo '<div><strong>' . e($video['filename']) . '</strong><br><span class="muted">' . e((string) $video['size_bytes']) . ' byte</span><br><code>' . e($url) . '</code></div>';
     echo '<form method="post" onsubmit="return confirm(\'Eliminare questo video?\')"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' . (int) $video['id'] . '"><button class="btn btn-danger">Elimina</button></form>';
@@ -61,5 +64,38 @@ foreach ($videos as $video) {
 if (!$videos) {
     echo '<p>Nessun video caricato.</p>';
 }
+echo '<p class="empty-filter-message" id="videoSearchEmpty" hidden>Nessun video trovato con questa ricerca.</p>';
 echo '</div></section>';
+echo <<<'HTML'
+<script>
+(() => {
+  const input = document.getElementById('videoSearch');
+  const rows = Array.from(document.querySelectorAll('#videoList [data-filter-row]'));
+  const empty = document.getElementById('videoSearchEmpty');
+  const count = document.getElementById('videoSearchCount');
+  const normalize = (value) => String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  function applyFilter() {
+    const query = normalize(input.value).trim();
+    let visible = 0;
+    for (const row of rows) {
+      const text = normalize(row.dataset.search);
+      const match = query === '' || text.includes(query);
+      row.hidden = !match;
+      if (match) visible += 1;
+    }
+    if (empty) empty.hidden = visible !== 0 || rows.length === 0;
+    if (count) count.textContent = `${visible} di ${rows.length} file`;
+  }
+
+  if (input) {
+    input.addEventListener('input', applyFilter);
+    applyFilter();
+  }
+})();
+</script>
+HTML;
 render_footer();

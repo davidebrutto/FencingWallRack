@@ -1,0 +1,25 @@
+{
+  "name": "FenceWall Media",
+  "short_name": "FenceWall",
+  "description": "Gestione video pubblicitari e foto atleti per FenceWallRack.",
+  "start_url": "/dashboard.php",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#101418",
+  "theme_color": "#101418",
+  "icons": [
+    {
+      "src": "/assets/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
