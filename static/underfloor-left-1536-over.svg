@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Livello_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1535.53 96">
+  <!-- Generator: Adobe Illustrator 30.6.0, SVG Export Plug-In . SVG Version: 2.1.4 Build 109)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #641a10;
+      }
+
+      .st1 {
+        fill: #651a0f;
+      }
+
+      .st2 {
+        fill: #e73a38;
+      }
+
+      .st3 {
+        stroke: #e73a38;
+        stroke-miterlimit: 10;
+        stroke-width: 2px;
+      }
+    </style>
+  </defs>
+
+  <polygon class="st0" points="1441.77 82.42 1371.77 82.42 1317.56 17.81 1387.56 17.81 1441.77 82.42"/>
+  <polygon points="1502.87 82.49 1432.87 82.49 1378.67 17.89 1448.67 17.89 1502.87 82.49"/>
+  <polygon id="trapezioPunteggio_-_z-index:5" class="st2" points="1307.74 0 1431.97 0 1512.53 96 1388.29 96 1307.74 0"/>
+  <polygon class="st0" points="680.48 82.96 698.47 82.96 644.19 18.27 626.21 18.27 680.48 82.96"/>
+  <polygon points="708.62 82.34 726.61 82.34 672.33 17.66 654.35 17.66 708.62 82.34"/>
+  <polygon id="trapezio1_-_z-index:5" class="st2" points="694.83 96.5 736.83 96.5 656.28 .5 614.28 .5 694.83 96.5"/>
+</svg>

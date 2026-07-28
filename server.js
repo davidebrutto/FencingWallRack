@@ -765,10 +765,13 @@ app.get('/rear', (req, res) => {
 });
 
 function underfloorViewportWidth(side, segment) {
-  if (side !== 'right') {
-    return 1344;
+  if (side === 'left') {
+    return segment === 'a' ? 1152 : 1536;
   }
-  return segment === 'a' ? 1536 : 1152;
+  if (side === 'right') {
+    return segment === 'a' ? 1536 : 1152;
+  }
+  return 1344;
 }
 
 app.get('/underfloor-:side(left|right)-:segment(a|b)', (req, res) => {
