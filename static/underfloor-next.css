@@ -417,18 +417,28 @@ body.underfloor-right .uf-state-light {
     left: 0;
     width: 2688px;
     height: 96px;
-    clip-path: polygon(210px 17px, 880px 17px, 824px 83px, 154px 83px);
-    background: #000000;
+    clip-path: none;
+    background: transparent;
     box-shadow: none;
     z-index: 2;
 }
 
-body.underfloor-right .uf-state-light.is-green {
+body.underfloor-right .uf-state-light::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    clip-path: polygon(210px 17px, 2678px 17px, 2622px 83px, 154px 83px);
+    background: #000000;
+    border: 2px solid #048937;
+    box-shadow: none;
+}
+
+body.underfloor-right .uf-state-light.is-green::before {
     background: #048937;
     box-shadow: none;
 }
 
-body.underfloor-right .uf-state-light.is-white {
+body.underfloor-right .uf-state-light.is-white::before {
     background: linear-gradient(90deg, #ffffff 0%, #f3f3f3 58%, #cccccc 100%);
     box-shadow: none;
 }
