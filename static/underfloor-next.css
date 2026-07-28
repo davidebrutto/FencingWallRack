@@ -733,3 +733,9 @@ body.underfloor-right .uf-card {
     font-weight: 950;
     line-height: 54px;
 }
+
+/* Ordine cartellini sottopedana SX: CRP, CGP, CR, CG, P. */
+body.underfloor-left #ufCRPSX { order: 1; }
+body.underfloor-left #ufCGPSX { order: 2; }
+body.underfloor-left #ufCRSX { order: 3; }
+body.underfloor-left #ufCGSX { order: 4; }
