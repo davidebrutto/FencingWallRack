@@ -26,6 +26,8 @@
       }
     </style>
   </defs>
-  <polygon class="st1" points="1006.69 96.5 964.69 96.5 881.23 .5 923.23 .5 1006.69 96.5"/>
-  <polygon class="st2" points="232.87 0 108.64 0 189.19 96 313.42 96 232.87 0"/>
+
+  <polygon id="trapezioSotto1_-_z-index:2" class="st1" points="1006.69 96.5 964.69 96.5 881.23 .5 923.23 .5 1006.69 96.5"/>
+  <polygon id="trapezioSottoPunteggio_-_z-index:2" class="st2" points="232.87 0 108.64 0 189.19 96 313.42 96 232.87 0"/>
+  <polygon id="trapezio-base_-_z-index:3" class="st3" points="2622.22 83.49 9.76 83.49 65.78 16.74 2678.24 16.74 2622.22 83.49"/>
 </svg>

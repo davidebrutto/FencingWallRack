@@ -26,15 +26,15 @@
       }
     </style>
   </defs>
-  <rect width="1536" height="96"/>
-  <polygon class="st1" points="1006.69 96.5 964.69 96.5 881.23 .5 923.23 .5 1006.69 96.5"/>
-  <polygon class="st2" points="232.87 0 108.64 0 189.19 96 313.42 96 232.87 0"/>
-  <polygon class="st3" points="2622.22 83.49 9.76 83.49 65.78 16.74 2678.24 16.74 2622.22 83.49"/>
-  <polygon class="st3" points="823.73 83.38 153.52 83.38 209.54 16.62 879.74 16.62 823.73 83.38"/>
+  <rect id="base_x5F_black_-_z-index:1" width="1536" height="96"/>
+  <polygon id="trapezioSotto1_-_z-index:2" class="st1" points="1006.69 96.5 964.69 96.5 881.23 .5 923.23 .5 1006.69 96.5"/>
+  <polygon id="trapezioSottoPunteggio_-_z-index:2" class="st2" points="232.87 0 108.64 0 189.19 96 313.42 96 232.87 0"/>
+  <polygon id="trapezio-base_-_z-index:3" class="st3" points="2622.22 83.49 9.76 83.49 65.78 16.74 2678.24 16.74 2622.22 83.49"/>
+  <polygon id="statoDXbig_-_z-index:4" class="st3" points="823.73 83.38 153.52 83.38 209.54 16.62 879.74 16.62 823.73 83.38"/>
   <polygon class="st4" points="93.76 82.42 163.76 82.42 217.97 17.81 147.97 17.81 93.76 82.42"/>
   <polygon points="32.65 82.49 102.65 82.49 156.86 17.89 86.86 17.89 32.65 82.49"/>
-  <polygon class="st0" points="227.79 0 103.55 0 23 96 147.23 96 227.79 0"/>
+  <polygon id="trapezioPunteggio_-_z-index:5" class="st0" points="227.79 0 103.55 0 23 96 147.23 96 227.79 0"/>
   <polygon class="st4" points="855.05 82.96 837.06 82.96 891.34 18.27 909.32 18.27 855.05 82.96"/>
   <polygon points="826.9 82.34 808.92 82.34 863.19 17.66 881.18 17.66 826.9 82.34"/>
-  <polygon class="st0" points="840.69 96.5 798.69 96.5 879.25 .5 921.25 .5 840.69 96.5"/>
+  <polygon id="trapezio1_-_z-index:5" class="st0" points="840.69 96.5 798.69 96.5 879.25 .5 921.25 .5 840.69 96.5"/>
 </svg>
