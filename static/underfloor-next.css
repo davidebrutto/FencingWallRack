@@ -376,7 +376,17 @@ body.underfloor-right.underfloor-segment-b .underfloor-canvas {
 
 body.underfloor-right .uf-strip-right {
     width: 2688px;
-    background: #000000;
+    background-color: #000000;
+    background-image:
+        url("/static/underfloor-right-1536-under.svg"),
+        url("/static/underfloor-right-1152-under.svg");
+    background-position:
+        0 0,
+        1536px 0;
+    background-size:
+        1536px 96px,
+        1152px 96px;
+    background-repeat: no-repeat;
 }
 
 body.underfloor-right .uf-strip-right::after {
@@ -386,8 +396,8 @@ body.underfloor-right .uf-strip-right::after {
     z-index: 3;
     pointer-events: none;
     background-image:
-        url("/static/underfloor-right-1536-overlay.svg"),
-        url("/static/underfloor-right-1152-overlay.svg");
+        url("/static/underfloor-right-1536-over.svg"),
+        url("/static/underfloor-right-1152-over.svg");
     background-position:
         0 0,
         1536px 0;
@@ -408,9 +418,9 @@ body.underfloor-right .uf-state-light {
     width: 2688px;
     height: 96px;
     clip-path: polygon(66px 17px, 2678px 17px, 2622px 83px, 10px 83px);
-    background: transparent;
+    background: #000000;
     box-shadow: none;
-    z-index: 1;
+    z-index: 2;
 }
 
 body.underfloor-right .uf-state-light.is-green {
@@ -424,7 +434,7 @@ body.underfloor-right .uf-state-light.is-white {
 }
 
 body.underfloor-right .uf-score-wrap {
-    left: 66px;
+    left: 56px;
     top: 0;
     width: 135px;
     height: 96px;
@@ -441,7 +451,7 @@ body.underfloor-right .uf-score {
 }
 
 body.underfloor-right .uf-name {
-    left: 735px;
+    left: 900px;
     top: 0;
     width: 650px;
     height: 96px;
@@ -454,7 +464,7 @@ body.underfloor-right .uf-name {
 }
 
 body.underfloor-right .uf-flag-block {
-    left: 1655px;
+    left: 1800px;
     top: 0;
     width: 82px;
     height: 96px;
@@ -470,7 +480,7 @@ body.underfloor-right .uf-flag {
 }
 
 body.underfloor-right .uf-country {
-    left: 1784px;
+    left: 1900px;
     top: 0;
     width: 98px;
     height: 96px;
@@ -483,7 +493,7 @@ body.underfloor-right .uf-country {
 }
 
 body.underfloor-right .uf-priority {
-    left: 2056px;
+    left: 2156px;
     top: 0;
     width: 60px;
     height: 96px;
@@ -494,7 +504,7 @@ body.underfloor-right .uf-priority {
 }
 
 body.underfloor-right .uf-cards {
-    left: 2160px;
+    left: 2250px;
     top: 21px;
     width: 332px;
     height: 54px;
