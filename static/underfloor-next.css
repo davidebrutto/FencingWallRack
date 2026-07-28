@@ -417,7 +417,7 @@ body.underfloor-right .uf-state-light {
     left: 0;
     width: 2688px;
     height: 96px;
-    clip-path: polygon(66px 17px, 2678px 17px, 2622px 83px, 10px 83px);
+    clip-path: polygon(210px 17px, 880px 17px, 824px 83px, 154px 83px);
     background: #000000;
     box-shadow: none;
     z-index: 2;
