@@ -675,7 +675,7 @@ body.underfloor-right .uf-name {
 }
 
 body.underfloor-right .uf-flag-block {
-    left: 1800px;
+    left: 1650px;
     top: 0;
     width: 82px;
     height: 96px;
@@ -691,7 +691,7 @@ body.underfloor-right .uf-flag {
 }
 
 body.underfloor-right .uf-country {
-    left: 1900px;
+    left: 1750px;
     top: 0;
     width: 98px;
     height: 96px;
@@ -704,7 +704,7 @@ body.underfloor-right .uf-country {
 }
 
 body.underfloor-right .uf-priority {
-    left: 2156px;
+    left: 2236px;
     top: 0;
     width: 60px;
     height: 96px;
@@ -715,7 +715,7 @@ body.underfloor-right .uf-priority {
 }
 
 body.underfloor-right .uf-cards {
-    left: 2250px;
+    left: 2290px;
     top: 21px;
     width: 332px;
     height: 54px;
