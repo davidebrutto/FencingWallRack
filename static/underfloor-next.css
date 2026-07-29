@@ -484,7 +484,7 @@ body.underfloor-left .uf-name {
 }
 
 body.underfloor-left .uf-flag-block {
-    left: 806px;
+    left: 956px;
     top: 0;
     width: 82px;
     height: 96px;
@@ -500,7 +500,7 @@ body.underfloor-left .uf-flag {
 }
 
 body.underfloor-left .uf-country {
-    left: 690px;
+    left: 856px;
     top: 0;
     width: 98px;
     height: 96px;
@@ -512,8 +512,51 @@ body.underfloor-left .uf-country {
     z-index: 4;
 }
 
+body.underfloor-left .uf-inline-state {
+    position: absolute;
+    top: 21px;
+    width: 20px;
+    height: 54px;
+    border-radius: 5px;
+    background: transparent;
+    z-index: 4;
+}
+
+body.underfloor-left .uf-inline-state-left {
+    left: 496px;
+}
+
+body.underfloor-left .uf-inline-state-right {
+    left: 696px;
+}
+
+body.underfloor-left .uf-inline-state.is-red {
+    background: #CC0000;
+}
+
+body.underfloor-left .uf-inline-state.is-green {
+    background: #00CC00;
+}
+
+body.underfloor-left .uf-inline-state.is-white {
+    background: #ffffff;
+}
+
+body.underfloor-left .uf-inline-timer {
+    display: block;
+    left: 536px;
+    top: 0;
+    width: 146px;
+    height: 96px;
+    padding: 0;
+    font-size: 46px;
+    line-height: 96px;
+    text-align: center;
+    z-index: 4;
+}
+
 body.underfloor-left .uf-priority {
-    left: 472px;
+    left: 393px;
     top: 0;
     width: 60px;
     height: 96px;
@@ -524,7 +567,7 @@ body.underfloor-left .uf-priority {
 }
 
 body.underfloor-left .uf-cards {
-    left: 106px;
+    left: 65px;
     top: 21px;
     width: 332px;
     height: 54px;

@@ -28,6 +28,9 @@
                 </div>
 
                 <div class="uf-priority" id="ufPrioritaSX"></div>
+                <div class="uf-inline-state uf-inline-state-left" id="afStatoSXbig"></div>
+                <div class="uf-inline-timer uf-timer" id="ufTimerText">3:00</div>
+                <div class="uf-inline-state uf-inline-state-right" id="afStatoDXbig"></div>
                 <div class="uf-chevron uf-chevron-priority"></div>
                 <div class="uf-state-light" id="ufStatoSXbig"></div>
                 <div class="uf-chevron uf-chevron-name"></div>
@@ -35,7 +38,6 @@
                 <div class="uf-score-wrap">
                     <div class="uf-score" id="ufScoreSX">0</div>
                 </div>
-                <div class="uf-timer" id="ufTimerText">3:00</div>
             </section>
             {% elif side == 'right' %}
             <section class="uf-strip uf-strip-right" aria-label="Sottopedana destra">
@@ -129,11 +131,16 @@
         function renderLeftScoreboard(tabellone) {
             const redCardsSX = cardCount(tabellone.D);
             const statoSX = tabellone.R == 1 ? 'red' : (tabellone.w == 1 ? 'white' : 'off');
+            const statoDX = tabellone.G == 1 ? 'green' : (tabellone.W == 1 ? 'white' : 'off');
             setTextIfChanged('ufScoreSX', tabellone.YY || '0');
             setTextIfChanged('ufTimerText', tabellone.timer || '3:00');
             setTimerMode(tabellone.timerMode);
             setClassState('ufStatoSXbig', 'is-red', statoSX === 'red');
             setClassState('ufStatoSXbig', 'is-white', statoSX === 'white');
+            setClassState('afStatoSXbig', 'is-red', statoSX === 'red');
+            setClassState('afStatoSXbig', 'is-white', statoSX === 'white');
+            setClassState('afStatoDXbig', 'is-green', statoDX === 'green');
+            setClassState('afStatoDXbig', 'is-white', statoDX === 'white');
             setClassState('ufCGSX', 'is-on', Number.parseInt(String(tabellone.C ?? '0').trim(), 10) >= 1);
             setClassState('ufCRSX', 'is-on', redCardsSX > 0);
             setTextIfChanged('ufCRSX', redCardsSX > 1 ? redCardsSX : '');
