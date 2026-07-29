@@ -2,6 +2,7 @@
 import ipaddress
 import glob
 import os
+import pwd
 import queue
 import re
 import signal
@@ -90,7 +91,9 @@ DEFAULT_ATHLETE_PLACEHOLDER_ENABLED = env_bool("OLED_DEFAULT_ATHLETE_PLACEHOLDER
 ATHLETE_PLACEHOLDER_ENV_KEY = os.getenv("OLED_ATHLETE_PLACEHOLDER_ENV_KEY", "ATHLETE_PLACEHOLDER_ENABLED")
 PREFERRED_IFACE = os.getenv("NET_IFACE", "").strip()
 DISPLAY_PROFILES = ["ledwall", "sottopedana"]
-MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA"]
+MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "UPDATE"]
+UPDATE_APP_DIR = os.getenv("OLED_UPDATE_APP_DIR", os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..")))
+UPDATE_GIT_TIMEOUT_SEC = env_int("OLED_UPDATE_GIT_TIMEOUT_SEC", 120)
 
 
 def run(cmd, check=True):
@@ -500,6 +503,73 @@ def reboot_after_delay(delay_sec):
     time.sleep(delay_sec)
     reboot_system()
 
+def git_owner_command(app_dir, git_args):
+    git_cmd = ["git", "-C", app_dir, "-c", f"safe.directory={app_dir}"] + git_args
+    try:
+        stat_info = os.stat(app_dir)
+    except OSError:
+        return git_cmd
+
+    if os.geteuid() != 0 or stat_info.st_uid == 0:
+        return git_cmd
+
+    try:
+        owner = pwd.getpwuid(stat_info.st_uid).pw_name
+    except KeyError:
+        return git_cmd
+
+    runuser_path = "/usr/sbin/runuser" if os.path.exists("/usr/sbin/runuser") else "runuser"
+    return [runuser_path, "-u", owner, "--"] + git_cmd
+
+
+def run_git(app_dir, git_args, timeout=UPDATE_GIT_TIMEOUT_SEC):
+    return subprocess.run(
+        git_owner_command(app_dir, git_args),
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=timeout,
+    )
+
+
+def compact_git_output(result):
+    output = "\n".join(part.strip() for part in (result.stdout, result.stderr) if part and part.strip())
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    return lines
+
+
+def run_repository_update(app_dir=UPDATE_APP_DIR):
+    if not os.path.isdir(app_dir):
+        return {"ok": False, "updated": False, "lines": ["UPDATE ERROR", "Repo not found", app_dir[-21:]]}
+
+    before = run_git(app_dir, ["rev-parse", "HEAD"], timeout=15)
+    if before.returncode != 0:
+        lines = compact_git_output(before)
+        return {"ok": False, "updated": False, "lines": ["UPDATE ERROR"] + lines[:4]}
+
+    pull = run_git(app_dir, ["pull", "--ff-only"], timeout=UPDATE_GIT_TIMEOUT_SEC)
+    if pull.returncode != 0:
+        lines = compact_git_output(pull)
+        return {"ok": False, "updated": False, "lines": ["PULL ERROR"] + lines[:5]}
+
+    after = run_git(app_dir, ["rev-parse", "HEAD"], timeout=15)
+    before_sha = before.stdout.strip()
+    after_sha = after.stdout.strip() if after.returncode == 0 else before_sha
+    updated = bool(before_sha and after_sha and before_sha != after_sha)
+
+    if not updated:
+        return {"ok": True, "updated": False, "lines": ["NO UPDATE", "Gia aggiornato", "K1 indietro"]}
+
+    changed = run_git(app_dir, ["diff", "--name-only", f"{before_sha}..{after_sha}"], timeout=20)
+    files = [line.strip() for line in changed.stdout.splitlines() if line.strip()]
+    summary = f"Files: {len(files)}" if files else "Files aggiornati"
+    return {
+        "ok": True,
+        "updated": True,
+        "lines": ["UPDATED", summary, after_sha[:7], "K2 reboot", "K1 indietro"],
+    }
+
+
 
 class OledNetworkApp:
     network_fields = ["ip", "netmask", "gateway"]
@@ -522,6 +592,9 @@ class OledNetworkApp:
         self.display_profile = load_kiosk_display_profile()
         self.spot_minutes = load_spot_inactivity_minutes()
         self.athlete_placeholder_enabled = load_athlete_placeholder_enabled()
+        self.update_lines = ["UPDATE", "Press to start"]
+        self.update_reboot_available = False
+        self.update_running = False
         self.menu_selected = 0
         self.network_selected = 0
         self.editing = False
@@ -743,6 +816,9 @@ class OledNetworkApp:
             self.enter_screen("spot")
         elif item == "AVATAR ATLETA":
             self.enter_screen("avatar")
+        elif item == "UPDATE":
+            self.enter_screen("update")
+            self.perform_update()
 
     def save_current_screen(self):
         if self.screen == "network":
@@ -753,6 +829,8 @@ class OledNetworkApp:
             self.save_spot()
         elif self.screen == "avatar":
             self.save_avatar()
+        elif self.screen == "update":
+            self.save_update()
 
     def save_network(self):
         stop_animation = threading.Event()
@@ -834,6 +912,40 @@ class OledNetworkApp:
             animation.join(timeout=1)
             self.mark_activity()
 
+    def perform_update(self):
+        if self.update_running:
+            return
+        self.update_running = True
+        self.update_reboot_available = False
+        stop_animation = threading.Event()
+        animation = threading.Thread(target=self.saving_animation, args=(stop_animation, "Git update"), daemon=True)
+        animation.start()
+        try:
+            result = run_repository_update()
+            self.update_lines = result["lines"][:6]
+            self.update_reboot_available = bool(result["ok"] and result["updated"])
+            self.status = "Updated" if self.update_reboot_available else ("No update" if result["ok"] else "Update ERR")
+        except subprocess.TimeoutExpired:
+            self.update_lines = ["PULL ERROR", "Timeout", "K1 indietro"]
+            self.update_reboot_available = False
+            self.status = "Update timeout"
+        except Exception as exc:
+            self.update_lines = ["UPDATE ERROR", str(exc)[:21], "K1 indietro"]
+            self.update_reboot_available = False
+            self.status = "Update ERR"
+        finally:
+            stop_animation.set()
+            animation.join(timeout=1)
+            self.update_running = False
+            self.mark_activity()
+
+    def save_update(self):
+        if self.update_reboot_available:
+            self.draw_message(["Rebooting...", "Update applied"])
+            threading.Thread(target=reboot_after_delay, args=(REBOOT_DELAY_SEC,), daemon=True).start()
+        else:
+            self.perform_update()
+
     def handle_event(self, event):
         event = self.normalize_input_event(event)
 
@@ -848,7 +960,7 @@ class OledNetworkApp:
         self.mark_activity()
 
         if event == "k1":
-            if self.screen in ("network", "mode", "spot", "avatar"):
+            if self.screen in ("network", "mode", "spot", "avatar", "update"):
                 self.enter_screen("main_menu")
             elif self.screen == "main_menu":
                 self.enter_screen("logo")
@@ -868,6 +980,8 @@ class OledNetworkApp:
             return
 
         if event == "k3_hold":
+            if self.screen == "update":
+                return
             self.editing = True
             if self.screen == "network":
                 self.cfg["mode"] = "STATIC"
@@ -925,11 +1039,20 @@ class OledNetworkApp:
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
         draw.text((0, 0), "MENU", font=self.font, fill=255)
-        for idx, item in enumerate(MAIN_MENU_ITEMS):
-            selected = idx == self.menu_selected
+        visible_count = 3
+        max_start = max(0, len(MAIN_MENU_ITEMS) - visible_count)
+        start = min(max(0, self.menu_selected - visible_count + 1), max_start)
+        visible_items = MAIN_MENU_ITEMS[start:start + visible_count]
+        if start > 0:
+            draw.text((116, 0), "^", font=self.font, fill=255)
+        if start + visible_count < len(MAIN_MENU_ITEMS):
+            draw.text((116, 54), "v", font=self.font, fill=255)
+        for idx, item in enumerate(visible_items):
+            item_index = start + idx
+            selected = item_index == self.menu_selected
             prefix = ">" if selected else " "
             blink = selected and self.blink_on
-            self.draw_line_with_cursor(draw, 16 + idx * 13, f"{prefix}{item}", None, blink)
+            self.draw_line_with_cursor(draw, 16 + idx * 14, f"{prefix}{item}", None, blink)
         with self.render_lock:
             self.display_image(image)
 
@@ -1006,6 +1129,17 @@ class OledNetworkApp:
         with self.render_lock:
             self.display_image(image)
 
+    def draw_update(self):
+        image = Image.new("1", (WIDTH, HEIGHT), 0)
+        draw = ImageDraw.Draw(image)
+        lines = self.update_lines or ["UPDATE", "K2 start"]
+        for idx, line in enumerate(lines[:5]):
+            self.draw_line_with_cursor(draw, idx * 10, line, None, False)
+        footer = "K2 REBOOT" if self.update_reboot_available else "K2 UPDATE"
+        self.draw_line_with_cursor(draw, 54, footer, None, False)
+        with self.render_lock:
+            self.display_image(image)
+
     def draw(self):
         if self.screen == "logo":
             self.draw_logo()
@@ -1019,6 +1153,8 @@ class OledNetworkApp:
             self.draw_spot()
         elif self.screen == "avatar":
             self.draw_avatar()
+        elif self.screen == "update":
+            self.draw_update()
 
     def draw_message(self, lines):
         image = Image.new("1", (WIDTH, HEIGHT), 0)
