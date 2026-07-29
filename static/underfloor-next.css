@@ -523,11 +523,11 @@ body.underfloor-left .uf-inline-state {
 }
 
 body.underfloor-left .uf-inline-state-left {
-    left: 496px;
+    left: 530px;
 }
 
 body.underfloor-left .uf-inline-state-right {
-    left: 696px;
+    left: 730px;
 }
 
 body.underfloor-left .uf-inline-state.is-red {
@@ -544,7 +544,7 @@ body.underfloor-left .uf-inline-state.is-white {
 
 body.underfloor-left .uf-inline-timer {
     display: block;
-    left: 536px;
+    left: 570px;
     top: 0;
     width: 146px;
     height: 96px;
