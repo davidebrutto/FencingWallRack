@@ -47,6 +47,9 @@
                 <div class="uf-chevron uf-chevron-name"></div>
                 <div class="uf-state-light" id="ufStatoDXbig"></div>
                 <div class="uf-chevron uf-chevron-priority"></div>
+                <div class="uf-inline-state uf-inline-state-left" id="afStatoSXbig"></div>
+                <div class="uf-inline-timer uf-timer" id="ufTimerText">3:00</div>
+                <div class="uf-inline-state uf-inline-state-right" id="afStatoDXbig"></div>
                 <div class="uf-priority" id="ufPrioritaDX"></div>
 
                 <div class="uf-cards" aria-label="Cartellini destra">
@@ -140,11 +143,18 @@
 
         function renderRightScoreboard(tabellone) {
             const redCardsDX = cardCount(tabellone.B);
+            const statoSX = tabellone.R == 1 ? 'red' : (tabellone.w == 1 ? 'white' : 'off');
             const statoDX = tabellone.G == 1 ? 'green' : (tabellone.W == 1 ? 'white' : 'off');
             setTextIfChanged('ufScoreDX', tabellone.XX || '0');
             setTextIfChanged('ufPeriodDX', tabellone.PR || '1');
+            setTextIfChanged('ufTimerText', tabellone.timer || '3:00');
+            setTimerMode(tabellone.timerMode);
             setClassState('ufStatoDXbig', 'is-green', statoDX === 'green');
             setClassState('ufStatoDXbig', 'is-white', statoDX === 'white');
+            setClassState('afStatoSXbig', 'is-red', statoSX === 'red');
+            setClassState('afStatoSXbig', 'is-white', statoSX === 'white');
+            setClassState('afStatoDXbig', 'is-green', statoDX === 'green');
+            setClassState('afStatoDXbig', 'is-white', statoDX === 'white');
             setClassState('ufCGDX', 'is-on', Number.parseInt(String(tabellone.A ?? '0').trim(), 10) >= 1);
             setClassState('ufCRDX', 'is-on', redCardsDX > 0);
             setTextIfChanged('ufCRDX', redCardsDX > 1 ? redCardsDX : '');
