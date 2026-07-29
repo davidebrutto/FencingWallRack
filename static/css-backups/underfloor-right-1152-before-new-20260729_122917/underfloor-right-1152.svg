@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Livello_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1152 96">
+  <!-- Generator: Adobe Illustrator 30.6.0, SVG Export Plug-In . SVG Version: 2.1.4 Build 109)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #048937;
+      }
+
+      .st1 {
+        fill: #094a24;
+      }
+
+      .st2 {
+        stroke: #048937;
+        stroke-miterlimit: 10;
+        stroke-width: 2px;
+      }
+
+      .st3 {
+        fill: #084a23;
+      }
+    </style>
+  </defs>
+  <rect id="base_x5F_black_-_z-index:1" width="1152" height="96"/>
+  <polygon id="trapezioSotto3_-_z-index:2" class="st1" points="702.68 96 660.68 96 577.23 0 619.23 0 702.68 96"/>
+  <polygon id="trapezioSotto2_-_z-index:2" class="st1" points="305.58 96 263.58 96 180.12 0 222.12 0 305.58 96"/>
+  <polygon id="trapezio-base_-_z-index:3" class="st2" points="1086.22 83.49 -1526.24 83.49 -1470.22 16.74 1142.24 16.74 1086.22 83.49"/>
+  <polygon class="st3" points="153.94 82.46 135.95 82.46 190.23 17.77 208.21 17.77 153.94 82.46"/>
+  <polygon points="125.79 82.46 107.81 82.46 162.08 17.77 180.07 17.77 125.79 82.46"/>
+  <polygon class="st0" points="139.58 96 97.58 96 178.14 0 220.14 0 139.58 96"/>
+  <polygon class="st3" points="551.72 82.46 533.74 82.46 588.01 17.77 606 17.77 551.72 82.46"/>
+  <polygon points="522.4 82.46 504.41 82.46 558.69 17.77 576.67 17.77 522.4 82.46"/>
+  <polygon id="_trapezio3_-_z-index:5" class="st0" points="537.28 96 495.28 96 575.84 0 617.84 0 537.28 96"/>
+  <polygon class="st3" points="153.94 82.46 135.95 82.46 190.23 17.77 208.21 17.77 153.94 82.46"/>
+  <polygon points="125.79 82.46 107.81 82.46 162.08 17.77 180.07 17.77 125.79 82.46"/>
+  <polygon id="trapezio2_-_z-index:5" class="st0" points="139.58 96 97.58 96 178.14 0 220.14 0 139.58 96"/>
+</svg>

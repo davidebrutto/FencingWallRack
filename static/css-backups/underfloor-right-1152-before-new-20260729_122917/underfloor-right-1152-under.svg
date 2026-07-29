@@ -12,22 +12,18 @@
       }
 
       .st2 {
-        fill: #0a4a25;
-      }
-
-      .st3 {
         stroke: #048937;
         stroke-miterlimit: 10;
         stroke-width: 2px;
       }
 
-      .st4 {
+      .st3 {
         fill: #084a23;
       }
     </style>
   </defs>
 
-  <polygon id="_trapezio5_-_z-index:5" class="st0" points="330.33 96 288.33 96 368.88 0 410.88 0 330.33 96"/>
-  <polygon id="_trapezio3_-_z-index:5" class="st0" points="653.46 96 611.46 96 692.01 0 734.01 0 653.46 96"/>
-  <polygon id="trapezio2_-_z-index:5" class="st0" points="50.7 96 8.7 96 89.25 0 131.25 0 50.7 96"/>
+  <polygon id="trapezioSotto3_-_z-index:2" class="st1" points="702.68 96 660.68 96 577.23 0 619.23 0 702.68 96"/>
+  <polygon id="trapezioSotto2_-_z-index:2" class="st1" points="305.58 96 263.58 96 180.12 0 222.12 0 305.58 96"/>
+  <polygon id="trapezio-base_-_z-index:3" class="st2" points="1086.22 83.49 -1526.24 83.49 -1470.22 16.74 1142.24 16.74 1086.22 83.49"/>
 </svg>
