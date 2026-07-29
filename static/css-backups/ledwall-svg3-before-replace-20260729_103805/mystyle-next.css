@@ -691,14 +691,14 @@
     content: "";
     position: absolute;
     left: -142px;
-    top: 0;
+    top: -12px;
     width: 1837px;
-    height: 780px;
+    height: 792px;
     z-index: 10;
     pointer-events: none;
     background-image: url("/static/ledwall-front.svg");
     background-repeat: no-repeat;
-    background-size: 1837px 780px;
+    background-size: 1837px 792px;
     background-position: 0 0;
 }
 
@@ -721,12 +721,12 @@
 
 .statoSXbig {
     left: 0;
-    clip-path: polygon(-7.9px 23.2px, 211.2px 23.2px, 658.1px 23.2px, 745.3px 127.2px, 326.5px 127.2px, 764.3px 666.7px, 764.3px 777.6px, -7.9px 777.6px, -7.9px 23.2px);
+    clip-path: polygon(-8px -10px, 211px -10px, 764px 662px, 764px 778px, -8px 778px);
 }
 
 .statoDXbig {
     left: 0;
-    clip-path: polygon(1546.4px 23.2px, 1326.4px 23.2px, 877.9px 23.2px, 790.7px 127.2px, 1218.8px 127.2px, 770.9px 666.7px, 770.9px 777.6px, 1546.4px 777.6px, 1546.4px 23.2px);
+    clip-path: polygon(1546px -10px, 1326px -10px, 771px 662px, 771px 778px, 1546px 778px);
 }
 
 .nomeSXCont,

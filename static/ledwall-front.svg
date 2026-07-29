@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg id="Livello_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 918.35 396.04">
+<svg id="Livello_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 918.35 389.8">
   <!-- Generator: Adobe Illustrator 30.6.0, SVG Export Plug-In . SVG Version: 2.1.4 Build 109)  -->
   <defs>
     <style>
@@ -62,39 +62,39 @@
       }
     </style>
   </defs>
-  <rect id="base-nera_z-index:1" x="71.12" y="6.24" width="768" height="384"/>
-  <polygon id="statoSXbig_x5F_-_x5F_z-index:2" class="st1" points="67.15 1 176.72 1 453.27 337.12 453.27 395.04 67.15 395.04 67.15 1"/>
-  <polygon id="trapezio-Nome-SX_-_z-index:" class="st9" points="443.79 69.84 45.78 69.84 2.14 17.84 400.16 17.84 443.79 69.84"/>
-  <polygon id="statoDXbig_x5F_-_x5F_z-index:2" class="st2" points="844.34 1 734.3 1 456.57 337.12 456.57 395.04 844.34 395.04 844.34 1"/>
-  <polygon id="trapezio-Nome-DX_-_z-index:" class="st6" points="466.45 69.84 872.58 69.84 916.21 17.84 510.09 17.84 466.45 69.84"/>
+  <rect id="base-nera_z-index:1" x="71.12" width="768" height="384"/>
+  <polygon id="statoSXbig_x5F_-_x5F_z-index:2" class="st1" points="67.15 11.6 176.72 11.6 400.16 11.6 443.79 63.6 234.36 63.59 453.27 333.35 453.27 388.8 67.15 388.8 67.15 11.6"/>
+  <polygon id="trapezio-Nome-SX_-_z-index:" class="st9" points="443.79 63.6 45.78 63.6 2.14 11.6 400.16 11.6 443.79 63.6"/>
+  <polygon id="statoDXbig_x5F_-_x5F_z-index:2" class="st2" points="844.34 11.6 734.3 11.6 510.09 11.6 466.45 63.6 680.54 63.6 456.57 333.35 456.57 388.8 844.34 388.8 844.34 11.6"/>
+  <polygon id="trapezio-Nome-DX_-_z-index:" class="st6" points="466.45 63.6 872.58 63.6 916.21 11.6 510.09 11.6 466.45 63.6"/>
   <g id="flagSX_-_z-index:">
     <g>
-      <path class="st3" d="M165.77,76.9h57.2v42.9h-57.2v-42.9Z"/>
-      <path class="st5" d="M165.77,76.9h19.06v42.9h-19.06v-42.9Z"/>
-      <path class="st4" d="M203.9,76.9h19.06v42.9h-19.06v-42.9Z"/>
+      <path class="st3" d="M165.77,70.66h57.2v42.9h-57.2v-42.9Z"/>
+      <path class="st5" d="M165.77,70.66h19.06v42.9h-19.06v-42.9Z"/>
+      <path class="st4" d="M203.9,70.66h19.06v42.9h-19.06v-42.9Z"/>
     </g>
   </g>
-  <rect id="placeholderNazioneSX_-_z-index:" class="st10" x="97.34" y="76.9" width="57.2" height="42.9" rx="5" ry="5"/>
-  <rect id="placeholderImmagineAtletaSX_-_z-index:" class="st0" x="84.14" y="131.51" width="120" height="150"/>
-  <rect id="CGSX_-_z-index:" class="st8" x="95.09" y="293.2" width="29" height="36" rx="5" ry="5"/>
-  <rect id="CGPSX_-_z-index:" class="st8" x="94.19" y="338.45" width="29" height="36" rx="5" ry="5"/>
-  <rect id="CRSX_-_z-index:" class="st7" x="138.75" y="293.2" width="29" height="36" rx="5" ry="5"/>
-  <rect id="CRPSX_-_z-index:" class="st7" x="137.85" y="338.45" width="29" height="36" rx="5" ry="5"/>
-  <rect id="placeholderTimer_-_z-index:" class="st0" x="318.18" y="81.52" width="274.57" height="80.52"/>
-  <rect id="placeholderPeriod_-_z-index:" class="st0" x="415.21" y="193.07" width="80.52" height="80.52"/>
-  <rect id="placeholderPunteggioSX_-_z-index:" class="st0" x="210.47" y="237.83" width="157.15" height="136.63"/>
+  <rect id="placeholderNazioneSX_-_z-index:" class="st10" x="97.34" y="70.66" width="57.2" height="42.9" rx="5" ry="5"/>
+  <rect id="placeholderImmagineAtletaSX_-_z-index:" class="st0" x="84.14" y="125.26" width="120" height="150"/>
+  <rect id="CGSX_-_z-index:" class="st8" x="95.09" y="286.96" width="29" height="36" rx="5" ry="5"/>
+  <rect id="CGPSX_-_z-index:" class="st8" x="94.19" y="332.21" width="29" height="36" rx="5" ry="5"/>
+  <rect id="CRSX_-_z-index:" class="st7" x="138.75" y="286.96" width="29" height="36" rx="5" ry="5"/>
+  <rect id="CRPSX_-_z-index:" class="st7" x="137.85" y="332.21" width="29" height="36" rx="5" ry="5"/>
+  <rect id="placeholderTimer_-_z-index:" class="st0" x="318.18" y="75.28" width="274.57" height="80.52"/>
+  <rect id="placeholderPeriod_-_z-index:" class="st0" x="415.21" y="186.83" width="80.52" height="80.52"/>
+  <rect id="placeholderPunteggioSX_-_z-index:" class="st0" x="210.47" y="231.58" width="157.15" height="136.63"/>
   <g id="flagDX_-_z-index:">
     <g>
-      <path class="st3" d="M687.97,76.9h57.2v42.9h-57.2v-42.9Z"/>
-      <path class="st5" d="M687.97,76.9h19.06v42.9h-19.06v-42.9Z"/>
-      <path class="st4" d="M726.11,76.9h19.06v42.9h-19.06v-42.9Z"/>
+      <path class="st3" d="M687.97,70.66h57.2v42.9h-57.2v-42.9Z"/>
+      <path class="st5" d="M687.97,70.66h19.06v42.9h-19.06v-42.9Z"/>
+      <path class="st4" d="M726.11,70.66h19.06v42.9h-19.06v-42.9Z"/>
     </g>
   </g>
-  <rect id="placeholderNazioneDX_-_z-index:" class="st10" x="756.4" y="76.9" width="57.2" height="42.9" rx="5" ry="5"/>
-  <rect id="placeholderImmagineAtletaSX_-_z-index:1" data-name="placeholderImmagineAtletaSX_-_z-index:" class="st0" x="706.8" y="131.51" width="120" height="150"/>
-  <rect id="placeholderPunteggioSX_-_z-index:1" data-name="placeholderPunteggioSX_-_z-index:" class="st0" x="543.32" y="237.83" width="157.15" height="136.63"/>
-  <rect id="CRDX_-_z-index:" class="st7" x="743.4" y="293.2" width="29" height="36" rx="5" ry="5"/>
-  <rect id="CRPDX_-_z-index:" class="st7" x="742.5" y="338.45" width="29" height="36" rx="5" ry="5"/>
-  <rect id="CGDX_-_z-index:" class="st8" x="785.9" y="293.2" width="29" height="36" rx="5" ry="5"/>
-  <rect id="CGPDX_-_z-index:" class="st8" x="785" y="338.45" width="29" height="36" rx="5" ry="5"/>
+  <rect id="placeholderNazioneDX_-_z-index:" class="st10" x="756.4" y="70.66" width="57.2" height="42.9" rx="5" ry="5"/>
+  <rect id="placeholderImmagineAtletaSX_-_z-index:1" data-name="placeholderImmagineAtletaSX_-_z-index:" class="st0" x="706.8" y="125.26" width="120" height="150"/>
+  <rect id="placeholderPunteggioSX_-_z-index:1" data-name="placeholderPunteggioSX_-_z-index:" class="st0" x="543.32" y="231.58" width="157.15" height="136.63"/>
+  <rect id="CRDX_-_z-index:" class="st7" x="743.4" y="286.96" width="29" height="36" rx="5" ry="5"/>
+  <rect id="CRPDX_-_z-index:" class="st7" x="742.5" y="332.21" width="29" height="36" rx="5" ry="5"/>
+  <rect id="CGDX_-_z-index:" class="st8" x="785.9" y="286.96" width="29" height="36" rx="5" ry="5"/>
+  <rect id="CGPDX_-_z-index:" class="st8" x="785" y="332.21" width="29" height="36" rx="5" ry="5"/>
 </svg>
