@@ -706,7 +706,7 @@ body.underfloor-right .uf-country {
 body.underfloor-right .uf-inline-state {
     position: absolute;
     top: 21px;
-    width: 38px;
+    width: 20px;
     height: 54px;
     border-radius: 5px;
     background: transparent;
@@ -714,11 +714,11 @@ body.underfloor-right .uf-inline-state {
 }
 
 body.underfloor-right .uf-inline-state-left {
-    left: 1948px;
+    left: 1940px;
 }
 
 body.underfloor-right .uf-inline-state-right {
-    left: 2156px;
+    left: 2140px;
 }
 
 body.underfloor-right .uf-inline-state.is-red {
@@ -734,12 +734,12 @@ body.underfloor-right .uf-inline-state.is-white {
 }
 
 body.underfloor-right .uf-inline-timer {
-    left: 1998px;
+    left: 1980px;
     top: 0;
     width: 146px;
     height: 96px;
     padding: 0;
-    font-size: 56px;
+    font-size: 46px;
     line-height: 96px;
     text-align: center;
     z-index: 4;
