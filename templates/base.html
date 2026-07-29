@@ -578,6 +578,17 @@
         el.style.border = value;
     }
 
+    function setSelectorColorIfChanged(selector, value) {
+        const key = `selectorColor:${selector}`;
+        if (lastRenderedTabellone[key] === value) {
+            return;
+        }
+        lastRenderedTabellone[key] = value;
+        document.querySelectorAll(selector).forEach((el) => {
+            el.style.color = value;
+        });
+    }
+
     function renderCard(id, isOn, color, text = '') {
         setBgIfChanged(id, isOn ? color : 'rgba(255,255,255,0%)');
         setBorderIfChanged(id, isOn ? '1px solid #000000' : '0');
@@ -612,6 +623,8 @@
         const redCardsSX = cardCount(tabellone.D);
         setBgIfChanged('statoDXbig', statoDX);
         setBgIfChanged('statoSXbig', statoSX);
+        setSelectorColorIfChanged('.nomeDX', tabellone.W == 1 ? '#000000' : '#ffffff');
+        setSelectorColorIfChanged('.nomeSX', tabellone.w == 1 ? '#000000' : '#ffffff');
 
         setColorIfChanged('timerText', timerColorFromMode(tabellone.timerMode));
         setTextIfChanged('timerText', String(tabellone.timer || '').trim());
