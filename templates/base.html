@@ -624,7 +624,9 @@
         setBgIfChanged('statoDXbig', statoDX);
         setBgIfChanged('statoSXbig', statoSX);
         setSelectorColorIfChanged('.nomeDX', tabellone.W == 1 ? '#000000' : '#ffffff');
+        setSelectorColorIfChanged('.scoreDX', tabellone.W == 1 ? '#000000' : '#ffffff');
         setSelectorColorIfChanged('.nomeSX', tabellone.w == 1 ? '#000000' : '#ffffff');
+        setSelectorColorIfChanged('.scoreSX', tabellone.w == 1 ? '#000000' : '#ffffff');
 
         setColorIfChanged('timerText', timerColorFromMode(tabellone.timerMode));
         setTextIfChanged('timerText', String(tabellone.timer || '').trim());
