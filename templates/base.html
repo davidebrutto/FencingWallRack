@@ -566,6 +566,24 @@
         el.style.color = value;
     }
 
+    function setBorderIfChanged(id, value) {
+        const el = getEl(id);
+        if (!el) {
+            return;
+        }
+        if (lastRenderedTabellone[`border:${id}`] === value) {
+            return;
+        }
+        lastRenderedTabellone[`border:${id}`] = value;
+        el.style.border = value;
+    }
+
+    function renderCard(id, isOn, color, text = '') {
+        setBgIfChanged(id, isOn ? color : 'rgba(255,255,255,0%)');
+        setBorderIfChanged(id, isOn ? '1px solid #000000' : '0');
+        setTextIfChanged(id, isOn ? text : '');
+    }
+
     function timerColorFromMode(mode) {
         if (mode === 'N') {
             return '#FF0000';
@@ -583,11 +601,8 @@
 
     function renderPassivityCard(value, yellowId, redId) {
         const cardValue = Number.parseInt(String(value ?? '0').trim(), 10) || 0;
-        setBgIfChanged(yellowId, cardValue === 1 ? '#FFFF00' : 'rgba(255,255,255,0%)');
-        setTextIfChanged(yellowId, cardValue === 1 ? 'P' : '');
-
-        setBgIfChanged(redId, cardValue >= 2 ? '#FF0000' : 'rgba(255,255,255,0%)');
-        setTextIfChanged(redId, cardValue === 2 ? 'P' : (cardValue === 3 ? 'P2' : ''));
+        renderCard(yellowId, cardValue === 1, '#FFFF00', 'P');
+        renderCard(redId, cardValue >= 2, '#FF0000', cardValue === 2 ? 'P' : (cardValue === 3 ? 'P2' : ''));
     }
 
     function renderTabellone(tabellone) {
@@ -603,12 +618,10 @@
         setTextIfChanged('XX', tabellone.XX);
         setTextIfChanged('YY', tabellone.YY);
 
-        setBgIfChanged('CGDX', tabellone.A >= 1 ? '#FFFF00' : 'rgba(255,255,255,0%)');
-        setBgIfChanged('CRDX', redCardsDX > 0 ? '#FF0000' : 'rgba(255,255,255,0%)');
-        setTextIfChanged('CRDX', redCardsDX > 1 ? redCardsDX : '');
-        setBgIfChanged('CGSX', tabellone.C >= 1 ? '#FFFF00' : 'rgba(255,255,255,0%)');
-        setBgIfChanged('CRSX', redCardsSX > 0 ? '#FF0000' : 'rgba(255,255,255,0%)');
-        setTextIfChanged('CRSX', redCardsSX > 1 ? redCardsSX : '');
+        renderCard('CGDX', tabellone.A >= 1, '#FFFF00');
+        renderCard('CRDX', redCardsDX > 0, '#FF0000', redCardsDX > 1 ? redCardsDX : '');
+        renderCard('CGSX', tabellone.C >= 1, '#FFFF00');
+        renderCard('CRSX', redCardsSX > 0, '#FF0000', redCardsSX > 1 ? redCardsSX : '');
         renderPassivityCard(tabellone.passivityRight, 'CGPDX', 'CRPDX');
         renderPassivityCard(tabellone.passivityLeft, 'CGPSX', 'CRPSX');
 
