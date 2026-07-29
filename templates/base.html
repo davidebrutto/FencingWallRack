@@ -591,8 +591,8 @@
     }
 
     function renderTabellone(tabellone) {
-        const statoDX = tabellone.G == 1 ? '#009900' : (tabellone.W == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
-        const statoSX = tabellone.R == 1 ? '#990000' : (tabellone.w == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
+        const statoDX = tabellone.G == 1 ? '#00CC00' : (tabellone.W == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
+        const statoSX = tabellone.R == 1 ? '#CC0000' : (tabellone.w == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
         const redCardsDX = cardCount(tabellone.B);
         const redCardsSX = cardCount(tabellone.D);
         setBgIfChanged('statoDXbig', statoDX);

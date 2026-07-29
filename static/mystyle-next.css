@@ -816,9 +816,9 @@
     top: 141px;
     width: 114px;
     height: 86px !important;
-    background: transparent !important;
+    background-color: #1e6bb4 !important;
     border: 0 !important;
-    border-radius: 0 !important;
+    border-radius: 5px !important;
     color: #ffffff;
     font-family: sofiaECV;
     font-size: 76px;
@@ -834,7 +834,7 @@
     top: 141px;
     width: 114px;
     height: 86px !important;
-    border: 0 !important;
+    border: 1px solid #000000 !important;
     border-radius: 0 !important;
     background: transparent !important;
     overflow: hidden;
@@ -941,7 +941,7 @@
 .CRPDX {
     width: 58px;
     height: 72px !important;
-    border: 0 !important;
+    border: 1px solid #000000 !important;
     border-radius: 10px;
     font-family: sofiaECV;
     font-size: 58px;
