@@ -91,7 +91,7 @@ DEFAULT_ATHLETE_PLACEHOLDER_ENABLED = env_bool("OLED_DEFAULT_ATHLETE_PLACEHOLDER
 ATHLETE_PLACEHOLDER_ENV_KEY = os.getenv("OLED_ATHLETE_PLACEHOLDER_ENV_KEY", "ATHLETE_PLACEHOLDER_ENABLED")
 PREFERRED_IFACE = os.getenv("NET_IFACE", "").strip()
 DISPLAY_PROFILES = ["ledwall", "sottopedana"]
-MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "UPDATE"]
+MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "UPDATE", "REBOOT"]
 UPDATE_APP_DIR = os.getenv("OLED_UPDATE_APP_DIR", os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..")))
 UPDATE_GIT_TIMEOUT_SEC = env_int("OLED_UPDATE_GIT_TIMEOUT_SEC", 120)
 
@@ -819,6 +819,8 @@ class OledNetworkApp:
         elif item == "UPDATE":
             self.enter_screen("update")
             self.perform_update()
+        elif item == "REBOOT":
+            self.enter_screen("reboot")
 
     def save_current_screen(self):
         if self.screen == "network":
@@ -831,6 +833,8 @@ class OledNetworkApp:
             self.save_avatar()
         elif self.screen == "update":
             self.save_update()
+        elif self.screen == "reboot":
+            self.save_reboot()
 
     def save_network(self):
         stop_animation = threading.Event()
@@ -946,6 +950,10 @@ class OledNetworkApp:
         else:
             self.perform_update()
 
+    def save_reboot(self):
+        self.draw_message(["Rebooting...", "Please wait"])
+        threading.Thread(target=reboot_after_delay, args=(REBOOT_DELAY_SEC,), daemon=True).start()
+
     def handle_event(self, event):
         event = self.normalize_input_event(event)
 
@@ -960,7 +968,7 @@ class OledNetworkApp:
         self.mark_activity()
 
         if event == "k1":
-            if self.screen in ("network", "mode", "spot", "avatar", "update"):
+            if self.screen in ("network", "mode", "spot", "avatar", "update", "reboot"):
                 self.enter_screen("main_menu")
             elif self.screen == "main_menu":
                 self.enter_screen("logo")
@@ -980,7 +988,7 @@ class OledNetworkApp:
             return
 
         if event == "k3_hold":
-            if self.screen == "update":
+            if self.screen in ("update", "reboot"):
                 return
             self.editing = True
             if self.screen == "network":
@@ -1140,6 +1148,21 @@ class OledNetworkApp:
         with self.render_lock:
             self.display_image(image)
 
+    def draw_reboot(self):
+        image = Image.new("1", (WIDTH, HEIGHT), 0)
+        draw = ImageDraw.Draw(image)
+        lines = [
+            "REBOOT",
+            "K2 conferma",
+            "K1 indietro",
+            "",
+            "Riavvia Raspberry",
+        ]
+        for idx, line in enumerate(lines):
+            self.draw_line_with_cursor(draw, idx * 10, line, None, False)
+        with self.render_lock:
+            self.display_image(image)
+
     def draw(self):
         if self.screen == "logo":
             self.draw_logo()
@@ -1155,6 +1178,8 @@ class OledNetworkApp:
             self.draw_avatar()
         elif self.screen == "update":
             self.draw_update()
+        elif self.screen == "reboot":
+            self.draw_reboot()
 
     def draw_message(self, lines):
         image = Image.new("1", (WIDTH, HEIGHT), 0)
