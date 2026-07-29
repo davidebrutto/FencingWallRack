@@ -547,10 +547,27 @@ def run_repository_update(app_dir=UPDATE_APP_DIR):
         lines = compact_git_output(before)
         return {"ok": False, "updated": False, "lines": ["UPDATE ERROR"] + lines[:4]}
 
+    stash_saved = False
+    dirty = run_git(app_dir, ["status", "--porcelain"], timeout=15)
+    if dirty.returncode != 0:
+        lines = compact_git_output(dirty)
+        return {"ok": False, "updated": False, "lines": ["STATUS ERROR"] + lines[:4]}
+
+    if dirty.stdout.strip():
+        stash_name = f"oled-update-backup-{time.strftime('%Y%m%d-%H%M%S')}"
+        stash = run_git(app_dir, ["stash", "push", "--include-untracked", "-m", stash_name], timeout=45)
+        if stash.returncode != 0:
+            lines = compact_git_output(stash)
+            return {"ok": False, "updated": False, "lines": ["STASH ERROR"] + lines[:4]}
+        stash_saved = True
+
     pull = run_git(app_dir, ["pull", "--ff-only"], timeout=UPDATE_GIT_TIMEOUT_SEC)
     if pull.returncode != 0:
         lines = compact_git_output(pull)
-        return {"ok": False, "updated": False, "lines": ["PULL ERROR"] + lines[:5]}
+        prefix = ["PULL ERROR"]
+        if stash_saved:
+            prefix.append("Local saved stash")
+        return {"ok": False, "updated": False, "lines": prefix + lines[:4]}
 
     after = run_git(app_dir, ["rev-parse", "HEAD"], timeout=15)
     before_sha = before.stdout.strip()
@@ -558,15 +575,23 @@ def run_repository_update(app_dir=UPDATE_APP_DIR):
     updated = bool(before_sha and after_sha and before_sha != after_sha)
 
     if not updated:
-        return {"ok": True, "updated": False, "lines": ["NO UPDATE", "Gia aggiornato", "K1 indietro"]}
+        lines = ["NO UPDATE", "Gia aggiornato"]
+        if stash_saved:
+            lines.append("Local saved stash")
+        lines.append("K1 indietro")
+        return {"ok": True, "updated": False, "lines": lines}
 
     changed = run_git(app_dir, ["diff", "--name-only", f"{before_sha}..{after_sha}"], timeout=20)
     files = [line.strip() for line in changed.stdout.splitlines() if line.strip()]
     summary = f"Files: {len(files)}" if files else "Files aggiornati"
+    lines = ["UPDATED", summary, after_sha[:7]]
+    if stash_saved:
+        lines.append("Local saved stash")
+    lines.extend(["K2 reboot", "K1 indietro"])
     return {
         "ok": True,
         "updated": True,
-        "lines": ["UPDATED", summary, after_sha[:7], "K2 reboot", "K1 indietro"],
+        "lines": lines,
     }
 
 
@@ -1156,7 +1181,7 @@ class OledNetworkApp:
             "K2 conferma",
             "K1 indietro",
             "",
-            "Riavvia Raspberry",
+            "Riavvia FENCEWALL",
         ]
         for idx, line in enumerate(lines):
             self.draw_line_with_cursor(draw, idx * 10, line, None, False)
