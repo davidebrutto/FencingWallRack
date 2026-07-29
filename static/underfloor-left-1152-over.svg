@@ -4,26 +4,18 @@
   <defs>
     <style>
       .st0 {
-        fill: #641a10;
+        fill: #631a11;
       }
 
       .st1 {
-        fill: #048937;
+        fill: #641a10;
       }
 
       .st2 {
-        fill: #651a0f;
-      }
-
-      .st3 {
         fill: #e73a38;
       }
 
-      .st4 {
-        fill: #084a23;
-      }
-
-      .st5 {
+      .st3 {
         stroke: #e73a38;
         stroke-miterlimit: 10;
         stroke-width: 2px;
@@ -31,13 +23,7 @@
     </style>
   </defs>
 
-  <polygon class="st4" points="998.06 82.46 1016.05 82.46 961.77 17.77 943.79 17.77 998.06 82.46"/>
-  <polygon points="1026.21 82.46 1044.19 82.46 989.92 17.77 971.93 17.77 1026.21 82.46"/>
-  <polygon class="st1" points="1012.42 96 1054.42 96 973.86 0 931.86 0 1012.42 96"/>
-  <polygon class="st0" points="600.28 82.46 618.26 82.46 563.99 17.77 546 17.77 600.28 82.46"/>
-  <polygon points="629.6 82.46 647.59 82.46 593.31 17.77 575.33 17.77 629.6 82.46"/>
-  <polygon id="_trapezio3_-_z-index:5" class="st3" points="614.72 96 656.72 96 576.16 0 534.16 0 614.72 96"/>
-  <polygon class="st0" points="998.06 82.46 1016.05 82.46 961.77 17.77 943.79 17.77 998.06 82.46"/>
-  <polygon points="1026.21 82.46 1044.19 82.46 989.92 17.77 971.93 17.77 1026.21 82.46"/>
-  <polygon id="trapezio2_-_z-index:5" class="st3" points="1012.42 96 1054.42 96 973.86 0 931.86 0 1012.42 96"/>
+  <polygon id="_trapezio5_-_z-index:5" class="st2" points="821.67 95.75 863.67 95.75 783.12 -.25 741.12 -.25 821.67 95.75"/>
+  <polygon id="_trapezio3_-_z-index:5" class="st2" points="498.54 95.75 540.54 95.75 459.99 -.25 417.99 -.25 498.54 95.75"/>
+  <polygon id="trapezio2_-_z-index:5" class="st2" points="1101.3 95.75 1143.3 95.75 1062.75 -.25 1020.75 -.25 1101.3 95.75"/>
 </svg>
