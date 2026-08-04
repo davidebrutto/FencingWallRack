@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="506aa0d6-be97-4f6f-bf78-b4ea9e1e81b8" name="FenceWall.sportlabweb" url="http://80.88.84.83">
+        <fileTransfer rootFolder="/fencewall.sportlabweb.it" host="80.88.84.83" port="21">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

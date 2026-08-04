@@ -11,6 +11,10 @@ KIOSK_SET_WALLPAPER="${KIOSK_SET_WALLPAPER:-1}"
 KIOSK_WALLPAPER_MODE="${KIOSK_WALLPAPER_MODE:-fit}"
 KIOSK_WALLPAPER_BACKEND="${KIOSK_WALLPAPER_BACKEND:-auto}"
 KIOSK_PCMANFM_PROFILE="${KIOSK_PCMANFM_PROFILE:-LXDE-pi}"
+KIOSK_MIRROR_DISPLAYS="${KIOSK_MIRROR_DISPLAYS:-1}"
+KIOSK_MIRROR_PRIMARY_OUTPUT="${KIOSK_MIRROR_PRIMARY_OUTPUT:-}"
+KIOSK_MIRROR_SECONDARY_OUTPUT="${KIOSK_MIRROR_SECONDARY_OUTPUT:-}"
+KIOSK_MIRROR_MODE="${KIOSK_MIRROR_MODE:-}"
 CHROMIUM_PROFILE_DIR="${CHROMIUM_PROFILE_DIR:-${KIOSK_HOME}/.config/fencing-kiosk}"
 STARTUP_TIMEOUT_SEC="${STARTUP_TIMEOUT_SEC:-90}"
 CHROMIUM_START_DELAY_SEC="${CHROMIUM_START_DELAY_SEC:-8}"
@@ -128,6 +132,86 @@ wait_for_x_display() {
     sleep "${step}"
   done
   return 0
+}
+
+array_contains() {
+  local needle="$1"
+  shift
+  local item
+  for item in "$@"; do
+    [[ "${item}" == "${needle}" ]] && return 0
+  done
+  return 1
+}
+
+configure_mirrored_displays() {
+  if [[ "${KIOSK_MIRROR_DISPLAYS}" != "1" ]]; then
+    return 0
+  fi
+
+  if ! command -v xrandr >/dev/null 2>&1; then
+    echo "xrandr non trovato: salto clone HDMI" >&2
+    return 0
+  fi
+
+  local query primary secondary detected_primary output
+  local outputs=()
+  query="$(xrandr --query 2>/dev/null || true)"
+  if [[ -z "${query}" ]]; then
+    echo "xrandr non disponibile: salto clone HDMI" >&2
+    return 0
+  fi
+
+  while IFS= read -r output; do
+    [[ -n "${output}" ]] && outputs+=("${output}")
+  done < <(printf '%s\n' "${query}" | awk '$2 == "connected" {print $1}')
+
+  if (( ${#outputs[@]} < 2 )); then
+    echo "Clone HDMI non necessario: uscite connesse=${#outputs[@]}" >&2
+    return 0
+  fi
+
+  detected_primary="$(printf '%s\n' "${query}" | awk '$2 == "connected" && $3 == "primary" {print $1; exit}')"
+
+  if [[ -n "${KIOSK_MIRROR_PRIMARY_OUTPUT}" ]] && array_contains "${KIOSK_MIRROR_PRIMARY_OUTPUT}" "${outputs[@]}"; then
+    primary="${KIOSK_MIRROR_PRIMARY_OUTPUT}"
+  elif [[ -n "${detected_primary}" ]]; then
+    primary="${detected_primary}"
+  else
+    primary="${outputs[0]}"
+  fi
+
+  if [[ -n "${KIOSK_MIRROR_SECONDARY_OUTPUT}" ]] && [[ "${KIOSK_MIRROR_SECONDARY_OUTPUT}" != "${primary}" ]] && array_contains "${KIOSK_MIRROR_SECONDARY_OUTPUT}" "${outputs[@]}"; then
+    secondary="${KIOSK_MIRROR_SECONDARY_OUTPUT}"
+  else
+    secondary=""
+    for output in "${outputs[@]}"; do
+      if [[ "${output}" != "${primary}" ]]; then
+        secondary="${output}"
+        break
+      fi
+    done
+  fi
+
+  if [[ -z "${secondary}" ]]; then
+    echo "Clone HDMI non configurabile: secondary vuota" >&2
+    return 0
+  fi
+
+  local args=(--output "${primary}" --primary --auto)
+  if [[ -n "${KIOSK_MIRROR_MODE}" ]]; then
+    args+=(--mode "${KIOSK_MIRROR_MODE}")
+  fi
+  args+=(--output "${secondary}" --same-as "${primary}" --auto)
+  if [[ -n "${KIOSK_MIRROR_MODE}" ]]; then
+    args+=(--mode "${KIOSK_MIRROR_MODE}")
+  fi
+
+  if xrandr "${args[@]}"; then
+    echo "Display HDMI clonati: ${secondary} segue ${primary}"
+  else
+    echo "Impossibile clonare HDMI con xrandr: ${secondary} -> ${primary}" >&2
+  fi
 }
 
 wait_for_http() {
@@ -570,6 +654,7 @@ NODE_PID=$!
 echo "Node avviato PID=${NODE_PID}"
 
 wait_for_x_display
+configure_mirrored_displays
 wait_for_http
 set_desktop_wallpaper
 sleep "${CHROMIUM_START_DELAY_SEC}"
