@@ -481,6 +481,49 @@ Per ogni macchina verifica:
 - Voce `UPDATE` funzionante dal display.
 - Voce `REBOOT` funzionante dal display.
 
+## 11.1 Troubleshooting installazione pulita
+
+### Errore grafico: `Failed to start session`
+
+Se dopo l'installazione pulita compare la schermata login e, inserendo la password, appare:
+
+```text
+Failed to start session
+```
+
+il sistema operativo si e avviato, ma manca o non e configurata correttamente la sessione desktop X11/LXDE usata da FENCEWALL.
+
+Entra da SSH oppure passa a console testuale con `Ctrl+Alt+F2`, fai login come `fencewall` e lancia:
+
+```bash
+sudo apt update
+sudo apt install -y lightdm xserver-xorg lxsession lxde-core openbox lxpanel pcmanfm x11-xserver-utils x11-utils wmctrl chromium-browser
+sudo apt install -y raspberrypi-ui-mods || true
+SESSION=$(for s in LXDE-pi rpd-x LXDE openbox; do [ -f "/usr/share/xsessions/$s.desktop" ] && echo "$s" && break; done)
+SESSION=${SESSION:-LXDE-pi}
+printf '[Desktop]
+Session=%s
+' "$SESSION" > ~/.dmrc
+sudo chown fencewall:fencewall ~/.dmrc
+sudo mkdir -p /etc/lightdm/lightdm.conf.d
+printf '[Seat:*]
+autologin-user=fencewall
+autologin-user-timeout=0
+user-session=%s
+' "$SESSION" | sudo tee /etc/lightdm/lightdm.conf.d/50-fencewall-autologin.conf
+sudo systemctl set-default graphical.target
+sudo systemctl enable lightdm.service
+sudo systemctl restart lightdm.service
+```
+
+Se non riparte la grafica, riavvia:
+
+```bash
+sudo reboot
+```
+
+Lo script `tools/install-raspberry.sh` ora esegue automaticamente questa configurazione.
+
 ## 12. Troubleshooting clonazione SD
 
 ### 12.1 Errore: `mmcblk0: p2 size extends beyond EOD` / `PARTUUID ... does not exist`

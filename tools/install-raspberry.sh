@@ -46,9 +46,12 @@ install_packages() {
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
     git curl ca-certificates build-essential python3 python3-venv python3-pip python3-pil \
-    nodejs npm chromium-browser wmctrl x11-xserver-utils x11-utils pcmanfm openbox lxpanel \
-    network-manager sqlite3 plymouth rpi-eeprom raspi-config i2c-tools python3-lgpio \
-    python3-gpiozero python3-spidev
+    nodejs npm chromium-browser wmctrl x11-xserver-utils x11-utils xserver-xorg lightdm \
+    pcmanfm openbox lxsession lxpanel lxde-core network-manager sqlite3 plymouth \
+    rpi-eeprom raspi-config i2c-tools python3-lgpio python3-gpiozero python3-spidev
+
+  # Raspberry Pi OS desktop packages are not always present on generic Debian repos.
+  DEBIAN_FRONTEND=noninteractive apt-get install -y raspberrypi-ui-mods || true
 }
 
 ensure_repo() {
@@ -122,6 +125,52 @@ install_env_files() {
   sed -i "s|^CHROMIUM_PROFILE_DIR=.*|CHROMIUM_PROFILE_DIR=/home/${FENCEWALL_USER}/.config/fencing-kiosk|" /etc/default/fencingwallrack-kiosk
   sed -i "s|/home/fencewall/FencingWallRack|${APP_DIR}|g" /etc/default/fencingwallrack-kiosk
   sed -i "s|/home/fencewall/FencingWallRack|${APP_DIR}|g" /etc/default/fencingwallrack-oled-network
+}
+
+detect_desktop_session() {
+  local session_file session_name
+  for session_file in \
+    /usr/share/xsessions/LXDE-pi.desktop \
+    /usr/share/xsessions/rpd-x.desktop \
+    /usr/share/xsessions/LXDE.desktop \
+    /usr/share/xsessions/openbox.desktop; do
+    if [[ -f "${session_file}" ]]; then
+      session_name="$(basename "${session_file}" .desktop)"
+      echo "${session_name}"
+      return 0
+    fi
+  done
+  session_file="$(find /usr/share/xsessions -maxdepth 1 -name '*.desktop' 2>/dev/null | head -n 1 || true)"
+  if [[ -n "${session_file}" ]]; then
+    basename "${session_file}" .desktop
+    return 0
+  fi
+  echo "LXDE-pi"
+}
+
+configure_desktop_session() {
+  log "Configuro sessione grafica e autologin"
+  local session_name
+  session_name="$(detect_desktop_session)"
+
+  mkdir -p "/home/${FENCEWALL_USER}"
+  cat > "/home/${FENCEWALL_USER}/.dmrc" <<EOF_DMRC
+[Desktop]
+Session=${session_name}
+EOF_DMRC
+  chown "${FENCEWALL_USER}:${FENCEWALL_GROUP}" "/home/${FENCEWALL_USER}/.dmrc"
+
+  mkdir -p /etc/lightdm/lightdm.conf.d
+  cat > /etc/lightdm/lightdm.conf.d/50-fencewall-autologin.conf <<EOF_LIGHTDM
+[Seat:*]
+autologin-user=${FENCEWALL_USER}
+autologin-user-timeout=0
+user-session=${session_name}
+EOF_LIGHTDM
+
+  systemctl set-default graphical.target
+  systemctl enable lightdm.service || true
+  raspi-config nonint do_boot_behaviour B4 || true
 }
 
 enable_spi_i2c() {
@@ -215,6 +264,7 @@ main() {
   write_kiosk_service
   write_oled_service
   install_env_files
+  configure_desktop_session
   enable_spi_i2c
   install_plymouth_theme
   quiet_boot_config
