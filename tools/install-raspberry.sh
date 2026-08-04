@@ -170,7 +170,6 @@ EOF_LIGHTDM
 
   systemctl set-default graphical.target
   systemctl enable lightdm.service || true
-  raspi-config nonint do_boot_behaviour B4 || true
 }
 
 enable_spi_i2c() {

@@ -505,6 +505,7 @@ printf '[Desktop]
 Session=%s
 ' "$SESSION" > ~/.dmrc
 sudo chown fencewall:fencewall ~/.dmrc
+sudo rm -f /var/lib/AccountsService/users/fencewall
 sudo mkdir -p /etc/lightdm/lightdm.conf.d
 printf '[Seat:*]
 autologin-user=fencewall
@@ -522,7 +523,7 @@ Se non riparte la grafica, riavvia:
 sudo reboot
 ```
 
-Lo script `tools/install-raspberry.sh` ora esegue automaticamente questa configurazione.
+Lo script `tools/install-raspberry.sh` ora esegue automaticamente questa configurazione e non usa piu `raspi-config do_boot_behaviour B4`, per evitare che `.dmrc` venga riscritto su sessioni non presenti come `rpd-labwc`.
 
 ## 12. Troubleshooting clonazione SD
 
