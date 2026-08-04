@@ -511,7 +511,16 @@ printf '[Seat:*]
 autologin-user=fencewall
 autologin-user-timeout=0
 user-session=%s
-' "$SESSION" | sudo tee /etc/lightdm/lightdm.conf.d/50-fencewall-autologin.conf
+autologin-session=%s
+greeter-session=lightdm-greeter
+' "$SESSION" "$SESSION" | sudo tee /etc/lightdm/lightdm.conf.d/50-fencewall-autologin.conf
+sudo sed -i -E \
+  -e "s|^greeter-session=.*|greeter-session=lightdm-greeter|" \
+  -e "s|^user-session=.*|user-session=$SESSION|" \
+  -e "s|^autologin-user=.*|autologin-user=fencewall|" \
+  -e "s|^#?autologin-user-timeout=.*|autologin-user-timeout=0|" \
+  -e "s|^autologin-session=.*|autologin-session=$SESSION|" \
+  /etc/lightdm/lightdm.conf
 sudo systemctl set-default graphical.target
 sudo systemctl enable lightdm.service
 sudo systemctl restart lightdm.service

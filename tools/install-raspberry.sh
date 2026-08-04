@@ -166,7 +166,19 @@ EOF_DMRC
 autologin-user=${FENCEWALL_USER}
 autologin-user-timeout=0
 user-session=${session_name}
+autologin-session=${session_name}
+greeter-session=lightdm-greeter
 EOF_LIGHTDM
+
+  if [[ -f /etc/lightdm/lightdm.conf ]]; then
+    sed -i -E \
+      -e "s|^greeter-session=.*|greeter-session=lightdm-greeter|" \
+      -e "s|^user-session=.*|user-session=${session_name}|" \
+      -e "s|^autologin-user=.*|autologin-user=${FENCEWALL_USER}|" \
+      -e "s|^#?autologin-user-timeout=.*|autologin-user-timeout=0|" \
+      -e "s|^autologin-session=.*|autologin-session=${session_name}|" \
+      /etc/lightdm/lightdm.conf
+  fi
 
   systemctl set-default graphical.target
   systemctl enable lightdm.service || true
