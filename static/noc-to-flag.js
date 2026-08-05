@@ -1,11 +1,11 @@
 (function () {
   const NOC_TO_FLAG = {
-    AFG: 'af', AHO: 'cw', ALB: 'al', ALG: 'dz', AND: 'ad', ANG: 'ao', ANT: 'ag', ARG: 'ar', ARM: 'am', ARU: 'aw',
+    AFG: 'af', AHO: 'cw', AIN: 'ain', ALB: 'al', ALG: 'dz', AND: 'ad', ANG: 'ao', ANT: 'ag', ARG: 'ar', ARM: 'am', ARU: 'aw',
     ASA: 'as', AUS: 'au', AUT: 'at', AZE: 'az', BAH: 'bs', BAN: 'bd', BAR: 'bb', BDI: 'bi', BEL: 'be', BEN: 'bj',
     BER: 'bm', BHU: 'bt', BIH: 'ba', BIZ: 'bz', BLR: 'by', BOL: 'bo', BOT: 'bw', BRA: 'br', BRN: 'bh', BRU: 'bn',
     BUL: 'bg', BUR: 'bf', CAF: 'cf', CAM: 'kh', CAN: 'ca', CAY: 'ky', CGO: 'cg', CHA: 'td', CHI: 'cl', CHN: 'cn',
     CIV: 'ci', CMR: 'cm', COD: 'cd', COK: 'ck', COL: 'co', COM: 'km', CPV: 'cv', CRC: 'cr', CRO: 'hr', CUB: 'cu',
-    CUR: 'cw', CUW: 'cw', CYP: 'cy', CZE: 'cz', DEN: 'dk', DJI: 'dj', DMA: 'dm', DOM: 'do', ECU: 'ec', EGY: 'eg', ERI: 'er', ESA: 'sv',
+    CUR: 'cw', CUW: 'cw', CYP: 'cy', CZE: 'cz', DEN: 'dk', DJI: 'dj', DMA: 'dm', DOM: 'do', ECU: 'ec', EGY: 'eg', EOR: 'olympic_flag', ERI: 'er', ESA: 'sv',
     ESP: 'es', EST: 'ee', ETH: 'et', FIJ: 'fj', FIN: 'fi', FRA: 'fr', FSM: 'fm', GAB: 'ga', GAM: 'gm', GBR: 'gb',
     GBS: 'gw', GEO: 'ge', GEQ: 'gq', GER: 'de', DEU: 'de', GHA: 'gh', GRE: 'gr', GRN: 'gd', GUA: 'gt', GUI: 'gn',
     GUM: 'gu', GUY: 'gy', HAI: 'ht', HKG: 'hk', HON: 'hn', HUN: 'hu', INA: 'id', IND: 'in', IRI: 'ir', IRL: 'ie',
