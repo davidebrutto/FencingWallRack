@@ -576,3 +576,43 @@ diskutil info /dev/diskN | grep -E 'Disk Size|Device Block Size|Total Size'
 Se vuoi mantenere SD tutte della stessa capacita nominale, compra un lotto dello stesso modello ma considera che due SD da 32GB possono avere dimensioni reali leggermente diverse. Per clonazioni affidabili, la SD destinazione deve essere uguale o piu grande in byte rispetto alla SD master.
 
 Se la SD e gia stata scritta e mostra questo errore, non conviene tentare riparazioni sul Raspberry: rifai la SD partendo dall'immagine master e da una scheda piu grande o sicuramente non piu piccola.
+
+### 12.2 Errore Chromium dopo clonazione: profilo in uso su un altro Raspberry
+
+Se il servizio kiosk non parte e nel log compare un messaggio simile a:
+
+```text
+The profile appears to be in use by another Chromium process (...) on another computer (FENCEWALL-001)
+Chromium has locked the profile so that it doesn't get corrupted
+```
+
+significa che la SD clonata ha copiato anche i lock temporanei dei profili Chromium del Raspberry master. Non e un problema della SD e non e un problema dell'applicazione.
+
+Soluzione immediata sul Raspberry clonato:
+
+```bash
+sudo systemctl stop fencingwallrack-kiosk.service
+
+find /home/fencewall/.config \
+  \( -name 'SingletonLock' -o -name 'SingletonSocket' -o -name 'SingletonCookie' -o -name 'Singleton*' \) \
+  -print -delete
+
+sudo chown -R fencewall:fencewall /home/fencewall/.config/chrome-profile-1 \
+  /home/fencewall/.config/chrome-profile-2 \
+  /home/fencewall/.config/chrome-underfloor-left-a \
+  /home/fencewall/.config/chrome-underfloor-left-b \
+  /home/fencewall/.config/chrome-underfloor-right-a \
+  /home/fencewall/.config/chrome-underfloor-right-b 2>/dev/null || true
+
+sudo systemctl start fencingwallrack-kiosk.service
+sudo systemctl status fencingwallrack-kiosk.service --no-pager -l
+```
+
+Se Chromium fosse ancora realmente aperto:
+
+```bash
+pkill -u fencewall -f chromium
+sudo systemctl restart fencingwallrack-kiosk.service
+```
+
+Lo script `tools/systemd/run-kiosk-stack.sh` elimina automaticamente questi lock temporanei prima di avviare Chromium, quindi dopo un aggiornamento GitHub il problema non dovrebbe ripresentarsi sui prossimi cloni.

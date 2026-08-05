@@ -119,6 +119,13 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+unlock_chromium_profile() {
+  local profile_dir="$1"
+
+  [[ -d "${profile_dir}" ]] || return 0
+  find "${profile_dir}" -maxdepth 1     \( -name "SingletonLock" -o -name "SingletonSocket" -o -name "SingletonCookie" -o -name "Singleton*" \)     -print -delete 2>/dev/null || true
+}
+
 wait_for_x_display() {
   local elapsed=0
   local step=2
@@ -503,6 +510,7 @@ launch_chromium_app_window() {
 
   mkdir -p "${profile_dir}"
   pkill -f "${CHROMIUM_BIN}.*${profile_dir}" >/dev/null 2>&1 || true
+  unlock_chromium_profile "${profile_dir}"
 
   echo "Avvio ${class_name}: url=${url} geometry=${geometry} profile=${profile_dir}"
 
@@ -552,6 +560,8 @@ launch_dual_windows() {
   mkdir -p "${KIOSK_LEFT_PROFILE_DIR}" "${KIOSK_RIGHT_PROFILE_DIR}"
   pkill -f "${CHROMIUM_BIN}.*${KIOSK_LEFT_PROFILE_DIR}" >/dev/null 2>&1 || true
   pkill -f "${CHROMIUM_BIN}.*${KIOSK_RIGHT_PROFILE_DIR}" >/dev/null 2>&1 || true
+  unlock_chromium_profile "${KIOSK_LEFT_PROFILE_DIR}"
+  unlock_chromium_profile "${KIOSK_RIGHT_PROFILE_DIR}"
 
   "${CHROMIUM_BIN}" \
     --disable-gpu \
@@ -632,6 +642,7 @@ launch_single_window() {
   mkdir -p "${CHROMIUM_PROFILE_DIR}"
   # Prevent stale instances from stacking black overlay windows.
   pkill -f "${CHROMIUM_BIN}.*${CHROMIUM_PROFILE_DIR}" >/dev/null 2>&1 || true
+  unlock_chromium_profile "${CHROMIUM_PROFILE_DIR}"
   "${CHROMIUM_BIN}" \
     --kiosk \
     --incognito \
