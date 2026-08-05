@@ -37,3 +37,20 @@ REMOTE_ASSET_TIMEOUT_MS=15000
 ```
 
 `TOKEN` deve corrispondere a `asset_token` in `config.php`.
+
+## Bandiere Forzate Per Atleta
+
+Nella sezione `Foto` ogni atleta puo usare:
+
+- `BANDIERA STANDARD`: il Raspberry mostra la bandiera calcolata dalla nazione ricevuta dal protocollo USB.
+- una bandiera scelta dall'elenco: il Raspberry forza quella bandiera solo per quell'atleta.
+
+L'elenco viene letto da:
+
+```text
+storage/flags
+```
+
+Questa cartella deve essere caricata sul server insieme al portale. I nomi mostrati nell'elenco sono i nomi dei file senza estensione, ordinati alfabeticamente.
+
+Il database usa la colonna `photos.flag_override`. Se il portale viene aggiornato su un database gia esistente, la colonna viene creata automaticamente aprendo la sezione Foto o il manifest foto, se l'utente MySQL ha permesso `ALTER TABLE`.

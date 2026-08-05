@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS photos (
   filename VARCHAR(255) NOT NULL UNIQUE,
   athlete_name VARCHAR(120) NOT NULL,
   normalized_name VARCHAR(120) NOT NULL,
+  flag_override VARCHAR(120) NULL DEFAULT NULL,
   size_bytes BIGINT NOT NULL DEFAULT 0,
   mime VARCHAR(120) NOT NULL DEFAULT '',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS photos (
   INDEX(normalized_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ");
+ensure_photo_flag_override_column();
 
 $count = (int) db()->query('SELECT COUNT(*) FROM users')->fetchColumn();
 $error = null;

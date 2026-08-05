@@ -130,3 +130,12 @@ code { word-break: break-all; }
 [hidden] {
   display: none !important;
 }
+
+.inline-form select {
+  min-width: 210px;
+  width: auto;
+}
+
+@media (max-width: 760px) {
+  .inline-form select { width: 100%; }
+}

@@ -3,7 +3,22 @@ declare(strict_types=1);
 require __DIR__ . '/inc/bootstrap.php';
 require __DIR__ . '/inc/layout.php';
 $user = require_login();
+ensure_photo_flag_override_column();
 $error = null;
+$flags = list_flags();
+
+function render_flag_select(string $name, string $selected = ''): void
+{
+    global $flags;
+    echo '<select name="' . e($name) . '">';
+    echo '<option value="">BANDIERA STANDARD</option>';
+    foreach ($flags as $flag) {
+        $code = (string) $flag['code'];
+        $isSelected = $selected === $code ? ' selected' : '';
+        echo '<option value="' . e($code) . '"' . $isSelected . '>' . e($code) . '</option>';
+    }
+    echo '</select>';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -11,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'upload') {
         $file = $_FILES['photo'] ?? null;
         $athlete = trim((string) ($_POST['athlete_name'] ?? ''));
+        $flagOverride = normalize_flag_override((string) ($_POST['flag_override'] ?? ''));
         if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
             $error = upload_error_message((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE));
         } elseif ($athlete === '') {
@@ -23,8 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $base = safe_base_name($athlete, 'atleta');
                 $filename = unique_filename(PHOTO_DIR, $base, '.' . $ext);
                 if (move_uploaded_file($file['tmp_name'], PHOTO_DIR . '/' . $filename)) {
-                    $stmt = db()->prepare('INSERT INTO photos (filename, athlete_name, normalized_name, size_bytes, mime, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)');
-                    $stmt->execute([$filename, $athlete, normalize_athlete_name($athlete), (int) $file['size'], (string) $file['type'], (int) $user['id']]);
+                    $stmt = db()->prepare('INSERT INTO photos (filename, athlete_name, normalized_name, flag_override, size_bytes, mime, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
+                    $stmt->execute([$filename, $athlete, normalize_athlete_name($athlete), $flagOverride !== '' ? $flagOverride : null, (int) $file['size'], (string) $file['type'], (int) $user['id']]);
                     redirect_to('/photos.php');
                 }
                 $error = 'Impossibile salvare la foto.';
@@ -34,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'rename') {
         $id = (int) ($_POST['id'] ?? 0);
         $athlete = trim((string) ($_POST['athlete_name'] ?? ''));
+        $flagOverride = normalize_flag_override((string) ($_POST['flag_override'] ?? ''));
         $stmt = db()->prepare('SELECT * FROM photos WHERE id = ?');
         $stmt->execute([$id]);
         $photo = $stmt->fetch();
@@ -44,8 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($newFilename !== $photo['filename']) {
                 rename(PHOTO_DIR . '/' . $photo['filename'], PHOTO_DIR . '/' . $newFilename);
             }
-            db()->prepare('UPDATE photos SET filename = ?, athlete_name = ?, normalized_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-                ->execute([$newFilename, $athlete, normalize_athlete_name($athlete), $id]);
+            db()->prepare('UPDATE photos SET filename = ?, athlete_name = ?, normalized_name = ?, flag_override = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+                ->execute([$newFilename, $athlete, normalize_athlete_name($athlete), $flagOverride !== '' ? $flagOverride : null, $id]);
         }
         redirect_to('/photos.php');
     }
@@ -69,19 +86,26 @@ flash($error, 'error');
 echo '<form method="post" enctype="multipart/form-data">';
 echo '<input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="upload">';
 echo '<label>Nome atleta come da seriale</label><input name="athlete_name" placeholder="BRUTTO D." required>';
+echo '<label style="margin-top:12px">Bandiera per questo atleta</label>';
+render_flag_select('flag_override');
+echo '<small class="muted">BANDIERA STANDARD usa la nazione ricevuta dal protocollo. Una scelta diversa forza quella bandiera solo per questo atleta.</small>';
 echo '<label style="margin-top:12px">Foto</label><input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp" required>';
 echo '<button class="btn" style="margin-top:12px" type="submit">Upload</button></form></section>';
 echo '<section class="card"><div class="section-title-row"><h2>Foto caricate</h2><span class="muted" id="photoSearchCount">' . count($photos) . ' file</span></div>';
-echo '<div class="search-box"><label for="photoSearch">Cerca foto</label><input id="photoSearch" type="search" placeholder="Cerca per nome atleta, riferimento o file. Es: AR"><span class="muted">La ricerca filtra mentre scrivi e trova anche parti interne del testo.</span></div>';
+echo '<div class="search-box"><label for="photoSearch">Cerca foto</label><input id="photoSearch" type="search" placeholder="Cerca per nome atleta, riferimento, file o bandiera. Es: AR"><span class="muted">La ricerca filtra mentre scrivi e trova anche parti interne del testo.</span></div>';
 echo '<div class="media-list" id="photoList">';
 foreach ($photos as $photo) {
     $url = public_asset_url('photo', $photo['filename']);
-    $searchText = implode(' ', [(string) $photo['athlete_name'], (string) $photo['normalized_name'], (string) $photo['filename']]);
+    $flagOverride = (string) ($photo['flag_override'] ?? '');
+    $flagLabel = $flagOverride !== '' ? $flagOverride : 'BANDIERA STANDARD';
+    $searchText = implode(' ', [(string) $photo['athlete_name'], (string) $photo['normalized_name'], (string) $photo['filename'], $flagLabel]);
     echo '<div class="media-row" data-filter-row data-search="' . e($searchText) . '">';
     echo '<img class="photo-preview" src="' . e($url) . '" alt="' . e($photo['athlete_name']) . '">';
-    echo '<div><strong>' . e($photo['athlete_name']) . '</strong><br><span class="muted">Chiave: ' . e($photo['normalized_name']) . '</span><br><code>' . e($photo['filename']) . '</code></div>';
+    echo '<div><strong>' . e($photo['athlete_name']) . '</strong><br><span class="muted">Chiave: ' . e($photo['normalized_name']) . '</span><br><span class="muted">Bandiera: <strong>' . e($flagLabel) . '</strong></span><br><code>' . e($photo['filename']) . '</code></div>';
     echo '<div class="actions">';
-    echo '<form class="inline-form" method="post"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="rename"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="text" name="athlete_name" value="' . e($photo['athlete_name']) . '"><button class="btn">Rinomina</button></form>';
+    echo '<form class="inline-form" method="post"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="rename"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="text" name="athlete_name" value="' . e($photo['athlete_name']) . '">';
+    render_flag_select('flag_override', $flagOverride);
+    echo '<button class="btn">Salva</button></form>';
     echo '<form method="post" onsubmit="return confirm(\'Eliminare questa foto?\')"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><button class="btn btn-danger">Elimina</button></form>';
     echo '</div></div>';
 }

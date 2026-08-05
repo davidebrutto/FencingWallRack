@@ -5,6 +5,7 @@ const BASE_DIR = __DIR__ . '/..';
 const STORAGE_DIR = BASE_DIR . '/storage';
 const VIDEO_DIR = STORAGE_DIR . '/pause-videos';
 const PHOTO_DIR = STORAGE_DIR . '/athlete-photos';
+const FLAG_DIR = STORAGE_DIR . '/flags';
 
 $configFile = BASE_DIR . '/config.php';
 if (!is_file($configFile)) {
@@ -25,7 +26,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-foreach ([STORAGE_DIR, VIDEO_DIR, PHOTO_DIR] as $dir) {
+foreach ([STORAGE_DIR, VIDEO_DIR, PHOTO_DIR, FLAG_DIR] as $dir) {
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }
@@ -179,6 +180,64 @@ function allowed_video_ext(): array
 function allowed_photo_ext(): array
 {
     return ['jpg', 'jpeg', 'png', 'webp'];
+}
+
+function allowed_flag_ext(): array
+{
+    return ['svg'];
+}
+
+function normalize_flag_override(string $value): string
+{
+    $value = basename(trim($value));
+    $value = preg_replace('/\.svg$/i', '', $value);
+    $value = preg_replace('/[^a-zA-Z0-9_-]+/', '', (string) $value);
+    if ($value === '') {
+        return '';
+    }
+    return is_file(FLAG_DIR . '/' . $value . '.svg') ? $value : '';
+}
+
+function list_flags(): array
+{
+    if (!is_dir(FLAG_DIR)) {
+        return [];
+    }
+    $items = [];
+    foreach (scandir(FLAG_DIR) ?: [] as $file) {
+        if ($file === '.' || $file === '..') {
+            continue;
+        }
+        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        if (!in_array($ext, allowed_flag_ext(), true)) {
+            continue;
+        }
+        $code = pathinfo($file, PATHINFO_FILENAME);
+        $items[] = [
+            'filename' => $file,
+            'code' => $code,
+            'url' => public_asset_url('flag', $file),
+        ];
+    }
+    usort($items, static fn(array $a, array $b): int => strnatcasecmp($a['code'], $b['code']));
+    return $items;
+}
+
+function ensure_photo_flag_override_column(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        $stmt = db()->query("SHOW COLUMNS FROM photos LIKE 'flag_override'");
+        if (!$stmt || !$stmt->fetch()) {
+            db()->exec("ALTER TABLE photos ADD COLUMN flag_override VARCHAR(120) NULL DEFAULT NULL AFTER normalized_name");
+        }
+    } catch (Throwable) {
+        // The table may not exist before install.php has run.
+    }
 }
 
 function upload_error_message(int $code): string

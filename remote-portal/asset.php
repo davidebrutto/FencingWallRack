@@ -13,6 +13,9 @@ if ($type === 'video') {
 } elseif ($type === 'photo') {
     $dir = PHOTO_DIR;
     $allowed = allowed_photo_ext();
+} elseif ($type === 'flag') {
+    $dir = FLAG_DIR;
+    $allowed = allowed_flag_ext();
 }
 
 $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
@@ -36,6 +39,7 @@ $mime = match ($ext) {
     'jpg', 'jpeg' => 'image/jpeg',
     'png' => 'image/png',
     'webp' => 'image/webp',
+    'svg' => 'image/svg+xml',
     default => 'application/octet-stream',
 };
 header('Content-Type: ' . $mime);

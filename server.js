@@ -158,6 +158,11 @@ function sanitizeAthletePhotoBase(name) {
     .slice(0, 80) || 'athlete';
 }
 
+function sanitizeFlagOverride(value) {
+  const code = path.basename(String(value || '').trim()).replace(/\.svg$/i, '');
+  return /^[a-zA-Z0-9_-]+$/.test(code) ? code : '';
+}
+
 function uniqueFilePath(dir, base, ext, currentFilename = '') {
   let candidate = `${base}${ext}`;
   let counter = 1;
@@ -215,9 +220,21 @@ function buildAthletePhotoMap() {
   const map = {};
   for (const photo of listAthletePhotos()) {
     if (photo.normalizedName && !map[photo.normalizedName]) {
-      map[photo.normalizedName] = photo.src;
+      map[photo.normalizedName] = { src: photo.src, flagOverride: '' };
     }
   }
+
+  for (const photo of remotePhotoManifest || []) {
+    if (!photo.normalizedName) {
+      continue;
+    }
+    const current = map[photo.normalizedName] || { src: '', flagOverride: '' };
+    map[photo.normalizedName] = {
+      src: current.src || '',
+      flagOverride: photo.flagOverride || current.flagOverride || '',
+    };
+  }
+
   return map;
 }
 
@@ -308,6 +325,7 @@ function normalizeManifestItem(item, folder, allowedExtensions) {
       filename,
       url: remoteFolderFileUrl(folder, filename),
       athleteName: path.basename(filename, ext),
+      flagOverride: '',
     };
   }
 
@@ -326,6 +344,7 @@ function normalizeManifestItem(item, folder, allowedExtensions) {
     filename,
     url: item.url ? new URL(String(item.url), `${REMOTE_ASSET_BASE_URL}/`).toString() : remoteFolderFileUrl(folder, filename),
     athleteName: item.athleteName || item.athlete || item.name || path.basename(filename, ext),
+    flagOverride: sanitizeFlagOverride(item.flagOverride || item.flag_override || item.flag || ''),
   };
 }
 
@@ -1122,7 +1141,10 @@ app.get('/api/runtime-config', (req, res) => {
   });
 });
 
-app.get('/api/athlete-photos', (req, res) => {
+app.get('/api/athlete-photos', async (req, res) => {
+  if (req.query.refresh === '1') {
+    await loadRemotePhotoManifest(true);
+  }
   res.json({
     photos: listAthletePhotos(),
     map: buildAthletePhotoMap(),

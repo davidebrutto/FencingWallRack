@@ -428,7 +428,7 @@
         if (athletePhotoMapPromise) {
             return athletePhotoMapPromise;
         }
-        athletePhotoMapPromise = fetch('/api/athlete-photos', { cache: 'no-store' })
+        athletePhotoMapPromise = fetch(`/api/athlete-photos${forceReload ? '?refresh=1' : ''}`, { cache: 'no-store' })
             .then((response) => response.ok ? response.json() : { map: {} })
             .then((payload) => {
                 athletePhotoMap = payload && payload.map ? payload.map : {};
@@ -442,28 +442,69 @@
         return athletePhotoMapPromise;
     }
 
+    function athletePhotoEntryFromMap(map, normalizedName) {
+        const entry = map && normalizedName ? map[normalizedName] : null;
+        if (!entry) {
+            return { src: '', flagOverride: '' };
+        }
+        if (typeof entry === 'string') {
+            return { src: entry, flagOverride: '' };
+        }
+        return {
+            src: entry.src || '',
+            flagOverride: entry.flagOverride || entry.flag_override || entry.flag || '',
+        };
+    }
+
+    async function loadAthleteEntry(athleteName, forceReload = false) {
+        const normalizedName = normalizeAthleteNameForPhoto(athleteName);
+        if (!normalizedName) {
+            return { src: '', flagOverride: '' };
+        }
+        const map = await loadAthletePhotoMap(forceReload);
+        return athletePhotoEntryFromMap(map, normalizedName);
+    }
+
     async function updateAthletePhoto(side, athleteName) {
         const photoSelector = sideSelector(side, '.fotoSX', '.fotoDX');
-        const normalizedName = normalizeAthleteNameForPhoto(athleteName);
-        let photoSrc = '';
+        let entry = await loadAthleteEntry(athleteName);
 
-        if (normalizedName) {
-            const map = await loadAthletePhotoMap();
-            photoSrc = map[normalizedName] || '';
-            if (!photoSrc) {
-                const freshMap = await loadAthletePhotoMap(true);
-                photoSrc = freshMap[normalizedName] || '';
-            }
+        if (!entry.src && !entry.flagOverride) {
+            entry = await loadAthleteEntry(athleteName, true);
         }
 
         const placeholderSrc = side === 'left' ? ATHLETE_PLACEHOLDER_LEFT_SRC : ATHLETE_PLACEHOLDER_RIGHT_SRC;
-        const finalSrc = photoSrc || (ATHLETE_PLACEHOLDER_ENABLED ? placeholderSrc : '');
+        const finalSrc = entry.src || (ATHLETE_PLACEHOLDER_ENABLED ? placeholderSrc : '');
         document.querySelectorAll(photoSelector).forEach((el) => {
             el.style.backgroundImage = finalSrc ? `url("${finalSrc}")` : 'none';
             el.style.backgroundSize = 'contain';
             el.style.backgroundPosition = 'center';
             el.style.backgroundRepeat = 'no-repeat';
         });
+    }
+
+    function applyFlagCode(side, flagCode) {
+        const flagSelector = sideSelector(side, '.flagSX img', '.flagDX img');
+        if (!flagCode) {
+            return;
+        }
+        const nextSrc = `/static/flags/${flagCode}.svg`;
+        document.querySelectorAll(flagSelector).forEach((img) => {
+            if (!img.src.endsWith(nextSrc)) {
+                img.src = nextSrc;
+            }
+        });
+    }
+
+    async function updateAthleteFlag(side, athleteName, nation) {
+        const standardFlagCode = window.nocToFlag ? window.nocToFlag(nation) : '';
+        applyFlagCode(side, standardFlagCode);
+
+        let entry = await loadAthleteEntry(athleteName);
+        if (!entry.flagOverride) {
+            entry = await loadAthleteEntry(athleteName, true);
+        }
+        applyFlagCode(side, entry.flagOverride || standardFlagCode);
     }
 
     function namePositionsSignature(names = currentAthleteNames) {
@@ -489,9 +530,7 @@
         const displaySide = viewSide(competitor.side);
         const nameSelector = sideSelector(displaySide, '.nomeSX', '.nomeDX');
         const countrySelector = sideSelector(displaySide, '.countrySX', '.countryDX');
-        const flagSelector = sideSelector(displaySide, '.flagSX img', '.flagDX img');
         const nation = (competitor.nation || '').trim().toUpperCase();
-        const flagCode = window.nocToFlag ? window.nocToFlag(nation) : '';
 
         const previousNamePositionsSignature = lastNamePositionsSignature || namePositionsSignature();
         currentAthleteNames[displaySide] = (competitor.name || '').trim();
@@ -504,15 +543,7 @@
         updateText(nameSelector, (competitor.name || '').trim());
         updateText(countrySelector, nation);
         updateAthletePhoto(displaySide, competitor.name || '');
-
-        if (flagCode) {
-            const nextSrc = `/static/flags/${flagCode}.svg`;
-            document.querySelectorAll(flagSelector).forEach((img) => {
-                if (!img.src.endsWith(nextSrc)) {
-                    img.src = nextSrc;
-                }
-            });
-        }
+        updateAthleteFlag(displaySide, competitor.name || '', nation);
 
     }
 
