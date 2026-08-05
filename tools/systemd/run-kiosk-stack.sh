@@ -152,6 +152,7 @@ disable_x_power_save() {
     return 0
   fi
 
+  xset s 0 0 >/dev/null 2>&1 || true
   xset s off >/dev/null 2>&1 || true
   xset s noblank >/dev/null 2>&1 || true
   xset -dpms >/dev/null 2>&1 || true
