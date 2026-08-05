@@ -10,15 +10,16 @@ $flags = list_flags();
 function render_flag_select(string $name, string $selected = ''): void
 {
     global $flags;
-    echo '<select name="' . e($name) . '">';
-    echo '<option value="">BANDIERA STANDARD</option>';
+    echo '<select class="flag-native-select" name="' . e($name) . '">';
+    echo '<option value="" data-flag-url="">BANDIERA STANDARD</option>';
     foreach ($flags as $flag) {
         $code = (string) $flag['code'];
         $isSelected = $selected === $code ? ' selected' : '';
-        echo '<option value="' . e($code) . '"' . $isSelected . '>' . e($code) . '</option>';
+        echo '<option value="' . e($code) . '" data-flag-url="' . e((string) $flag['url']) . '"' . $isSelected . '>' . e($code) . '</option>';
     }
     echo '</select>';
 }
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -138,6 +139,119 @@ echo <<<'HTML'
     if (empty) empty.hidden = visible !== 0 || rows.length === 0;
     if (count) count.textContent = `${visible} di ${rows.length} file`;
   }
+
+  function optionPayload(option) {
+    return {
+      value: option.value,
+      label: option.textContent || 'BANDIERA STANDARD',
+      url: option.dataset.flagUrl || '',
+    };
+  }
+
+  function renderFlagPreview(container, item) {
+    container.innerHTML = '';
+    if (item.url) {
+      const img = document.createElement('img');
+      img.src = item.url;
+      img.alt = item.label;
+      container.appendChild(img);
+    } else {
+      const standard = document.createElement('span');
+      standard.className = 'flag-standard-icon';
+      standard.textContent = 'STD';
+      container.appendChild(standard);
+    }
+    const label = document.createElement('span');
+    label.textContent = item.label;
+    container.appendChild(label);
+  }
+
+  function enhanceFlagSelect(select) {
+    if (!select || select.dataset.enhanced === '1') return;
+    select.dataset.enhanced = '1';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flag-picker';
+    select.parentNode.insertBefore(wrapper, select);
+    wrapper.appendChild(select);
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'flag-picker-button';
+    button.setAttribute('aria-expanded', 'false');
+    wrapper.appendChild(button);
+
+    const panel = document.createElement('div');
+    panel.className = 'flag-picker-panel';
+    panel.hidden = true;
+    wrapper.appendChild(panel);
+
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.placeholder = 'Cerca bandiera';
+    search.className = 'flag-picker-search';
+    panel.appendChild(search);
+
+    const list = document.createElement('div');
+    list.className = 'flag-picker-list';
+    panel.appendChild(list);
+
+    const options = Array.from(select.options).map(optionPayload);
+    const rowButtons = [];
+
+    function updateButton() {
+      const selected = optionPayload(select.options[select.selectedIndex] || select.options[0]);
+      renderFlagPreview(button, selected);
+    }
+
+    function closePanel() {
+      panel.hidden = true;
+      button.setAttribute('aria-expanded', 'false');
+    }
+
+    function openPanel() {
+      document.querySelectorAll('.flag-picker-panel').forEach((otherPanel) => {
+        if (otherPanel !== panel) otherPanel.hidden = true;
+      });
+      panel.hidden = false;
+      button.setAttribute('aria-expanded', 'true');
+      search.focus();
+    }
+
+    function filterRows() {
+      const query = normalize(search.value).trim();
+      for (const row of rowButtons) {
+        row.hidden = query !== '' && !normalize(row.dataset.label).includes(query);
+      }
+    }
+
+    for (const item of options) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'flag-picker-option';
+      row.dataset.value = item.value;
+      row.dataset.label = item.label;
+      renderFlagPreview(row, item);
+      row.addEventListener('click', () => {
+        select.value = item.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        updateButton();
+        closePanel();
+      });
+      list.appendChild(row);
+      rowButtons.push(row);
+    }
+
+    button.addEventListener('click', () => panel.hidden ? openPanel() : closePanel());
+    search.addEventListener('input', filterRows);
+    select.addEventListener('change', updateButton);
+    document.addEventListener('click', (event) => {
+      if (!wrapper.contains(event.target)) closePanel();
+    });
+    updateButton();
+  }
+
+  document.querySelectorAll('select.flag-native-select').forEach(enhanceFlagSelect);
 
   if (input) {
     input.addEventListener('input', applyFilter);
