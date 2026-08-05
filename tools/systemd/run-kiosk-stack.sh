@@ -15,6 +15,7 @@ KIOSK_MIRROR_DISPLAYS="${KIOSK_MIRROR_DISPLAYS:-1}"
 KIOSK_MIRROR_PRIMARY_OUTPUT="${KIOSK_MIRROR_PRIMARY_OUTPUT:-}"
 KIOSK_MIRROR_SECONDARY_OUTPUT="${KIOSK_MIRROR_SECONDARY_OUTPUT:-}"
 KIOSK_MIRROR_MODE="${KIOSK_MIRROR_MODE:-}"
+KIOSK_DISABLE_POWER_SAVE="${KIOSK_DISABLE_POWER_SAVE:-1}"
 CHROMIUM_PROFILE_DIR="${CHROMIUM_PROFILE_DIR:-${KIOSK_HOME}/.config/fencing-kiosk}"
 STARTUP_TIMEOUT_SEC="${STARTUP_TIMEOUT_SEC:-90}"
 CHROMIUM_START_DELAY_SEC="${CHROMIUM_START_DELAY_SEC:-8}"
@@ -139,6 +140,22 @@ wait_for_x_display() {
     sleep "${step}"
   done
   return 0
+}
+
+disable_x_power_save() {
+  if [[ "${KIOSK_DISABLE_POWER_SAVE}" != "1" ]]; then
+    return 0
+  fi
+
+  if ! command -v xset >/dev/null 2>&1; then
+    echo "xset non trovato: impossibile disattivare risparmio energetico display" >&2
+    return 0
+  fi
+
+  xset s off >/dev/null 2>&1 || true
+  xset s noblank >/dev/null 2>&1 || true
+  xset -dpms >/dev/null 2>&1 || true
+  echo "Risparmio energetico display disattivato: screensaver off, blanking off, DPMS off"
 }
 
 array_contains() {
@@ -665,6 +682,7 @@ NODE_PID=$!
 echo "Node avviato PID=${NODE_PID}"
 
 wait_for_x_display
+disable_x_power_save
 configure_mirrored_displays
 wait_for_http
 set_desktop_wallpaper

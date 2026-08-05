@@ -616,3 +616,49 @@ sudo systemctl restart fencingwallrack-kiosk.service
 ```
 
 Lo script `tools/systemd/run-kiosk-stack.sh` elimina automaticamente questi lock temporanei prima di avviare Chromium, quindi dopo un aggiornamento GitHub il problema non dovrebbe ripresentarsi sui prossimi cloni.
+
+## 13. Display sempre acceso: disattivare screensaver e DPMS
+
+Se durante la pubblicita o dopo alcuni minuti senza cambi dati lo schermo diventa nero, controlla lo stato del risparmio energetico X11:
+
+```bash
+DISPLAY=:0 XAUTHORITY=/home/fencewall/.Xauthority xset q
+```
+
+Se vedi `DPMS is Enabled` oppure timeout diversi da zero, il monitor puo spegnersi anche se Chromium e aperto.
+
+Correzione immediata:
+
+```bash
+DISPLAY=:0 XAUTHORITY=/home/fencewall/.Xauthority xset s off
+DISPLAY=:0 XAUTHORITY=/home/fencewall/.Xauthority xset s noblank
+DISPLAY=:0 XAUTHORITY=/home/fencewall/.Xauthority xset -dpms
+DISPLAY=:0 XAUTHORITY=/home/fencewall/.Xauthority xset q
+```
+
+Nel servizio kiosk questa protezione e automatica con:
+
+```text
+KIOSK_DISABLE_POWER_SAVE=1
+```
+
+Se la riga non esiste in `/etc/default/fencingwallrack-kiosk`, aggiungila:
+
+```bash
+echo 'KIOSK_DISABLE_POWER_SAVE=1' | sudo tee -a /etc/default/fencingwallrack-kiosk
+sudo systemctl restart fencingwallrack-kiosk.service
+```
+
+Dopo il restart, verifica:
+
+```bash
+DISPLAY=:0 XAUTHORITY=/home/fencewall/.Xauthority xset q | grep -E 'timeout|cycle|DPMS is'
+```
+
+Il risultato desiderato e:
+
+```text
+timeout:  0
+cycle:  0
+DPMS is Disabled
+```
