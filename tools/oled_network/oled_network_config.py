@@ -6,6 +6,7 @@ import pwd
 import queue
 import re
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -633,6 +634,7 @@ class OledNetworkApp:
         self.last_blink_at = time.monotonic()
         self.screen = "logo"
         self.last_activity_at = time.monotonic()
+        self.hostname_label = os.getenv("OLED_HOSTNAME_LABEL", socket.gethostname().strip() or "FENCEWALL").upper()
         self.logo_image = self.load_logo_image()
 
         self.setup_buttons()
@@ -1065,6 +1067,13 @@ class OledNetworkApp:
             draw = ImageDraw.Draw(image)
             draw.text((0, 18), "FencingWallRack", font=self.font, fill=255)
             draw.text((0, 34), "Press joystick", font=self.font, fill=255)
+        draw = ImageDraw.Draw(image)
+        hostname = self.hostname_label[:21]
+        text_width = int(self.font.getlength(hostname))
+        x = max(0, (WIDTH - text_width) // 2)
+        y = HEIGHT - 10
+        draw.rectangle((0, y - 1, WIDTH - 1, HEIGHT - 1), fill=0)
+        draw.text((x, y), hostname, font=self.font, fill=255)
         with self.render_lock:
             self.display_image(image)
 

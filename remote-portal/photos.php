@@ -148,18 +148,37 @@ echo <<<'HTML'
     };
   }
 
-  function renderFlagPreview(container, item) {
+  function renderFlagFallback(container, label) {
+    const fallback = document.createElement('span');
+    fallback.className = 'flag-standard-icon';
+    fallback.textContent = label || 'STD';
+    container.appendChild(fallback);
+  }
+
+  function loadFlagImage(img) {
+    if (!img || img.src || !img.dataset.src) return;
+    img.src = img.dataset.src;
+  }
+
+  function renderFlagPreview(container, item, options = {}) {
     container.innerHTML = '';
     if (item.url) {
       const img = document.createElement('img');
-      img.src = item.url;
       img.alt = item.label;
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.addEventListener('error', () => {
+        img.remove();
+        renderFlagFallback(container, item.label);
+      }, { once: true });
+      if (options.lazy) {
+        img.dataset.src = item.url;
+      } else {
+        img.src = item.url;
+      }
       container.appendChild(img);
     } else {
-      const standard = document.createElement('span');
-      standard.className = 'flag-standard-icon';
-      standard.textContent = 'STD';
-      container.appendChild(standard);
+      renderFlagFallback(container, 'STD');
     }
     const label = document.createElement('span');
     label.textContent = item.label;
@@ -198,6 +217,16 @@ echo <<<'HTML'
 
     const options = Array.from(select.options).map(optionPayload);
     const rowButtons = [];
+    const lazyImages = [];
+    const imageObserver = 'IntersectionObserver' in window
+      ? new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            loadFlagImage(entry.target);
+            imageObserver.unobserve(entry.target);
+          }
+        }, { root: list, rootMargin: '160px 0px' })
+      : null;
 
     function updateButton() {
       const selected = optionPayload(select.options[select.selectedIndex] || select.options[0]);
@@ -216,6 +245,19 @@ echo <<<'HTML'
       panel.hidden = false;
       button.setAttribute('aria-expanded', 'true');
       search.focus();
+      requestAnimationFrame(loadVisibleFlagImages);
+    }
+
+    function loadVisibleFlagImages() {
+      const listRect = list.getBoundingClientRect();
+      for (const img of lazyImages) {
+        const row = img.closest('.flag-picker-option');
+        if (img.src || (row && row.hidden)) continue;
+        const rect = img.getBoundingClientRect();
+        if (rect.bottom >= listRect.top - 160 && rect.top <= listRect.bottom + 160) {
+          loadFlagImage(img);
+        }
+      }
     }
 
     function filterRows() {
@@ -223,6 +265,7 @@ echo <<<'HTML'
       for (const row of rowButtons) {
         row.hidden = query !== '' && !normalize(row.dataset.label).includes(query);
       }
+      requestAnimationFrame(loadVisibleFlagImages);
     }
 
     for (const item of options) {
@@ -231,7 +274,9 @@ echo <<<'HTML'
       row.className = 'flag-picker-option';
       row.dataset.value = item.value;
       row.dataset.label = item.label;
-      renderFlagPreview(row, item);
+      renderFlagPreview(row, item, { lazy: true });
+      const lazyImage = row.querySelector('img[data-src]');
+      if (lazyImage) lazyImages.push(lazyImage);
       row.addEventListener('click', () => {
         select.value = item.value;
         select.dispatchEvent(new Event('change', { bubbles: true }));
@@ -241,9 +286,13 @@ echo <<<'HTML'
       list.appendChild(row);
       rowButtons.push(row);
     }
+    if (imageObserver) {
+      lazyImages.forEach((img) => imageObserver.observe(img));
+    }
 
     button.addEventListener('click', () => panel.hidden ? openPanel() : closePanel());
     search.addEventListener('input', filterRows);
+    list.addEventListener('scroll', loadVisibleFlagImages, { passive: true });
     select.addEventListener('change', updateButton);
     document.addEventListener('click', (event) => {
       if (!wrapper.contains(event.target)) closePanel();
