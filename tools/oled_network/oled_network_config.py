@@ -17,6 +17,11 @@ from luma.core.interface.serial import spi
 from luma.oled.device import sh1106
 from PIL import Image, ImageDraw, ImageFont
 
+try:
+    import qrcode
+except ImportError:
+    qrcode = None
+
 
 def env_bool(name, default):
     value = os.getenv(name)
@@ -94,7 +99,8 @@ DEFAULT_ATHLETE_PLACEHOLDER_ENABLED = env_bool("OLED_DEFAULT_ATHLETE_PLACEHOLDER
 ATHLETE_PLACEHOLDER_ENV_KEY = os.getenv("OLED_ATHLETE_PLACEHOLDER_ENV_KEY", "ATHLETE_PLACEHOLDER_ENABLED")
 PREFERRED_IFACE = os.getenv("NET_IFACE", "").strip()
 DISPLAY_PROFILES = ["ledwall", "sottopedana"]
-MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "UPDATE", "REBOOT"]
+MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "MANUALE", "UPDATE", "REBOOT"]
+MANUAL_URL = os.getenv("OLED_MANUAL_URL", "https://fencewall.sportlabweb.it/manuale")
 UPDATE_APP_DIR = os.getenv("OLED_UPDATE_APP_DIR", os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..")))
 UPDATE_GIT_TIMEOUT_SEC = env_int("OLED_UPDATE_GIT_TIMEOUT_SEC", 120)
 
@@ -639,6 +645,7 @@ class OledNetworkApp:
         self.hostname_label = os.getenv("OLED_HOSTNAME_LABEL", socket.gethostname().strip() or "FENCEWALL").upper()
         self.hostname_font = self.load_hostname_font()
         self.logo_image = self.load_logo_image()
+        self.manual_qr_image = self.build_manual_qr_image()
 
         self.setup_buttons()
 
@@ -685,6 +692,28 @@ class OledNetworkApp:
         except Exception as exc:
             print(f"Hostname font load error: {exc}", file=sys.stderr)
             return self.font
+
+    def build_manual_qr_image(self):
+        if not qrcode or not MANUAL_URL:
+            return None
+        try:
+            qr = qrcode.QRCode(
+                version=None,
+                error_correction=qrcode.constants.ERROR_CORRECT_M,
+                box_size=2,
+                border=1,
+            )
+            qr.add_data(MANUAL_URL)
+            qr.make(fit=True)
+            qr_image = qr.make_image(fill_color=0, back_color=1).convert("1")
+            resample_nearest = getattr(getattr(Image, "Resampling", Image), "NEAREST")
+            qr_image = qr_image.resize((62, 62), resample_nearest)
+            canvas = Image.new("1", (WIDTH, HEIGHT), 0)
+            canvas.paste(qr_image, (0, 1))
+            return canvas
+        except Exception as exc:
+            print(f"Manual QR build error: {exc}", file=sys.stderr)
+            return None
 
     def display_image(self, image):
         if FLIP_180:
@@ -853,6 +882,8 @@ class OledNetworkApp:
             self.enter_screen("spot")
         elif item == "AVATAR ATLETA":
             self.enter_screen("avatar")
+        elif item == "MANUALE":
+            self.enter_screen("manual")
         elif item == "UPDATE":
             self.enter_screen("update")
             self.perform_update()
@@ -1005,7 +1036,7 @@ class OledNetworkApp:
         self.mark_activity()
 
         if event == "k1":
-            if self.screen in ("network", "mode", "spot", "avatar", "update", "reboot"):
+            if self.screen in ("network", "mode", "spot", "avatar", "manual", "update", "reboot"):
                 self.enter_screen("main_menu")
             elif self.screen == "main_menu":
                 self.enter_screen("logo")
@@ -1025,7 +1056,7 @@ class OledNetworkApp:
             return
 
         if event == "k3_hold":
-            if self.screen in ("update", "reboot"):
+            if self.screen in ("manual", "update", "reboot"):
                 return
             self.editing = True
             if self.screen == "network":
@@ -1184,6 +1215,22 @@ class OledNetworkApp:
         with self.render_lock:
             self.display_image(image)
 
+    def draw_manual(self):
+        if self.manual_qr_image:
+            image = self.manual_qr_image.copy()
+            draw = ImageDraw.Draw(image)
+            draw.text((68, 6), "MANUALE", font=self.font, fill=255)
+            draw.text((68, 22), "Scan QR", font=self.font, fill=255)
+            draw.text((68, 44), "K1 back", font=self.font, fill=255)
+        else:
+            image = Image.new("1", (WIDTH, HEIGHT), 0)
+            draw = ImageDraw.Draw(image)
+            lines = ["MANUALE", "QR non disp.", "Installa qrcode", "oppure URL:", MANUAL_URL[-21:], "K1 indietro"]
+            for idx, line in enumerate(lines):
+                self.draw_line_with_cursor(draw, idx * 10, line, None, False)
+        with self.render_lock:
+            self.display_image(image)
+
     def draw_update(self):
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
@@ -1223,6 +1270,8 @@ class OledNetworkApp:
             self.draw_spot()
         elif self.screen == "avatar":
             self.draw_avatar()
+        elif self.screen == "manual":
+            self.draw_manual()
         elif self.screen == "update":
             self.draw_update()
         elif self.screen == "reboot":
