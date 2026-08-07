@@ -99,9 +99,11 @@ DEFAULT_ATHLETE_PLACEHOLDER_ENABLED = env_bool("OLED_DEFAULT_ATHLETE_PLACEHOLDER
 ATHLETE_PLACEHOLDER_ENV_KEY = os.getenv("OLED_ATHLETE_PLACEHOLDER_ENV_KEY", "ATHLETE_PLACEHOLDER_ENABLED")
 PREFERRED_IFACE = os.getenv("NET_IFACE", "").strip()
 DISPLAY_PROFILES = ["ledwall", "sottopedana"]
-MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "MANUALE", "UPDATE", "REBOOT"]
+MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "MANUALE", "VERSIONE", "UPDATE", "REBOOT"]
 MANUAL_URL = os.getenv("OLED_MANUAL_URL", "https://fencewall.sportlabweb.it/manuale")
 UPDATE_APP_DIR = os.getenv("OLED_UPDATE_APP_DIR", os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..")))
+FIRMWARE_VERSION_FILE = os.getenv("FENCEWALL_VERSION_FILE", os.path.join(UPDATE_APP_DIR, "VERSION"))
+FIRMWARE_VERSION_FALLBACK = os.getenv("FENCEWALL_VERSION", "1.0.1")
 UPDATE_GIT_TIMEOUT_SEC = env_int("OLED_UPDATE_GIT_TIMEOUT_SEC", 120)
 UPDATE_PIP_TIMEOUT_SEC = env_int("OLED_UPDATE_PIP_TIMEOUT_SEC", 180)
 UPDATE_APT_TIMEOUT_SEC = env_int("OLED_UPDATE_APT_TIMEOUT_SEC", 300)
@@ -118,6 +120,32 @@ UPDATE_REQUIREMENTS_PATH = os.getenv(
 
 def run(cmd, check=True):
     return subprocess.run(cmd, text=True, capture_output=True, check=check)
+
+def load_firmware_version():
+    try:
+        with open(FIRMWARE_VERSION_FILE, "r", encoding="utf-8") as file:
+            version = file.read().strip()
+            if version:
+                return version
+    except OSError:
+        pass
+    return FIRMWARE_VERSION_FALLBACK
+
+
+def load_git_short_revision(app_dir=UPDATE_APP_DIR):
+    try:
+        result = subprocess.run(
+            ["git", "-C", app_dir, "-c", f"safe.directory={app_dir}", "rev-parse", "--short", "HEAD"],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return "n/d"
 
 
 def cmd_ok(cmd):
@@ -995,6 +1023,8 @@ class OledNetworkApp:
             self.enter_screen("avatar")
         elif item == "MANUALE":
             self.enter_screen("manual")
+        elif item == "VERSIONE":
+            self.enter_screen("version")
         elif item == "UPDATE":
             self.enter_screen("update")
             self.perform_update()
@@ -1147,7 +1177,7 @@ class OledNetworkApp:
         self.mark_activity()
 
         if event == "k1":
-            if self.screen in ("network", "mode", "spot", "avatar", "manual", "update", "reboot"):
+            if self.screen in ("network", "mode", "spot", "avatar", "manual", "version", "update", "reboot"):
                 self.enter_screen("main_menu")
             elif self.screen == "main_menu":
                 self.enter_screen("logo")
@@ -1167,7 +1197,7 @@ class OledNetworkApp:
             return
 
         if event == "k3_hold":
-            if self.screen in ("manual", "update", "reboot"):
+            if self.screen in ("manual", "version", "update", "reboot"):
                 return
             self.editing = True
             if self.screen == "network":
@@ -1342,6 +1372,24 @@ class OledNetworkApp:
         with self.render_lock:
             self.display_image(image)
 
+    def draw_version(self):
+        image = Image.new("1", (WIDTH, HEIGHT), 0)
+        draw = ImageDraw.Draw(image)
+        version = load_firmware_version()
+        revision = load_git_short_revision()
+        hostname = socket.gethostname()[:21]
+        lines = [
+            "FIRMWARE",
+            f"VERSIONE {version}"[:21],
+            f"COMMIT {revision}"[:21],
+            hostname,
+            "K1 indietro",
+        ]
+        for idx, line in enumerate(lines):
+            self.draw_line_with_cursor(draw, idx * 11, line, None, False)
+        with self.render_lock:
+            self.display_image(image)
+
     def draw_update(self):
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
@@ -1383,6 +1431,8 @@ class OledNetworkApp:
             self.draw_avatar()
         elif self.screen == "manual":
             self.draw_manual()
+        elif self.screen == "version":
+            self.draw_version()
         elif self.screen == "update":
             self.draw_update()
         elif self.screen == "reboot":
