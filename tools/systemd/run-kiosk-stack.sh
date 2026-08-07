@@ -598,6 +598,7 @@ launch_dual_windows() {
     --window-position="${left_x},${left_y}" \
     --force-device-scale-factor="${KIOSK_SCALE}" \
     --new-window \
+    --bwsi \
     --disable-features=OverlayScrollbar &
   CHROME_LEFT_PID=$!
 
