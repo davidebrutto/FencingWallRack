@@ -748,9 +748,10 @@ class OledNetworkApp:
             )
             qr.add_data(MANUAL_URL)
             qr.make(fit=True)
-            qr_image = qr.make_image(fill_color=0, back_color=1).convert("1")
+            qr_image = qr.make_image(fill_color="black", back_color="white").convert("L")
             resample_nearest = getattr(getattr(Image, "Resampling", Image), "NEAREST")
             qr_image = qr_image.resize((62, 62), resample_nearest)
+            qr_image = qr_image.point(lambda pixel: 255 if pixel > 127 else 0, mode="1")
             canvas = Image.new("1", (WIDTH, HEIGHT), 0)
             canvas.paste(qr_image, (0, 1))
             return canvas
