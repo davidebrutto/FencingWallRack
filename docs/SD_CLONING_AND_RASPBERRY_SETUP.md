@@ -193,7 +193,7 @@ Scegli un nome univoco per ogni Raspberry, ad esempio:
 Esegui questi comandi sostituendo il nome:
 
 ```bash
-NEW_HOST=FENCEWALL-005
+NEW_HOST=FENCEWALL-006
 sudo hostnamectl set-hostname "$NEW_HOST"
 if grep -q '^127\.0\.1\.1' /etc/hosts; then
   sudo sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t$NEW_HOST/" /etc/hosts
