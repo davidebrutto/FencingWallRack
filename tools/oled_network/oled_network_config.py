@@ -99,11 +99,11 @@ DEFAULT_ATHLETE_PLACEHOLDER_ENABLED = env_bool("OLED_DEFAULT_ATHLETE_PLACEHOLDER
 ATHLETE_PLACEHOLDER_ENV_KEY = os.getenv("OLED_ATHLETE_PLACEHOLDER_ENV_KEY", "ATHLETE_PLACEHOLDER_ENABLED")
 PREFERRED_IFACE = os.getenv("NET_IFACE", "").strip()
 DISPLAY_PROFILES = ["ledwall", "sottopedana"]
-MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "MANUALE", "VERSIONE", "UPDATE", "REBOOT"]
+MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "MANUALE", "VERSIONE", "UPDATE", "REBOOT", "POWER OFF"]
 MANUAL_URL = os.getenv("OLED_MANUAL_URL", "https://fencewall.sportlabweb.it/manuale")
 UPDATE_APP_DIR = os.getenv("OLED_UPDATE_APP_DIR", os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..")))
 FIRMWARE_VERSION_FILE = os.getenv("FENCEWALL_VERSION_FILE", os.path.join(UPDATE_APP_DIR, "VERSION"))
-FIRMWARE_VERSION_FALLBACK = os.getenv("FENCEWALL_VERSION", "1.0.1")
+FIRMWARE_VERSION_FALLBACK = os.getenv("FENCEWALL_VERSION", "1.0.2")
 UPDATE_GIT_TIMEOUT_SEC = env_int("OLED_UPDATE_GIT_TIMEOUT_SEC", 120)
 UPDATE_PIP_TIMEOUT_SEC = env_int("OLED_UPDATE_PIP_TIMEOUT_SEC", 180)
 UPDATE_APT_TIMEOUT_SEC = env_int("OLED_UPDATE_APT_TIMEOUT_SEC", 300)
@@ -550,6 +550,30 @@ def reboot_system():
 def reboot_after_delay(delay_sec):
     time.sleep(delay_sec)
     reboot_system()
+
+def poweroff_system():
+    commands = [
+        ["/usr/bin/systemctl", "--no-block", "poweroff"],
+        ["/bin/systemctl", "--no-block", "poweroff"],
+        ["/usr/sbin/poweroff"],
+        ["/sbin/poweroff"],
+        ["poweroff"],
+    ]
+    last_error = None
+    for cmd in commands:
+        if os.path.isabs(cmd[0]) and not os.path.exists(cmd[0]):
+            continue
+        try:
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+            return
+        except OSError as exc:
+            last_error = exc
+    raise RuntimeError(f"Poweroff command failed: {last_error}")
+
+
+def poweroff_after_delay(delay_sec):
+    time.sleep(delay_sec)
+    poweroff_system()
 
 def git_owner_command(app_dir, git_args):
     git_cmd = ["git", "-C", app_dir, "-c", f"safe.directory={app_dir}"] + git_args
@@ -1030,6 +1054,8 @@ class OledNetworkApp:
             self.perform_update()
         elif item == "REBOOT":
             self.enter_screen("reboot")
+        elif item == "POWER OFF":
+            self.enter_screen("poweroff")
 
     def save_current_screen(self):
         if self.screen == "network":
@@ -1044,6 +1070,8 @@ class OledNetworkApp:
             self.save_update()
         elif self.screen == "reboot":
             self.save_reboot()
+        elif self.screen == "poweroff":
+            self.save_poweroff()
 
     def save_network(self):
         stop_animation = threading.Event()
@@ -1163,6 +1191,10 @@ class OledNetworkApp:
         self.draw_message(["Rebooting...", "Please wait"])
         threading.Thread(target=reboot_after_delay, args=(REBOOT_DELAY_SEC,), daemon=True).start()
 
+    def save_poweroff(self):
+        self.draw_message(["Power off...", "Please wait"])
+        threading.Thread(target=poweroff_after_delay, args=(REBOOT_DELAY_SEC,), daemon=True).start()
+
     def handle_event(self, event):
         event = self.normalize_input_event(event)
 
@@ -1177,7 +1209,7 @@ class OledNetworkApp:
         self.mark_activity()
 
         if event == "k1":
-            if self.screen in ("network", "mode", "spot", "avatar", "manual", "version", "update", "reboot"):
+            if self.screen in ("network", "mode", "spot", "avatar", "manual", "version", "update", "reboot", "poweroff"):
                 self.enter_screen("main_menu")
             elif self.screen == "main_menu":
                 self.enter_screen("logo")
@@ -1197,7 +1229,7 @@ class OledNetworkApp:
             return
 
         if event == "k3_hold":
-            if self.screen in ("manual", "version", "update", "reboot"):
+            if self.screen in ("manual", "version", "update", "reboot", "poweroff"):
                 return
             self.editing = True
             if self.screen == "network":
@@ -1416,6 +1448,21 @@ class OledNetworkApp:
         with self.render_lock:
             self.display_image(image)
 
+    def draw_poweroff(self):
+        image = Image.new("1", (WIDTH, HEIGHT), 0)
+        draw = ImageDraw.Draw(image)
+        lines = [
+            "POWER OFF",
+            "K2 conferma",
+            "K1 indietro",
+            "",
+            "Spegni FENCEWALL",
+        ]
+        for idx, line in enumerate(lines):
+            self.draw_line_with_cursor(draw, idx * 10, line, None, False)
+        with self.render_lock:
+            self.display_image(image)
+
     def draw(self):
         if self.screen == "logo":
             self.draw_logo()
@@ -1437,6 +1484,8 @@ class OledNetworkApp:
             self.draw_update()
         elif self.screen == "reboot":
             self.draw_reboot()
+        elif self.screen == "poweroff":
+            self.draw_poweroff()
 
     def draw_message(self, lines):
         image = Image.new("1", (WIDTH, HEIGHT), 0)
