@@ -59,6 +59,8 @@ FLIP_180 = env_bool("OLED_FLIP_180", True)
 INPUT_FLIP_180 = env_bool("OLED_INPUT_FLIP_180", FLIP_180)
 LOGO_PATH = os.getenv("OLED_LOGO_PATH", os.path.join(SCRIPT_DIR, "logo.png"))
 LOGO_TIMEOUT_SEC = env_float("OLED_LOGO_TIMEOUT_SEC", 10)
+HOSTNAME_FONT_PATH = os.getenv("OLED_HOSTNAME_FONT_PATH", "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf")
+HOSTNAME_FONT_SIZE = env_int("OLED_HOSTNAME_FONT_SIZE", 12)
 KIOSK_ENV_PATH = os.getenv("KIOSK_ENV_PATH", "/etc/default/fencingwallrack-kiosk")
 KIOSK_SERVICE = os.getenv("KIOSK_SERVICE", "fencingwallrack-kiosk.service")
 RESTART_KIOSK_ON_PROFILE_SAVE = env_bool("OLED_RESTART_KIOSK_ON_PROFILE_SAVE", True)
@@ -635,6 +637,7 @@ class OledNetworkApp:
         self.screen = "logo"
         self.last_activity_at = time.monotonic()
         self.hostname_label = os.getenv("OLED_HOSTNAME_LABEL", socket.gethostname().strip() or "FENCEWALL").upper()
+        self.hostname_font = self.load_hostname_font()
         self.logo_image = self.load_logo_image()
 
         self.setup_buttons()
@@ -675,6 +678,13 @@ class OledNetworkApp:
         except Exception as exc:
             print(f"Logo load error: {exc}", file=sys.stderr)
             return None
+
+    def load_hostname_font(self):
+        try:
+            return ImageFont.truetype(HOSTNAME_FONT_PATH, HOSTNAME_FONT_SIZE)
+        except Exception as exc:
+            print(f"Hostname font load error: {exc}", file=sys.stderr)
+            return self.font
 
     def display_image(self, image):
         if FLIP_180:
@@ -1069,11 +1079,14 @@ class OledNetworkApp:
             draw.text((0, 34), "Press joystick", font=self.font, fill=255)
         draw = ImageDraw.Draw(image)
         hostname = self.hostname_label[:21]
-        text_width = int(self.font.getlength(hostname))
+        hostname_font = self.hostname_font
+        bbox = draw.textbbox((0, 0), hostname, font=hostname_font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
         x = max(0, (WIDTH - text_width) // 2)
-        y = HEIGHT - 10
-        draw.rectangle((0, y - 1, WIDTH - 1, HEIGHT - 1), fill=0)
-        draw.text((x, y), hostname, font=self.font, fill=255)
+        y = HEIGHT - text_height - 2 - bbox[1]
+        draw.rectangle((0, max(0, y + bbox[1] - 1), WIDTH - 1, HEIGHT - 1), fill=0)
+        draw.text((x, y), hostname, font=hostname_font, fill=255)
         with self.render_lock:
             self.display_image(image)
 
