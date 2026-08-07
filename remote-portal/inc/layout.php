@@ -32,6 +32,7 @@ HTML;
         echo '<a href="/dashboard.php">Home</a>';
         echo '<a href="/videos.php">Video</a>';
         echo '<a href="/photos.php">Foto</a>';
+        echo '<a href="/manuale/">Manuale</a>';
         if (is_admin($user)) {
             echo '<a href="/users.php">Utenti</a>';
         }

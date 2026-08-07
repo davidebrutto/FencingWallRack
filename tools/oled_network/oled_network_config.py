@@ -103,6 +103,11 @@ MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "MANUALE", "UPDAT
 MANUAL_URL = os.getenv("OLED_MANUAL_URL", "https://fencewall.sportlabweb.it/manuale")
 UPDATE_APP_DIR = os.getenv("OLED_UPDATE_APP_DIR", os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..")))
 UPDATE_GIT_TIMEOUT_SEC = env_int("OLED_UPDATE_GIT_TIMEOUT_SEC", 120)
+UPDATE_PIP_TIMEOUT_SEC = env_int("OLED_UPDATE_PIP_TIMEOUT_SEC", 180)
+UPDATE_REQUIREMENTS_PATH = os.getenv(
+    "OLED_UPDATE_REQUIREMENTS_PATH",
+    os.path.join(UPDATE_APP_DIR, "tools", "oled_network", "requirements.txt"),
+)
 
 
 def run(cmd, check=True):
@@ -547,6 +552,36 @@ def compact_git_output(result):
     return lines
 
 
+def run_oled_requirements_install(timeout=UPDATE_PIP_TIMEOUT_SEC):
+    if not os.path.isfile(UPDATE_REQUIREMENTS_PATH):
+        return {"ok": True, "lines": ["DEPS SKIP", "No requirements"]}
+
+    env = os.environ.copy()
+    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-r", UPDATE_REQUIREMENTS_PATH],
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=timeout,
+        env=env,
+    )
+    if result.returncode != 0:
+        return {"ok": False, "lines": ["DEPS ERROR"] + compact_git_output(result)[:4]}
+
+    lines = compact_git_output(result)
+    installed = any(
+        text in line
+        for line in lines
+        for text in ("Successfully installed", "Installing collected packages")
+    )
+    return {
+        "ok": True,
+        "installed": installed,
+        "lines": ["DEPS OK", "Installate" if installed else "Gia presenti"],
+    }
+
+
 def run_repository_update(app_dir=UPDATE_APP_DIR):
     if not os.path.isdir(app_dir):
         return {"ok": False, "updated": False, "lines": ["UPDATE ERROR", "Repo not found", app_dir[-21:]]}
@@ -582,11 +617,18 @@ def run_repository_update(app_dir=UPDATE_APP_DIR):
     before_sha = before.stdout.strip()
     after_sha = after.stdout.strip() if after.returncode == 0 else before_sha
     updated = bool(before_sha and after_sha and before_sha != after_sha)
+    deps = run_oled_requirements_install()
+    if not deps["ok"]:
+        return {"ok": False, "updated": updated, "lines": deps["lines"] + ["K1 indietro"]}
 
     if not updated:
         lines = ["NO UPDATE", "Gia aggiornato"]
         if stash_saved:
             lines.append("Local saved stash")
+        lines.extend(deps["lines"][:2])
+        if deps.get("installed"):
+            lines.append("K2 reboot")
+            return {"ok": True, "updated": True, "lines": lines}
         lines.append("K1 indietro")
         return {"ok": True, "updated": False, "lines": lines}
 
@@ -596,6 +638,7 @@ def run_repository_update(app_dir=UPDATE_APP_DIR):
     lines = ["UPDATED", summary, after_sha[:7]]
     if stash_saved:
         lines.append("Local saved stash")
+    lines.extend(deps["lines"][:2])
     lines.extend(["K2 reboot", "K1 indietro"])
     return {
         "ok": True,
