@@ -46,7 +46,7 @@ install_packages() {
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
     git curl ca-certificates build-essential python3 python3-venv python3-pip python3-pil \
-    nodejs npm chromium-browser wmctrl x11-xserver-utils x11-utils xserver-xorg lightdm \
+    nodejs npm ffmpeg chromium-browser wmctrl x11-xserver-utils x11-utils xserver-xorg lightdm \
     pcmanfm openbox lxsession lxpanel lxde-core network-manager sqlite3 plymouth \
     rpi-eeprom raspi-config i2c-tools python3-lgpio python3-gpiozero python3-spidev
 

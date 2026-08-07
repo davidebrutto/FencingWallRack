@@ -104,6 +104,12 @@ MANUAL_URL = os.getenv("OLED_MANUAL_URL", "https://fencewall.sportlabweb.it/manu
 UPDATE_APP_DIR = os.getenv("OLED_UPDATE_APP_DIR", os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..")))
 UPDATE_GIT_TIMEOUT_SEC = env_int("OLED_UPDATE_GIT_TIMEOUT_SEC", 120)
 UPDATE_PIP_TIMEOUT_SEC = env_int("OLED_UPDATE_PIP_TIMEOUT_SEC", 180)
+UPDATE_APT_TIMEOUT_SEC = env_int("OLED_UPDATE_APT_TIMEOUT_SEC", 300)
+UPDATE_APT_PACKAGES = [
+    package.strip()
+    for package in os.getenv("OLED_UPDATE_APT_PACKAGES", "ffmpeg").split(",")
+    if package.strip()
+]
 UPDATE_REQUIREMENTS_PATH = os.getenv(
     "OLED_UPDATE_REQUIREMENTS_PATH",
     os.path.join(UPDATE_APP_DIR, "tools", "oled_network", "requirements.txt"),
@@ -581,6 +587,59 @@ def run_oled_requirements_install(timeout=UPDATE_PIP_TIMEOUT_SEC):
         "lines": ["DEPS OK", "Installate" if installed else "Gia presenti"],
     }
 
+def is_debian_package_installed(package):
+    result = subprocess.run(
+        ["dpkg-query", "-W", "-f=${Status}", package],
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=15,
+    )
+    return result.returncode == 0 and "install ok installed" in result.stdout
+
+
+def run_system_dependencies_install(timeout=UPDATE_APT_TIMEOUT_SEC):
+    packages = [package for package in UPDATE_APT_PACKAGES if package]
+    if not packages:
+        return {"ok": True, "installed": False, "lines": ["SYSDEPS SKIP", "Nessun pacchetto"]}
+
+    missing = [package for package in packages if not is_debian_package_installed(package)]
+    if not missing:
+        return {"ok": True, "installed": False, "lines": ["SYSDEPS OK", "Gia presenti"]}
+
+    if os.geteuid() != 0:
+        return {"ok": False, "installed": False, "lines": ["SYSDEPS ERROR", "Serve root"]}
+
+    env = os.environ.copy()
+    env["DEBIAN_FRONTEND"] = "noninteractive"
+    update = subprocess.run(
+        ["apt-get", "update"],
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=timeout,
+        env=env,
+    )
+    if update.returncode != 0:
+        return {"ok": False, "installed": False, "lines": ["APT UPDATE ERR"] + compact_git_output(update)[:4]}
+
+    install = subprocess.run(
+        ["apt-get", "install", "-y"] + missing,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=timeout,
+        env=env,
+    )
+    if install.returncode != 0:
+        return {"ok": False, "installed": False, "lines": ["APT INSTALL ERR"] + compact_git_output(install)[:4]}
+
+    return {
+        "ok": True,
+        "installed": True,
+        "lines": ["SYSDEPS OK", "Installato " + ",".join(missing)[:11]],
+    }
+
 
 def run_repository_update(app_dir=UPDATE_APP_DIR):
     if not os.path.isdir(app_dir):
@@ -621,12 +680,19 @@ def run_repository_update(app_dir=UPDATE_APP_DIR):
     if not deps["ok"]:
         return {"ok": False, "updated": updated, "lines": deps["lines"] + ["K1 indietro"]}
 
+    sysdeps = run_system_dependencies_install()
+    if not sysdeps["ok"]:
+        return {"ok": False, "updated": updated, "lines": sysdeps["lines"] + ["K1 indietro"]}
+
+    deps_changed = bool(deps.get("installed") or sysdeps.get("installed"))
+
     if not updated:
         lines = ["NO UPDATE", "Gia aggiornato"]
         if stash_saved:
             lines.append("Local saved stash")
         lines.extend(deps["lines"][:2])
-        if deps.get("installed"):
+        lines.extend(sysdeps["lines"][:2])
+        if deps_changed:
             lines.append("K2 reboot")
             return {"ok": True, "updated": True, "lines": lines}
         lines.append("K1 indietro")
@@ -639,6 +705,7 @@ def run_repository_update(app_dir=UPDATE_APP_DIR):
     if stash_saved:
         lines.append("Local saved stash")
     lines.extend(deps["lines"][:2])
+    lines.extend(sysdeps["lines"][:2])
     lines.extend(["K2 reboot", "K1 indietro"])
     return {
         "ok": True,

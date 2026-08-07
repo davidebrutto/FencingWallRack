@@ -8,6 +8,7 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const { spawn } = require('child_process');
 const nunjucks = require('nunjucks');
 const { Server } = require('socket.io');
 const { SerialPort } = require('serialport');
@@ -62,6 +63,12 @@ const REMOTE_PHOTO_MANIFEST_PATH = process.env.REMOTE_PHOTO_MANIFEST_PATH || '/a
 const REMOTE_ASSET_TIMEOUT_MS = Number(process.env.REMOTE_ASSET_TIMEOUT_MS || 15000);
 const SPOT_INACTIVITY_MINUTES = clampNumber(process.env.SPOT_INACTIVITY_MINUTES, 5, 1, 240);
 const ATHLETE_PLACEHOLDER_ENABLED = envBool(process.env.ATHLETE_PLACEHOLDER_ENABLED, true);
+const PAUSE_VIDEO_TRANSCODE = envBool(process.env.PAUSE_VIDEO_TRANSCODE, true);
+const PAUSE_VIDEO_MAX_WIDTH = clampNumber(process.env.PAUSE_VIDEO_MAX_WIDTH, 768, 320, 3840);
+const PAUSE_VIDEO_MAX_HEIGHT = clampNumber(process.env.PAUSE_VIDEO_MAX_HEIGHT, 432, 180, 2160);
+const PAUSE_VIDEO_CRF = clampNumber(process.env.PAUSE_VIDEO_CRF, 23, 18, 35);
+const PAUSE_VIDEO_PRESET = process.env.PAUSE_VIDEO_PRESET || 'veryfast';
+const PAUSE_VIDEO_TRANSCODE_TIMEOUT_MS = Number(process.env.PAUSE_VIDEO_TRANSCODE_TIMEOUT_MS || 15 * 60 * 1000);
 
 const ROUTES = {
   index: '/',
@@ -298,6 +305,80 @@ async function downloadFileWithTimeout(url, destinationPath) {
     clearTimeout(timeout);
   }
 }
+function pauseVideoOutputFilename(filename) {
+  const ext = path.extname(filename || '');
+  const base = sanitizeFilename(path.basename(filename || 'spot', ext)).slice(0, 90) || 'spot';
+  return `${base}.mp4`;
+}
+
+function runProcess(command, args, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM');
+      reject(new Error(`${command} timeout dopo ${Math.round(timeoutMs / 1000)}s`));
+    }, timeoutMs);
+
+    child.stderr.on('data', (chunk) => {
+      stderr = `${stderr}${chunk.toString()}`.slice(-4000);
+    });
+    child.on('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.on('close', (code) => {
+      clearTimeout(timeout);
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(stderr.trim() || `${command} exit ${code}`));
+    });
+  });
+}
+
+async function transcodePauseVideo(sourcePath, destinationPath) {
+  if (!PAUSE_VIDEO_TRANSCODE) {
+    return false;
+  }
+
+  const filter = `scale=w='min(${PAUSE_VIDEO_MAX_WIDTH},iw)':h='min(${PAUSE_VIDEO_MAX_HEIGHT},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2`;
+  const args = [
+    '-y',
+    '-hide_banner',
+    '-loglevel',
+    'error',
+    '-i',
+    sourcePath,
+    '-vf',
+    filter,
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a?',
+    '-c:v',
+    'libx264',
+    '-preset',
+    PAUSE_VIDEO_PRESET,
+    '-crf',
+    String(PAUSE_VIDEO_CRF),
+    '-pix_fmt',
+    'yuv420p',
+    '-movflags',
+    '+faststart',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '128k',
+    '-ac',
+    '2',
+    destinationPath,
+  ];
+
+  await runProcess('ffmpeg', args, PAUSE_VIDEO_TRANSCODE_TIMEOUT_MS);
+  return true;
+}
 
 function readManifestItems(manifest, keys) {
   if (Array.isArray(manifest)) {
@@ -407,11 +488,28 @@ async function syncPauseVideosFromRemote() {
       .filter(Boolean);
 
     for (const video of videos) {
-      const destinationPath = path.join(PAUSE_VIDEO_DIR, video.filename);
+      const outputFilename = pauseVideoOutputFilename(video.filename);
+      const destinationPath = path.join(PAUSE_VIDEO_DIR, outputFilename);
+      const fallbackPath = path.join(PAUSE_VIDEO_DIR, video.filename);
+      const tempPath = path.join(PAUSE_VIDEO_DIR, `${outputFilename}.download`);
       try {
-        await downloadFileWithTimeout(video.url, destinationPath);
-        console.log(`Downloaded pause video: ${video.filename}`);
+        await downloadFileWithTimeout(video.url, tempPath);
+        try {
+          const transcoded = await transcodePauseVideo(tempPath, destinationPath);
+          if (transcoded) {
+            console.log(`Downloaded and optimized pause video: ${video.filename} -> ${outputFilename}`);
+          } else {
+            fs.copyFileSync(tempPath, fallbackPath);
+            console.log(`Downloaded pause video without optimization: ${video.filename}`);
+          }
+        } catch (transcodeError) {
+          fs.copyFileSync(tempPath, fallbackPath);
+          console.warn(`Pause video optimization failed (${video.filename}), using original download: ${transcodeError.message}`);
+        } finally {
+          fs.rmSync(tempPath, { force: true });
+        }
       } catch (error) {
+        fs.rmSync(tempPath, { force: true });
         console.warn(`Pause video download failed (${video.filename}): ${error.message}`);
       }
     }
