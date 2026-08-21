@@ -5,6 +5,7 @@ require __DIR__ . '/inc/layout.php';
 $user = require_login();
 ensure_photo_flag_override_column();
 $error = null;
+$notice = null;
 $flags = list_flags();
 
 function render_flag_select(string $name, string $selected = ''): void
@@ -21,9 +22,250 @@ function render_flag_select(string $name, string $selected = ''): void
 }
 
 
+function parse_csv_athlete_names(string $path): array
+{
+    $names = [];
+    $handle = fopen($path, 'r');
+    if (!$handle) {
+        throw new RuntimeException('Impossibile leggere il file CSV.');
+    }
+    while (($row = fgetcsv($handle, 0, ';')) !== false) {
+        if (count($row) === 1 && str_contains((string) $row[0], ',')) {
+            $row = str_getcsv((string) $row[0], ',');
+        }
+        foreach ($row as $cell) {
+            $value = trim((string) $cell);
+            if ($value !== '') {
+                $names[] = $value;
+                break;
+            }
+        }
+    }
+    fclose($handle);
+    return $names;
+}
+
+function xlsx_cell_text(SimpleXMLElement $cell, array $sharedStrings): string
+{
+    $type = (string) ($cell['t'] ?? '');
+    if ($type === 'inlineStr') {
+        $parts = [];
+        foreach ($cell->is->t as $textNode) {
+            $parts[] = (string) $textNode;
+        }
+        foreach ($cell->is->r as $run) {
+            $parts[] = (string) $run->t;
+        }
+        return trim(implode('', $parts));
+    }
+
+    $raw = isset($cell->v) ? trim((string) $cell->v) : '';
+    if ($raw === '') {
+        return '';
+    }
+    if ($type === 's') {
+        return trim((string) ($sharedStrings[(int) $raw] ?? ''));
+    }
+    return trim($raw);
+}
+
+function parse_xlsx_athlete_names(string $path): array
+{
+    if (!class_exists('ZipArchive')) {
+        throw new RuntimeException('ZipArchive non disponibile sul server PHP. Carica un CSV oppure abilita estensione zip.');
+    }
+    $zip = new ZipArchive();
+    if ($zip->open($path) !== true) {
+        throw new RuntimeException('Impossibile aprire il file Excel.');
+    }
+
+    $sharedStrings = [];
+    $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
+    if ($sharedXml !== false) {
+        $xml = simplexml_load_string($sharedXml);
+        if ($xml !== false) {
+            foreach ($xml->si as $si) {
+                $parts = [];
+                if (isset($si->t)) {
+                    $parts[] = (string) $si->t;
+                }
+                foreach ($si->r as $run) {
+                    $parts[] = (string) $run->t;
+                }
+                $sharedStrings[] = trim(implode('', $parts));
+            }
+        }
+    }
+
+    $sheetPath = 'xl/worksheets/sheet1.xml';
+    $workbookXml = $zip->getFromName('xl/workbook.xml');
+    $relsXml = $zip->getFromName('xl/_rels/workbook.xml.rels');
+    if ($workbookXml !== false && $relsXml !== false) {
+        $workbook = simplexml_load_string($workbookXml);
+        $rels = simplexml_load_string($relsXml);
+        if ($workbook !== false && $rels !== false && isset($workbook->sheets->sheet[0])) {
+            $attrs = $workbook->sheets->sheet[0]->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+            $rid = (string) ($attrs['id'] ?? '');
+            if ($rid !== '') {
+                foreach ($rels->Relationship as $rel) {
+                    if ((string) $rel['Id'] === $rid) {
+                        $target = ltrim((string) $rel['Target'], '/');
+                        $sheetPath = str_starts_with($target, 'xl/') ? $target : 'xl/' . $target;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    $sheetXml = $zip->getFromName($sheetPath);
+    $zip->close();
+    if ($sheetXml === false) {
+        throw new RuntimeException('Il file Excel non contiene il primo foglio.');
+    }
+    $sheet = simplexml_load_string($sheetXml);
+    if ($sheet === false) {
+        throw new RuntimeException('Impossibile leggere il primo foglio Excel.');
+    }
+
+    $names = [];
+    foreach ($sheet->sheetData->row as $row) {
+        foreach ($row->c as $cell) {
+            $value = xlsx_cell_text($cell, $sharedStrings);
+            if ($value !== '') {
+                $names[] = $value;
+                break;
+            }
+        }
+    }
+    return $names;
+}
+
+function parse_athlete_names_upload(array $file): array
+{
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException(upload_error_message((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE)));
+    }
+    $ext = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+    if ($ext === 'xlsx') {
+        $names = parse_xlsx_athlete_names((string) $file['tmp_name']);
+    } elseif (in_array($ext, ['csv', 'txt'], true)) {
+        $names = parse_csv_athlete_names((string) $file['tmp_name']);
+    } else {
+        throw new RuntimeException('Formato elenco non supportato. Usa .xlsx oppure .csv.');
+    }
+
+    $clean = [];
+    $seen = [];
+    foreach ($names as $name) {
+        $name = trim((string) $name);
+        $normalized = normalize_athlete_name($name);
+        if ($name === '' || $normalized === '') {
+            continue;
+        }
+        if (in_array($normalized, ['NOME', 'ATLETA', 'NOME ATLETA', 'ATHLETE', 'ATHLETE NAME'], true)) {
+            continue;
+        }
+        if (isset($seen[$normalized])) {
+            continue;
+        }
+        $seen[$normalized] = true;
+        $clean[] = $name;
+    }
+    return $clean;
+}
+
+function placeholder_photo_source(): string
+{
+    $source = BASE_DIR . '/assets/athlete-placeholder-import.png';
+    if (!is_file($source)) {
+        throw new RuntimeException('Immagine placeholder import non trovata.');
+    }
+    return $source;
+}
+
+function insert_placeholder_photo(string $athlete, int $userId): bool
+{
+    $normalized = normalize_athlete_name($athlete);
+    $exists = db()->prepare('SELECT id FROM photos WHERE normalized_name = ? LIMIT 1');
+    $exists->execute([$normalized]);
+    if ($exists->fetch()) {
+        return false;
+    }
+
+    $source = placeholder_photo_source();
+    $ext = strtolower(pathinfo($source, PATHINFO_EXTENSION));
+    $base = safe_base_name($athlete, 'atleta');
+    $filename = unique_filename(PHOTO_DIR, $base, '.' . $ext);
+    $destination = PHOTO_DIR . '/' . $filename;
+    if (!copy($source, $destination)) {
+        throw new RuntimeException('Impossibile creare la foto placeholder per ' . $athlete . '.');
+    }
+
+    $stmt = db()->prepare('INSERT INTO photos (filename, athlete_name, normalized_name, flag_override, size_bytes, mime, uploaded_by) VALUES (?, ?, ?, NULL, ?, ?, ?)');
+    $stmt->execute([$filename, $athlete, $normalized, (int) filesize($destination), 'image/png', $userId]);
+    return true;
+}
+
+function replace_photo_file(array $photo, array $file): void
+{
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException(upload_error_message((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE)));
+    }
+    $ext = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+    if (!in_array($ext, allowed_photo_ext(), true)) {
+        throw new RuntimeException('Formato foto non supportato.');
+    }
+
+    $oldFilename = (string) $photo['filename'];
+    $oldPath = PHOTO_DIR . '/' . $oldFilename;
+    $oldExt = strtolower(pathinfo($oldFilename, PATHINFO_EXTENSION));
+    if ($oldExt === $ext) {
+        $newFilename = $oldFilename;
+        $destination = $oldPath;
+    } else {
+        $base = safe_base_name((string) $photo['athlete_name'], 'atleta');
+        $newFilename = unique_filename(PHOTO_DIR, $base, '.' . $ext, $oldFilename);
+        $destination = PHOTO_DIR . '/' . $newFilename;
+    }
+
+    if (!move_uploaded_file((string) $file['tmp_name'], $destination)) {
+        throw new RuntimeException('Impossibile salvare la nuova foto.');
+    }
+    if ($newFilename !== $oldFilename) {
+        @unlink($oldPath);
+    }
+
+    db()->prepare('UPDATE photos SET filename = ?, size_bytes = ?, mime = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        ->execute([$newFilename, (int) $file['size'], (string) $file['type'], (int) $photo['id']]);
+}
+
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = $_POST['action'] ?? '';
+    if ($action === 'import_excel') {
+        try {
+            $names = parse_athlete_names_upload($_FILES['athlete_excel'] ?? []);
+            $created = 0;
+            $skipped = 0;
+            foreach ($names as $athleteName) {
+                if (insert_placeholder_photo($athleteName, (int) $user['id'])) {
+                    $created++;
+                } else {
+                    $skipped++;
+                }
+            }
+            $notice = 'Import completato: ' . $created . ' atleti creati';
+            if ($skipped > 0) {
+                $notice .= ', ' . $skipped . ' già presenti';
+            }
+            $notice .= '.';
+        } catch (Throwable $exc) {
+            $error = $exc->getMessage();
+        }
+    }
     if ($action === 'upload') {
         $file = $_FILES['photo'] ?? null;
         $athlete = trim((string) ($_POST['athlete_name'] ?? ''));
@@ -67,6 +309,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         redirect_to('/photos.php');
     }
+    if ($action === 'replace_photo') {
+        $id = (int) ($_POST['id'] ?? 0);
+        $stmt = db()->prepare('SELECT * FROM photos WHERE id = ?');
+        $stmt->execute([$id]);
+        $photo = $stmt->fetch();
+        if ($photo) {
+            try {
+                replace_photo_file($photo, $_FILES['replacement_photo'] ?? []);
+                redirect_to('/photos.php');
+            } catch (Throwable $exc) {
+                $error = $exc->getMessage();
+            }
+        }
+    }
     if ($action === 'delete') {
         $id = (int) ($_POST['id'] ?? 0);
         $stmt = db()->prepare('SELECT filename FROM photos WHERE id = ?');
@@ -84,6 +340,7 @@ $photos = db()->query('SELECT * FROM photos ORDER BY athlete_name ASC, id DESC')
 render_header('Foto atleti', $user);
 echo '<section class="card"><h1>Foto atleti</h1>';
 flash($error, 'error');
+flash($notice, 'ok');
 echo '<form method="post" enctype="multipart/form-data">';
 echo '<input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="upload">';
 echo '<label>Nome atleta come da seriale</label><input name="athlete_name" placeholder="BRUTTO D." required>';
@@ -92,6 +349,11 @@ render_flag_select('flag_override');
 echo '<small class="muted">BANDIERA STANDARD usa la nazione ricevuta dal protocollo. Una scelta diversa forza quella bandiera solo per questo atleta.</small>';
 echo '<label style="margin-top:12px">Foto</label><input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp" required>';
 echo '<button class="btn" style="margin-top:12px" type="submit">Upload</button></form></section>';
+echo '<section class="card"><h2>Import atleti da Excel</h2>';
+echo '<p class="muted">Carica un file .xlsx o .csv: viene usata la prima cella non vuota di ogni riga come nome atleta. Per ogni nuovo nome viene creata una foto placeholder con file ed etichetta uguali al nome atleta.</p>';
+echo '<form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="import_excel">';
+echo '<label>File Excel/CSV con nomi atleti</label><input type="file" name="athlete_excel" accept=".xlsx,.csv,.txt" required>';
+echo '<button class="btn btn-ok" style="margin-top:12px" type="submit">Importa atleti</button></form></section>';
 echo '<section class="card"><div class="section-title-row"><h2>Foto caricate</h2><span class="muted" id="photoSearchCount">' . count($photos) . ' file</span></div>';
 echo '<div class="search-box"><label for="photoSearch">Cerca foto</label><input id="photoSearch" type="search" placeholder="Cerca per nome atleta, riferimento, file o bandiera. Es: AR"><span class="muted">La ricerca filtra mentre scrivi e trova anche parti interne del testo.</span></div>';
 echo '<div class="media-list" id="photoList">';
@@ -107,6 +369,7 @@ foreach ($photos as $photo) {
     echo '<form class="inline-form" method="post"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="rename"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="text" name="athlete_name" value="' . e($photo['athlete_name']) . '">';
     render_flag_select('flag_override', $flagOverride);
     echo '<button class="btn">Salva</button></form>';
+    echo '<form class="inline-form replace-photo-form" method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="replace_photo"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.webp" required><button class="btn btn-ok">Sostituisci foto</button></form>';
     echo '<form method="post" onsubmit="return confirm(\'Eliminare questa foto?\')"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><button class="btn btn-danger">Elimina</button></form>';
     echo '</div></div>';
 }

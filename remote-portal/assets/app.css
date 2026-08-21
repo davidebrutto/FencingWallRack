@@ -85,6 +85,7 @@ input, select {
 .btn-ok { background: var(--ok); }
 .alert { padding: 12px; border-radius: 12px; margin-bottom: 14px; background: #e7f0ff; }
 .alert-error { background: #ffe9e9; color: #8f1111; }
+.alert-ok { background: #e9f8ef; color: #166534; }
 .stat { font-size: 32px; font-weight: 900; }
 code { word-break: break-all; }
 
