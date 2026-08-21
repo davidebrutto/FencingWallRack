@@ -4,6 +4,7 @@ require __DIR__ . '/inc/bootstrap.php';
 require __DIR__ . '/inc/layout.php';
 $user = require_login();
 ensure_photo_flag_override_column();
+ensure_photo_placeholder_column();
 $error = null;
 $notice = null;
 $flags = list_flags();
@@ -202,7 +203,7 @@ function insert_placeholder_photo(string $athlete, int $userId): bool
         throw new RuntimeException('Impossibile creare la foto placeholder per ' . $athlete . '.');
     }
 
-    $stmt = db()->prepare('INSERT INTO photos (filename, athlete_name, normalized_name, flag_override, size_bytes, mime, uploaded_by) VALUES (?, ?, ?, NULL, ?, ?, ?)');
+    $stmt = db()->prepare('INSERT INTO photos (filename, athlete_name, normalized_name, flag_override, is_placeholder, size_bytes, mime, uploaded_by) VALUES (?, ?, ?, NULL, 1, ?, ?, ?)');
     $stmt->execute([$filename, $athlete, $normalized, (int) filesize($destination), 'image/png', $userId]);
     return true;
 }
@@ -236,7 +237,7 @@ function replace_photo_file(array $photo, array $file): void
         @unlink($oldPath);
     }
 
-    db()->prepare('UPDATE photos SET filename = ?, size_bytes = ?, mime = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    db()->prepare('UPDATE photos SET filename = ?, is_placeholder = 0, size_bytes = ?, mime = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
         ->execute([$newFilename, (int) $file['size'], (string) $file['type'], (int) $photo['id']]);
 }
 
@@ -282,7 +283,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $base = safe_base_name($athlete, 'atleta');
                 $filename = unique_filename(PHOTO_DIR, $base, '.' . $ext);
                 if (move_uploaded_file($file['tmp_name'], PHOTO_DIR . '/' . $filename)) {
-                    $stmt = db()->prepare('INSERT INTO photos (filename, athlete_name, normalized_name, flag_override, size_bytes, mime, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
+                    $stmt = db()->prepare('INSERT INTO photos (filename, athlete_name, normalized_name, flag_override, is_placeholder, size_bytes, mime, uploaded_by) VALUES (?, ?, ?, ?, 0, ?, ?, ?)');
                     $stmt->execute([$filename, $athlete, normalize_athlete_name($athlete), $flagOverride !== '' ? $flagOverride : null, (int) $file['size'], (string) $file['type'], (int) $user['id']]);
                     redirect_to('/photos.php');
                 }
@@ -350,7 +351,7 @@ echo '<small class="muted">BANDIERA STANDARD usa la nazione ricevuta dal protoco
 echo '<label style="margin-top:12px">Foto</label><input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp" required>';
 echo '<button class="btn" style="margin-top:12px" type="submit">Upload</button></form></section>';
 echo '<section class="card"><h2>Import atleti da Excel</h2>';
-echo '<p class="muted">Carica un file .xlsx o .csv: viene usata la prima cella non vuota di ogni riga come nome atleta. Per ogni nuovo nome viene creata una foto placeholder con file ed etichetta uguali al nome atleta.</p>';
+echo '<p class="muted">Carica un file .xlsx o .csv: viene usata la prima cella non vuota di ogni riga come nome atleta. Per ogni nuovo nome viene creato un riferimento placeholder: non viene inviato ai FENCEWALL finche non sostituisci la foto con una reale.</p>';
 echo '<form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="import_excel">';
 echo '<label>File Excel/CSV con nomi atleti</label><input type="file" name="athlete_excel" accept=".xlsx,.csv,.txt" required>';
 echo '<button class="btn btn-ok" style="margin-top:12px" type="submit">Importa atleti</button></form></section>';
@@ -361,10 +362,12 @@ foreach ($photos as $photo) {
     $url = public_asset_url('photo', $photo['filename']);
     $flagOverride = (string) ($photo['flag_override'] ?? '');
     $flagLabel = $flagOverride !== '' ? $flagOverride : 'BANDIERA STANDARD';
-    $searchText = implode(' ', [(string) $photo['athlete_name'], (string) $photo['normalized_name'], (string) $photo['filename'], $flagLabel]);
+    $isPlaceholder = !empty($photo['is_placeholder']);
+    $photoStatus = $isPlaceholder ? 'Placeholder import - non inviato ai FENCEWALL' : 'Foto reale - inviata ai FENCEWALL';
+    $searchText = implode(' ', [(string) $photo['athlete_name'], (string) $photo['normalized_name'], (string) $photo['filename'], $flagLabel, $photoStatus]);
     echo '<div class="media-row" data-filter-row data-search="' . e($searchText) . '">';
     echo '<img class="photo-preview" src="' . e($url) . '" alt="' . e($photo['athlete_name']) . '">';
-    echo '<div><strong>' . e($photo['athlete_name']) . '</strong><br><span class="muted">Chiave: ' . e($photo['normalized_name']) . '</span><br><span class="muted">Bandiera: <strong>' . e($flagLabel) . '</strong></span><br><code>' . e($photo['filename']) . '</code></div>';
+    echo '<div><strong>' . e($photo['athlete_name']) . '</strong><br><span class="muted">Chiave: ' . e($photo['normalized_name']) . '</span><br><span class="muted">Bandiera: <strong>' . e($flagLabel) . '</strong></span><br><span class="muted">Stato: <strong>' . e($photoStatus) . '</strong></span><br><code>' . e($photo['filename']) . '</code></div>';
     echo '<div class="actions">';
     echo '<form class="inline-form" method="post"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="rename"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="text" name="athlete_name" value="' . e($photo['athlete_name']) . '">';
     render_flag_select('flag_override', $flagOverride);

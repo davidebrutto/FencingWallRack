@@ -4,7 +4,8 @@ require __DIR__ . '/../../inc/bootstrap.php';
 check_asset_token();
 header('Content-Type: application/json; charset=utf-8');
 ensure_photo_flag_override_column();
-$stmt = db()->query('SELECT filename, athlete_name, flag_override FROM photos ORDER BY athlete_name ASC');
+ensure_photo_placeholder_column();
+$stmt = db()->query('SELECT filename, athlete_name, flag_override FROM photos WHERE is_placeholder = 0 ORDER BY athlete_name ASC');
 $photos = [];
 foreach ($stmt->fetchAll() as $row) {
     $item = [

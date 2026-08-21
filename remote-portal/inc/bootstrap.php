@@ -240,6 +240,47 @@ function ensure_photo_flag_override_column(): void
     }
 }
 
+function ensure_photo_placeholder_column(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        $stmt = db()->query("SHOW COLUMNS FROM photos LIKE 'is_placeholder'");
+        if (!$stmt || !$stmt->fetch()) {
+            db()->exec("ALTER TABLE photos ADD COLUMN is_placeholder TINYINT(1) NOT NULL DEFAULT 0 AFTER flag_override");
+        }
+        mark_existing_placeholder_photos();
+    } catch (Throwable) {
+        // The table may not exist before install.php has run.
+    }
+}
+
+function mark_existing_placeholder_photos(): void
+{
+    $source = BASE_DIR . '/assets/athlete-placeholder-import.png';
+    if (!is_file($source)) {
+        return;
+    }
+    $size = filesize($source);
+    $hash = hash_file('sha256', $source);
+    if ($size === false || $hash === false) {
+        return;
+    }
+
+    $stmt = db()->prepare("SELECT id, filename FROM photos WHERE is_placeholder = 0 AND mime = 'image/png' AND size_bytes = ?");
+    $stmt->execute([(int) $size]);
+    $update = db()->prepare('UPDATE photos SET is_placeholder = 1 WHERE id = ?');
+    foreach ($stmt->fetchAll() as $row) {
+        $path = PHOTO_DIR . '/' . basename((string) $row['filename']);
+        if (is_file($path) && hash_equals($hash, (string) hash_file('sha256', $path))) {
+            $update->execute([(int) $row['id']]);
+        }
+    }
+}
+
 function upload_error_message(int $code): string
 {
     return match ($code) {
