@@ -55,6 +55,7 @@ const ATHLETE_PHOTO_DIR = path.join(__dirname, 'static', 'athlete-photos');
 const VIDEO_STATE_FILE = path.join(__dirname, 'video_state.json');
 const MAX_VIDEO_UPLOAD_MB = Number(process.env.MAX_VIDEO_UPLOAD_MB || 500);
 const MAX_PHOTO_UPLOAD_MB = Number(process.env.MAX_PHOTO_UPLOAD_MB || 20);
+const ATHLETE_SERIAL_NAME_LENGTH = Number(process.env.ATHLETE_SERIAL_NAME_LENGTH || 20);
 const ALLOWED_VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogg']);
 const ALLOWED_PHOTO_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const REMOTE_ASSET_BASE_URL = String(process.env.REMOTE_ASSET_BASE_URL || '').replace(/\/+$/, '');
@@ -155,6 +156,31 @@ function normalizeAthleteName(name) {
     .replace(/\s+/g, ' ');
 }
 
+function athleteNameAliases(name) {
+  const rawName = String(name || '');
+  const aliases = [
+    normalizeAthleteName(rawName),
+    normalizeAthleteName(rawName.slice(0, ATHLETE_SERIAL_NAME_LENGTH)),
+  ];
+  return [...new Set(aliases.filter(Boolean))];
+}
+
+function athleteNamesMatch(leftName, rightName) {
+  const leftAliases = athleteNameAliases(leftName);
+  const rightAliases = athleteNameAliases(rightName);
+  return leftAliases.some((alias) => rightAliases.includes(alias));
+}
+
+function mapAthletePhotoAliases(map, athleteName, entry) {
+  for (const alias of athleteNameAliases(athleteName)) {
+    const current = map[alias] || { src: '', flagOverride: '' };
+    map[alias] = {
+      src: current.src || entry.src || '',
+      flagOverride: entry.flagOverride || current.flagOverride || '',
+    };
+  }
+}
+
 function sanitizeAthletePhotoBase(name) {
   return String(name || '')
     .normalize('NFD')
@@ -226,20 +252,11 @@ function listAthletePhotos() {
 function buildAthletePhotoMap() {
   const map = {};
   for (const photo of listAthletePhotos()) {
-    if (photo.normalizedName && !map[photo.normalizedName]) {
-      map[photo.normalizedName] = { src: photo.src, flagOverride: '' };
-    }
+    mapAthletePhotoAliases(map, photo.athleteName, { src: photo.src, flagOverride: '' });
   }
 
   for (const photo of remotePhotoManifest || []) {
-    if (!photo.normalizedName) {
-      continue;
-    }
-    const current = map[photo.normalizedName] || { src: '', flagOverride: '' };
-    map[photo.normalizedName] = {
-      src: current.src || '',
-      flagOverride: photo.flagOverride || current.flagOverride || '',
-    };
+    mapAthletePhotoAliases(map, photo.athleteName, { src: '', flagOverride: photo.flagOverride || '' });
   }
 
   return map;
@@ -456,6 +473,7 @@ async function loadRemotePhotoManifest(forceReload = false) {
       .map((item) => ({
         ...item,
         normalizedName: normalizeAthleteName(item.athleteName),
+        athleteAliases: athleteNameAliases(item.athleteName),
       })))
     .then((items) => {
       remotePhotoManifest = items;
@@ -528,7 +546,7 @@ async function ensureRemoteAthletePhoto(athleteName) {
     return null;
   }
 
-  const localMatch = listAthletePhotos().find((photo) => photo.normalizedName === normalizedName);
+  const localMatch = listAthletePhotos().find((photo) => athleteNamesMatch(photo.athleteName, athleteName));
   if (localMatch) {
     return localMatch.src;
   }
@@ -539,7 +557,7 @@ async function ensureRemoteAthletePhoto(athleteName) {
 
   const downloadPromise = (async () => {
     const manifest = await loadRemotePhotoManifest();
-    const remotePhoto = manifest.find((photo) => photo.normalizedName === normalizedName);
+    const remotePhoto = manifest.find((photo) => athleteNamesMatch(photo.athleteName, athleteName));
     if (!remotePhoto) {
       return null;
     }
