@@ -7,6 +7,10 @@ ensure_photo_flag_override_column();
 ensure_photo_placeholder_column();
 $error = null;
 $notice = null;
+if (isset($_SESSION['photo_notice'])) {
+    $notice = (string) $_SESSION['photo_notice'];
+    unset($_SESSION['photo_notice']);
+}
 $flags = list_flags();
 
 function render_flag_select(string $name, string $selected = ''): void
@@ -330,9 +334,43 @@ function replace_photo_file(array $photo, array $file): void
 
 
 
+function delete_all_photos(): int
+{
+    $photos = db()->query('SELECT filename FROM photos')->fetchAll();
+    foreach ($photos as $photo) {
+        $filename = basename((string) ($photo['filename'] ?? ''));
+        if ($filename === '') {
+            continue;
+        }
+        $path = PHOTO_DIR . '/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    db()->exec('DELETE FROM photos');
+    return count($photos);
+}
+
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = $_POST['action'] ?? '';
+    if ($action === 'delete_all_photos') {
+        if (!is_admin($user)) {
+            http_response_code(403);
+            echo 'Accesso negato.';
+            exit;
+        }
+        try {
+            $deleted = delete_all_photos();
+            $_SESSION['photo_notice'] = 'Archivio foto svuotato: ' . $deleted . ' elementi eliminati.';
+            redirect_to('/photos.php');
+        } catch (Throwable $exc) {
+            $error = $exc->getMessage();
+        }
+    }
     if ($action === 'import_excel') {
         try {
             $names = parse_athlete_names_upload($_FILES['athlete_excel'] ?? []);
@@ -440,6 +478,13 @@ echo '<p class="muted">Carica un file .xlsx o .csv: viene usata la prima cella n
 echo '<form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="import_excel">';
 echo '<label>File Excel/CSV con nomi atleti</label><input type="file" name="athlete_excel" accept=".xlsx,.csv,.txt" required>';
 echo '<button class="btn btn-ok" style="margin-top:12px" type="submit">Importa atleti</button></form></section>';
+if (is_admin($user)) {
+    echo '<section class="card danger-zone"><h2>Gestione amministratore</h2>';
+    echo '<p class="muted">Questa funzione elimina tutti i nomi atleta e tutte le foto caricate. Video e bandiere non vengono modificati.</p>';
+    echo '<form method="post" onsubmit="return confirm(\'Cancellare TUTTE le foto e TUTTI i nomi atleta? Operazione irreversibile.\')">';
+    echo '<input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="delete_all_photos">';
+    echo '<button class="btn btn-danger" type="submit">Cancella tutte le foto e i nomi</button></form></section>';
+}
 echo '<section class="card"><div class="section-title-row"><h2>Foto caricate</h2><span class="muted" id="photoSearchCount">' . count($photos) . ' file</span></div>';
 echo '<div class="search-box"><label for="photoSearch">Cerca foto</label><input id="photoSearch" type="search" placeholder="Cerca per nome atleta, riferimento, file o bandiera. Es: AR"><span class="muted">La ricerca filtra mentre scrivi e trova anche parti interne del testo.</span></div>';
 echo '<div class="media-list" id="photoList">';
