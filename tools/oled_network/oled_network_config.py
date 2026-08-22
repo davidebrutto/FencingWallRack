@@ -768,7 +768,7 @@ def run_repository_update(app_dir=UPDATE_APP_DIR):
 
 
 class OledNetworkApp:
-    network_fields = ["ip", "netmask", "gateway"]
+    network_fields = ["mode", "ip", "netmask", "gateway"]
 
     def __init__(self):
         serial = spi(port=SPI_PORT, device=SPI_DEVICE, gpio_DC=GPIO_DC, gpio_RST=GPIO_RST)
@@ -944,6 +944,9 @@ class OledNetworkApp:
     def toggle_athlete_placeholder(self):
         self.athlete_placeholder_enabled = not self.athlete_placeholder_enabled
 
+    def toggle_network_mode(self):
+        self.cfg["mode"] = "STATIC" if self.cfg.get("mode") == "DHCP" else "DHCP"
+
     def display_value_for_field(self, field):
         if field == "display_profile":
             return display_profile_label(self.display_profile)
@@ -951,6 +954,8 @@ class OledNetworkApp:
             return f"{self.spot_minutes} min"
         if field == "athlete_placeholder":
             return "SI" if self.athlete_placeholder_enabled else "NO"
+        if field == "mode":
+            return self.cfg.get("mode", "STATIC")
         if self.editing and self.screen == "network" and self.current_selected_field() == field:
             return "".join(self.chars_for_field(field))
         return str(self.cfg["gateway"] if field == "gateway" else self.cfg[field])
@@ -965,6 +970,9 @@ class OledNetworkApp:
             return
         if field == "athlete_placeholder":
             self.toggle_athlete_placeholder()
+            return
+        if field == "mode":
+            self.toggle_network_mode()
             return
         chars = self.chars_for_field(field)
         positions = numeric_positions(chars)
@@ -984,6 +992,9 @@ class OledNetworkApp:
         if field == "athlete_placeholder":
             self.toggle_athlete_placeholder()
             return
+        if field == "mode":
+            self.toggle_network_mode()
+            return
         chars = self.chars_for_field(field)
         if self.cursor >= len(chars) or not chars[self.cursor].isdigit():
             positions = numeric_positions(chars)
@@ -1002,7 +1013,7 @@ class OledNetworkApp:
         if not self.editing or self.current_selected_field() != field_name:
             return text, None, False
 
-        if field_name in ("display_profile", "spot_minutes", "athlete_placeholder"):
+        if field_name in ("display_profile", "spot_minutes", "athlete_placeholder", "mode"):
             return text, None, True
 
         cursor_offset = len(prefix) + self.cursor
@@ -1232,7 +1243,7 @@ class OledNetworkApp:
             if self.screen in ("manual", "version", "update", "reboot", "poweroff"):
                 return
             self.editing = True
-            if self.screen == "network":
+            if self.screen == "network" and self.current_selected_field() != "mode" and self.cfg.get("mode") == "DHCP":
                 self.cfg["mode"] = "STATIC"
             self.status = "EDIT"
             self.reset_blink()
@@ -1318,19 +1329,21 @@ class OledNetworkApp:
     def draw_network(self):
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
-        mode = "*" if self.editing else " "
-        ip_line, ip_cursor, ip_blink = self.field_text_and_cursor("ip", f"{'>' if self.network_selected == 0 else ' '}IP ", self.display_value_for_field("ip"))
-        netmask_line, netmask_cursor, netmask_blink = self.field_text_and_cursor("netmask", f"{'>' if self.network_selected == 1 else ' '}SN ", self.display_value_for_field("netmask"))
-        gateway_line, gateway_cursor, gateway_blink = self.field_text_and_cursor("gateway", f"{'>' if self.network_selected == 2 else ' '}GW ", self.display_value_for_field("gateway"))
+        edit_marker = "*" if self.editing else " "
+        mode_line, mode_cursor, mode_blink = self.field_text_and_cursor("mode", f"{'>' if self.network_selected == 0 else ' '}MODE ", self.display_value_for_field("mode"))
+        ip_line, ip_cursor, ip_blink = self.field_text_and_cursor("ip", f"{'>' if self.network_selected == 1 else ' '}IP ", self.display_value_for_field("ip"))
+        netmask_line, netmask_cursor, netmask_blink = self.field_text_and_cursor("netmask", f"{'>' if self.network_selected == 2 else ' '}SN ", self.display_value_for_field("netmask"))
+        gateway_line, gateway_cursor, gateway_blink = self.field_text_and_cursor("gateway", f"{'>' if self.network_selected == 3 else ' '}GW ", self.display_value_for_field("gateway"))
         lines = [
-            (f"NET {self.iface} {self.cfg['mode']} {mode}", None, False),
+            (f"NET {self.iface} {edit_marker}", None, False),
+            (mode_line, mode_cursor, mode_blink),
             (ip_line, ip_cursor, ip_blink),
             (netmask_line, netmask_cursor, netmask_blink),
             (gateway_line, gateway_cursor, gateway_blink),
             (self.status, None, False),
         ]
         for idx, (line, cursor_offset, blink_line) in enumerate(lines):
-            self.draw_line_with_cursor(draw, idx * 11, line, cursor_offset, blink_line)
+            self.draw_line_with_cursor(draw, idx * 10, line, cursor_offset, blink_line)
         with self.render_lock:
             self.display_image(image)
 
