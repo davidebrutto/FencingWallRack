@@ -208,37 +208,124 @@ function insert_placeholder_photo(string $athlete, int $userId): bool
     return true;
 }
 
-function replace_photo_file(array $photo, array $file): void
+const ATHLETE_PHOTO_WIDTH = 240;
+const ATHLETE_PHOTO_HEIGHT = 300;
+const ATHLETE_PHOTO_JPEG_QUALITY = 86;
+
+function load_uploaded_photo_image(string $path, string $ext)
+{
+    if (!extension_loaded('gd')) {
+        throw new RuntimeException('Ridimensionamento foto non disponibile: abilita estensione PHP GD sul server.');
+    }
+
+    $imageInfo = @getimagesize($path);
+    if ($imageInfo === false) {
+        throw new RuntimeException('Il file caricato non e una immagine valida.');
+    }
+
+    $image = match ($ext) {
+        'jpg', 'jpeg' => @imagecreatefromjpeg($path),
+        'png' => @imagecreatefrompng($path),
+        'webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : false,
+        default => false,
+    };
+
+    if (!$image) {
+        throw new RuntimeException('Impossibile leggere la foto caricata.');
+    }
+
+    if (($ext === 'jpg' || $ext === 'jpeg') && function_exists('exif_read_data')) {
+        $exif = @exif_read_data($path);
+        $orientation = (int) ($exif['Orientation'] ?? 1);
+        if (function_exists('imageflip')) {
+            if (in_array($orientation, [2, 5, 7], true)) {
+                imageflip($image, IMG_FLIP_HORIZONTAL);
+            } elseif ($orientation === 4) {
+                imageflip($image, IMG_FLIP_VERTICAL);
+            }
+        }
+        $rotated = match ($orientation) {
+            3 => imagerotate($image, 180, 0),
+            5, 6 => imagerotate($image, -90, 0),
+            7, 8 => imagerotate($image, 90, 0),
+            default => false,
+        };
+        if ($rotated) {
+            imagedestroy($image);
+            $image = $rotated;
+        }
+    }
+
+    return $image;
+}
+
+function save_normalized_athlete_photo(array $file, string $destination): array
 {
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
         throw new RuntimeException(upload_error_message((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE)));
     }
+
     $ext = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
     if (!in_array($ext, allowed_photo_ext(), true)) {
-        throw new RuntimeException('Formato foto non supportato.');
+        throw new RuntimeException('Formato foto non supportato. Usa JPG, PNG oppure WEBP.');
     }
 
+    $source = (string) ($file['tmp_name'] ?? '');
+    $image = load_uploaded_photo_image($source, $ext);
+    $srcWidth = imagesx($image);
+    $srcHeight = imagesy($image);
+    if ($srcWidth <= 0 || $srcHeight <= 0) {
+        imagedestroy($image);
+        throw new RuntimeException('Dimensioni foto non valide.');
+    }
+
+    $scale = min(ATHLETE_PHOTO_WIDTH / $srcWidth, ATHLETE_PHOTO_HEIGHT / $srcHeight);
+    $newWidth = max(1, (int) round($srcWidth * $scale));
+    $newHeight = max(1, (int) round($srcHeight * $scale));
+    $offsetX = (int) floor((ATHLETE_PHOTO_WIDTH - $newWidth) / 2);
+    $offsetY = (int) floor((ATHLETE_PHOTO_HEIGHT - $newHeight) / 2);
+
+    $canvas = imagecreatetruecolor(ATHLETE_PHOTO_WIDTH, ATHLETE_PHOTO_HEIGHT);
+    if (!$canvas) {
+        imagedestroy($image);
+        throw new RuntimeException('Impossibile preparare la foto ridimensionata.');
+    }
+    $black = imagecolorallocate($canvas, 0, 0, 0);
+    imagefill($canvas, 0, 0, $black);
+    imagecopyresampled($canvas, $image, $offsetX, $offsetY, 0, 0, $newWidth, $newHeight, $srcWidth, $srcHeight);
+    imageinterlace($canvas, true);
+
+    if (!imagejpeg($canvas, $destination, ATHLETE_PHOTO_JPEG_QUALITY)) {
+        imagedestroy($canvas);
+        imagedestroy($image);
+        throw new RuntimeException('Impossibile salvare la foto ridimensionata.');
+    }
+
+    imagedestroy($canvas);
+    imagedestroy($image);
+
+    clearstatcache(true, $destination);
+    return [
+        'size_bytes' => (int) filesize($destination),
+        'mime' => 'image/jpeg',
+    ];
+}
+
+function replace_photo_file(array $photo, array $file): void
+{
     $oldFilename = (string) $photo['filename'];
     $oldPath = PHOTO_DIR . '/' . $oldFilename;
-    $oldExt = strtolower(pathinfo($oldFilename, PATHINFO_EXTENSION));
-    if ($oldExt === $ext) {
-        $newFilename = $oldFilename;
-        $destination = $oldPath;
-    } else {
-        $base = safe_base_name((string) $photo['athlete_name'], 'atleta');
-        $newFilename = unique_filename(PHOTO_DIR, $base, '.' . $ext, $oldFilename);
-        $destination = PHOTO_DIR . '/' . $newFilename;
-    }
+    $base = safe_base_name((string) $photo['athlete_name'], 'atleta');
+    $newFilename = unique_filename(PHOTO_DIR, $base, '.jpg', $oldFilename);
+    $destination = PHOTO_DIR . '/' . $newFilename;
 
-    if (!move_uploaded_file((string) $file['tmp_name'], $destination)) {
-        throw new RuntimeException('Impossibile salvare la nuova foto.');
-    }
+    $saved = save_normalized_athlete_photo($file, $destination);
     if ($newFilename !== $oldFilename) {
         @unlink($oldPath);
     }
 
     db()->prepare('UPDATE photos SET filename = ?, is_placeholder = 0, size_bytes = ?, mime = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-        ->execute([$newFilename, (int) $file['size'], (string) $file['type'], (int) $photo['id']]);
+        ->execute([$newFilename, $saved['size_bytes'], $saved['mime'], (int) $photo['id']]);
 }
 
 
@@ -276,18 +363,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($athlete === '') {
             $error = 'Inserisci il nome atleta.';
         } else {
-            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            if (!in_array($ext, allowed_photo_ext(), true)) {
-                $error = 'Formato foto non supportato.';
-            } else {
+            try {
                 $base = safe_base_name($athlete, 'atleta');
-                $filename = unique_filename(PHOTO_DIR, $base, '.' . $ext);
-                if (move_uploaded_file($file['tmp_name'], PHOTO_DIR . '/' . $filename)) {
-                    $stmt = db()->prepare('INSERT INTO photos (filename, athlete_name, normalized_name, flag_override, is_placeholder, size_bytes, mime, uploaded_by) VALUES (?, ?, ?, ?, 0, ?, ?, ?)');
-                    $stmt->execute([$filename, $athlete, normalize_athlete_name($athlete), $flagOverride !== '' ? $flagOverride : null, (int) $file['size'], (string) $file['type'], (int) $user['id']]);
-                    redirect_to('/photos.php');
-                }
-                $error = 'Impossibile salvare la foto.';
+                $filename = unique_filename(PHOTO_DIR, $base, '.jpg');
+                $saved = save_normalized_athlete_photo($file, PHOTO_DIR . '/' . $filename);
+                $stmt = db()->prepare('INSERT INTO photos (filename, athlete_name, normalized_name, flag_override, is_placeholder, size_bytes, mime, uploaded_by) VALUES (?, ?, ?, ?, 0, ?, ?, ?)');
+                $stmt->execute([$filename, $athlete, normalize_athlete_name($athlete), $flagOverride !== '' ? $flagOverride : null, $saved['size_bytes'], $saved['mime'], (int) $user['id']]);
+                redirect_to('/photos.php');
+            } catch (Throwable $exc) {
+                $error = $exc->getMessage();
             }
         }
     }
@@ -349,6 +433,7 @@ echo '<label style="margin-top:12px">Bandiera per questo atleta</label>';
 render_flag_select('flag_override');
 echo '<small class="muted">BANDIERA STANDARD usa la nazione ricevuta dal protocollo. Una scelta diversa forza quella bandiera solo per questo atleta.</small>';
 echo '<label style="margin-top:12px">Foto</label><input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp" required>';
+echo '<small class="muted">Le foto vengono ridotte automaticamente a 240x300 JPG, pronte per il ledwall.</small>';
 echo '<button class="btn" style="margin-top:12px" type="submit">Upload</button></form></section>';
 echo '<section class="card"><h2>Import atleti da Excel</h2>';
 echo '<p class="muted">Carica un file .xlsx o .csv: viene usata la prima cella non vuota di ogni riga come nome atleta. Per ogni nuovo nome viene creato un riferimento placeholder: non viene inviato ai FENCEWALL finche non sostituisci la foto con una reale.</p>';
