@@ -204,6 +204,7 @@
     const pauseVideoPlayer = pauseVideoContainer ? pauseVideoContainer.querySelector('video') : null;
     const NO_SERIAL_TIMEOUT_MS = 10000;
     const SPOT_INACTIVITY_MINUTES = {{ spotInactivityMinutes | default(5) | int }};
+    const AUTO_PAUSE_MEDIA_ENABLED = false;
     const ATHLETE_PLACEHOLDER_ENABLED = {% if athletePlaceholderEnabled | default(true) %}true{% else %}false{% endif %};
     const UNCHANGED_TIMER_TIMEOUT_MS = Math.max(1, SPOT_INACTIVITY_MINUTES) * 60 * 1000;
     const RETRY_INTERVAL_MS = 10000;
@@ -362,6 +363,9 @@
     }
 
     async function showPauseVideos(reason) {
+        if (!AUTO_PAUSE_MEDIA_ENABLED) {
+            return;
+        }
         if (pauseVideoActive) {
             return;
         }
@@ -820,6 +824,9 @@
         })
 
       setInterval(() => {
+          if (!AUTO_PAUSE_MEDIA_ENABLED) {
+              return;
+          }
           const now = Date.now();
           if ((now - lastDataAt) > NO_SERIAL_TIMEOUT_MS) {
               showPauseVideos('no_serial_data_timeout');
