@@ -609,6 +609,21 @@
         el.style.border = value;
     }
 
+    function setLightStateIfChanged(id, state) {
+        const el = getEl(id);
+        if (!el) {
+            return;
+        }
+        const value = state || 'off';
+        if (lastRenderedTabellone[`light:${id}`] === value) {
+            return;
+        }
+        lastRenderedTabellone[`light:${id}`] = value;
+        el.classList.toggle('is-hit-red', value === 'red');
+        el.classList.toggle('is-hit-green', value === 'green');
+        el.classList.toggle('is-hit-white', value === 'white');
+    }
+
     function setSelectorColorIfChanged(selector, value) {
         const key = `selectorColor:${selector}`;
         if (lastRenderedTabellone[key] === value) {
@@ -648,16 +663,16 @@
     }
 
     function renderTabellone(tabellone) {
-        const statoDX = tabellone.G == 1 ? '#00CC00' : (tabellone.W == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
-        const statoSX = tabellone.R == 1 ? '#CC0000' : (tabellone.w == 1 ? '#FFFFFF' : 'rgba(255,255,255,0%)');
+        const statoDX = tabellone.G == 1 ? 'green' : (tabellone.W == 1 ? 'white' : 'off');
+        const statoSX = tabellone.R == 1 ? 'red' : (tabellone.w == 1 ? 'white' : 'off');
         const redCardsDX = cardCount(tabellone.B);
         const redCardsSX = cardCount(tabellone.D);
-        setBgIfChanged('statoDXbig', statoDX);
-        setBgIfChanged('statoSXbig', statoSX);
-        setSelectorColorIfChanged('.nomeDX', tabellone.W == 1 ? '#000000' : '#ffffff');
-        setSelectorColorIfChanged('.scoreDX', tabellone.W == 1 ? '#000000' : '#ffffff');
-        setSelectorColorIfChanged('.nomeSX', tabellone.w == 1 ? '#000000' : '#ffffff');
-        setSelectorColorIfChanged('.scoreSX', tabellone.w == 1 ? '#000000' : '#ffffff');
+        setLightStateIfChanged('statoDXbig', statoDX);
+        setLightStateIfChanged('statoSXbig', statoSX);
+        setSelectorColorIfChanged('.nomeDX', statoDX === 'white' ? '#000000' : '#ffffff');
+        setSelectorColorIfChanged('.scoreDX', statoDX === 'white' ? '#000000' : '#ffffff');
+        setSelectorColorIfChanged('.nomeSX', statoSX === 'white' ? '#000000' : '#ffffff');
+        setSelectorColorIfChanged('.scoreSX', statoSX === 'white' ? '#000000' : '#ffffff');
 
         setColorIfChanged('timerText', timerColorFromMode(tabellone.timerMode));
         setTextIfChanged('timerText', String(tabellone.timer || '').trim());

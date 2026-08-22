@@ -1698,7 +1698,7 @@ function startSerialReader() {
 
       lastPuntiEmitJson = nextJson;
       logSerialDebug('ws_emit', `type=${type} XX=${nextTabellone.XX} YY=${nextTabellone.YY} timer=${(nextTabellone.timer || '').trim()}`);
-      io.volatile.emit('punti_emit', { tabellone: nextTabellone });
+      io.emit('punti_emit', { tabellone: nextTabellone });
     }, SERIAL_EMIT_COALESCE_MS);
   }
 

@@ -713,10 +713,40 @@
     width: 1536px;
     height: 768px !important;
     z-index: 20;
-    opacity: .95;
+    opacity: 1;
     pointer-events: none;
     border: 0 !important;
     border-radius: 0 !important;
+    background-color: transparent !important;
+    contain: paint;
+}
+
+.statoSXbig::before,
+.statoDXbig::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background: transparent;
+    will-change: opacity;
+}
+
+.statoSXbig.is-hit-red::before,
+.statoDXbig.is-hit-red::before {
+    opacity: .95;
+    background: #CC0000;
+}
+
+.statoSXbig.is-hit-green::before,
+.statoDXbig.is-hit-green::before {
+    opacity: .95;
+    background: #00CC00;
+}
+
+.statoSXbig.is-hit-white::before,
+.statoDXbig.is-hit-white::before {
+    opacity: .95;
+    background: #FFFFFF;
 }
 
 .statoSXbig {
