@@ -718,11 +718,15 @@
     });
 
     socket.on("disconnect", function(reason) {
-        showPauseFallback(`socket_disconnect:${reason}`);
+        if (AUTO_PAUSE_MEDIA_ENABLED) {
+            showPauseFallback(`socket_disconnect:${reason}`);
+        }
     });
 
     socket.on("connect_error", function(err) {
-        showPauseFallback(`socket_connect_error:${err && err.message ? err.message : 'unknown'}`);
+        if (AUTO_PAUSE_MEDIA_ENABLED) {
+            showPauseFallback(`socket_connect_error:${err && err.message ? err.message : 'unknown'}`);
+        }
     });
 
     socket.on("video_emit", function(video) {
