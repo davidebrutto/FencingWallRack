@@ -2044,14 +2044,10 @@ io.on('connection', (socket) => {
   }
 });
 
-prepareRemoteAssetsOnStartup()
-  .catch((error) => {
+startSerialReader();
+server.listen(PORT, HOST, () => {
+  console.log(`dmbScore Node server listening on http://${HOST}:${PORT}`);
+  prepareRemoteAssetsOnStartup().catch((error) => {
     console.warn(`Remote asset startup preparation failed: ${error.message}`);
-  })
-  .finally(() => {
-    startSerialReader();
-
-    server.listen(PORT, HOST, () => {
-      console.log(`dmbScore Node server listening on http://${HOST}:${PORT}`);
-    });
   });
+});
