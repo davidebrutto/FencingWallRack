@@ -515,8 +515,13 @@ set_desktop_wallpaper() {
 
 disable_pcmanfm_usb_prompt() {
   local pcmanfm_dir="${KIOSK_HOME}/.config/pcmanfm"
-  local profile config_file config_tmp changed=0
-  local profiles=("${KIOSK_PCMANFM_PROFILE}" "LXDE-pi" "rpd-x" "default")
+  local profile config_file config_tmp
+  local profiles=("${KIOSK_PCMANFM_PROFILE}" "LXDE-pi" "LXDE" "rpd-x" "default")
+
+  if command -v pcmanfm >/dev/null 2>&1; then
+    pcmanfm --quit >/dev/null 2>&1 || true
+    sleep 0.4
+  fi
 
   for config_file in "${pcmanfm_dir}"/*/pcmanfm.conf; do
     [[ -e "${config_file}" ]] || continue
@@ -546,13 +551,10 @@ disable_pcmanfm_usb_prompt() {
       rm -f "${config_tmp}"
     else
       mv "${config_tmp}" "${config_file}"
-      changed=1
     fi
   done
 
-  if (( changed )) && command -v pcmanfm >/dev/null 2>&1; then
-    pcmanfm --desktop-off >/dev/null 2>&1 || true
-    sleep 0.4
+  if command -v pcmanfm >/dev/null 2>&1; then
     pcmanfm --desktop --profile="${KIOSK_PCMANFM_PROFILE}" >/dev/null 2>&1 &
   fi
 }
@@ -728,6 +730,9 @@ NODE_PID=$!
 echo "Node avviato PID=${NODE_PID}"
 
 wait_for_x_display
+if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]] && [[ -S "/run/user/$(id -u)/bus" ]]; then
+  export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+fi
 disable_x_power_save
 configure_mirrored_displays
 wait_for_http
