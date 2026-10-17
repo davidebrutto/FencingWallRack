@@ -188,18 +188,47 @@ def main():
     app = Application(bus, trial)
     advert = Advertisement(bus)
     registered_app = registered_adv = False
-    try:
-        gatt.RegisterApplication(app.path, {})
-        registered_app = True
-        adv_manager.RegisterAdvertisement(advert.path, {})
+    start_error = []
+    registration_timeout = None
+
+    def fail(error):
+        start_error.append(str(error))
+        loop.quit()
+
+    def advertisement_ready():
+        nonlocal registered_adv, registration_timeout
         registered_adv = True
+        if registration_timeout is not None:
+            GLib.source_remove(registration_timeout)
+            registration_timeout = None
         print("FW-WIFI attivo per 5 minuti. PIN di prova:", trial.pin, flush=True)
         print("nRF Connect: scrivi SSID, password e poi PIN nelle tre caratteristiche.", flush=True)
         GLib.timeout_add_seconds(300, lambda: (loop.quit(), False)[1])
+
+    def application_ready():
+        nonlocal registered_app
+        registered_app = True
+        adv_manager.RegisterAdvertisement(
+            advert.path, {}, reply_handler=advertisement_ready, error_handler=fail)
+
+    def registration_expired():
+        nonlocal registration_timeout
+        registration_timeout = None
+        fail("Timeout registrazione BlueZ")
+        return False
+
+    try:
         signal.signal(signal.SIGINT, lambda *_: loop.quit())
         signal.signal(signal.SIGTERM, lambda *_: loop.quit())
+        registration_timeout = GLib.timeout_add_seconds(15, registration_expired)
+        gatt.RegisterApplication(
+            app.path, {}, reply_handler=application_ready, error_handler=fail)
         loop.run()
+        if start_error:
+            raise RuntimeError("Registrazione BLE non riuscita: " + start_error[0])
     finally:
+        if registration_timeout is not None:
+            GLib.source_remove(registration_timeout)
         if registered_adv:
             adv_manager.UnregisterAdvertisement(advert.path)
         if registered_app:
