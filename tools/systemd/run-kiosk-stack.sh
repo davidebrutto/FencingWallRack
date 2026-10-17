@@ -513,6 +513,50 @@ set_desktop_wallpaper() {
   echo "Nessun gestore wallpaper attivo: installa feh oppure usa KIOSK_WALLPAPER_BACKEND=pcmanfm" >&2
 }
 
+disable_pcmanfm_usb_prompt() {
+  local pcmanfm_dir="${KIOSK_HOME}/.config/pcmanfm"
+  local profile config_file config_tmp changed=0
+  local profiles=("${KIOSK_PCMANFM_PROFILE}" "LXDE-pi" "rpd-x" "default")
+
+  for config_file in "${pcmanfm_dir}"/*/pcmanfm.conf; do
+    [[ -e "${config_file}" ]] || continue
+    profiles+=("$(basename "$(dirname "${config_file}")")")
+  done
+
+  for profile in "${profiles[@]}"; do
+    [[ -n "${profile}" ]] || continue
+    config_file="${pcmanfm_dir}/${profile}/pcmanfm.conf"
+    mkdir -p "$(dirname "${config_file}")"
+    config_tmp="$(mktemp "${config_file}.XXXXXX")"
+    if [[ -f "${config_file}" ]]; then
+      awk '
+        /^\[volume\]$/ { in_volume = 1; has_volume = 1; print; next }
+        /^\[/ && in_volume { if (!has_autorun) print "autorun=0"; in_volume = 0 }
+        in_volume && /^autorun=/ { if (!has_autorun) print "autorun=0"; has_autorun = 1; next }
+        { print }
+        END {
+          if (in_volume && !has_autorun) print "autorun=0"
+          if (!has_volume) print "[volume]\nautorun=0"
+        }
+      ' "${config_file}" >"${config_tmp}"
+    else
+      printf '[volume]\nmount_removable=1\nautorun=0\n' >"${config_tmp}"
+    fi
+    if cmp -s "${config_tmp}" "${config_file}"; then
+      rm -f "${config_tmp}"
+    else
+      mv "${config_tmp}" "${config_file}"
+      changed=1
+    fi
+  done
+
+  if (( changed )) && command -v pcmanfm >/dev/null 2>&1; then
+    pcmanfm --desktop-off >/dev/null 2>&1 || true
+    sleep 0.4
+    pcmanfm --desktop --profile="${KIOSK_PCMANFM_PROFILE}" >/dev/null 2>&1 &
+  fi
+}
+
 launch_chromium_app_window() {
   local url="$1"
   local profile_dir="$2"
@@ -688,6 +732,7 @@ disable_x_power_save
 configure_mirrored_displays
 wait_for_http
 set_desktop_wallpaper
+disable_pcmanfm_usb_prompt
 sleep "${CHROMIUM_START_DELAY_SEC}"
 
 if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]]; then
