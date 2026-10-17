@@ -14,7 +14,9 @@ class PauseUsbImportTests(unittest.TestCase):
             source = root / "stick" / "PAUSA"
             source.mkdir(parents=True)
             (source / "01-intro.mp4").write_bytes(b"video")
+            (source / "._01-intro.mp4").write_bytes(b"mac metadata")
             (source / "02-photo.jpg").write_bytes(b"image")
+            (source / ".hidden.png").write_bytes(b"hidden")
             (source / "notes.txt").write_bytes(b"ignored")
             destination = root / "static" / "pause-usb"
             destination.mkdir(parents=True)
@@ -24,6 +26,7 @@ class PauseUsbImportTests(unittest.TestCase):
                 run.side_effect = lambda command, **kwargs: Path(command[-1]).write_bytes(b"optimized")
                 self.assertEqual(import_pause_media(destination, [source.parent]), 2)
                 self.assertIn("libx264", run.call_args.args[0])
+                self.assertEqual(run.call_count, 1)
             self.assertEqual(sorted(path.name for path in destination.iterdir()), ["01-intro.mp4", "02-photo.jpg"])
             self.assertEqual((destination / "01-intro.mp4").read_bytes(), b"optimized")
             self.assertEqual((destination / "02-photo.jpg").read_bytes(), b"image")

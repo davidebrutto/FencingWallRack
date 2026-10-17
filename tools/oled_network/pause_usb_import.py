@@ -61,7 +61,7 @@ def find_pause_folder(roots=None):
 def media_files(folder):
     files = []
     for entry in Path(folder).iterdir():
-        if entry.suffix.lower() not in MEDIA_EXTENSIONS or entry.is_symlink():
+        if entry.name.startswith(".") or entry.suffix.lower() not in MEDIA_EXTENSIONS or entry.is_symlink():
             continue
         if stat.S_ISREG(entry.stat(follow_symlinks=False).st_mode):
             files.append(entry)
