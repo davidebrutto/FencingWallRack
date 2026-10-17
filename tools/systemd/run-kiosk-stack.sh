@@ -454,10 +454,12 @@ set_pcmanfm_wallpaper() {
   fi
 
   if command -v pcmanfm >/dev/null 2>&1; then
-    pcmanfm --desktop-off >/dev/null 2>&1 || true
-    sleep 0.4
-    pcmanfm --desktop --profile="${KIOSK_PCMANFM_PROFILE}" >/dev/null 2>&1 &
-    sleep 0.4
+    if pgrep -u "$(id -u)" -x pcmanfm >/dev/null 2>&1; then
+      pcmanfm --wallpaper-mode="$(pcmanfm_wallpaper_mode)" --set-wallpaper="${KIOSK_WALLPAPER}" >/dev/null 2>&1 || \
+        echo "Impossibile aggiornare wallpaper nel PCManFM attivo" >&2
+    else
+      pcmanfm --desktop --profile="${KIOSK_PCMANFM_PROFILE}" >/dev/null 2>&1 &
+    fi
   fi
 
   echo "Wallpaper desktop configurato: ${KIOSK_WALLPAPER}"

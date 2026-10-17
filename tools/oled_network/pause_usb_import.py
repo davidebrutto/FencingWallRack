@@ -4,6 +4,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import uuid
 from pathlib import Path
@@ -28,6 +29,8 @@ def optimize_video(source, destination):
     except FileNotFoundError as exc:
         raise RuntimeError("ffmpeg mancante") from exc
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        detail = (exc.stderr or "").strip() or str(exc)
+        print(f"FFmpeg import USB {source.name}: {detail[-2000:]}", file=sys.stderr, flush=True)
         raise RuntimeError(f"Conversione video fallita: {source.name}") from exc
 
 
