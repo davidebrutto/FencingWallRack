@@ -133,23 +133,31 @@ class Trial:
         self.status = "READY"
 
     def write(self, uuid, value):
+        field = {SSID_UUID: "SSID", PASS_UUID: "password", GO_UUID: "conferma"}.get(uuid)
+        if field:
+            print("BLE: Write ricevuto per " + field, flush=True)
         if self.status != "READY":
             raise TrialError("Trial already used")
         if uuid == SSID_UUID:
             if not value or len(value.encode("utf-8")) > 32:
+                print("BLE: SSID non valido", flush=True)
                 raise InvalidLengthError("SSID: 1-32 bytes")
             self.ssid = value
         elif uuid == PASS_UUID:
             if not 8 <= len(value.encode("utf-8")) <= 63:
+                print("BLE: password non valida", flush=True)
                 raise InvalidLengthError("Password: 8-63 bytes")
             self.password = value
         elif uuid == GO_UUID:
             if value != self.pin:
+                print("BLE: PIN errato", flush=True)
                 raise TrialError("PIN errato")
             try:
                 validate(self.ssid, self.password)
             except (ValueError, TypeError) as exc:
+                print("BLE: mancano SSID o password validi", flush=True)
                 raise TrialError("SSID o password mancanti/non validi") from exc
+            print("BLE: PIN confermato, avvio connessione Wi-Fi", flush=True)
             self.status = "CONNECTING"
             threading.Thread(target=self._connect, daemon=True).start()
 
