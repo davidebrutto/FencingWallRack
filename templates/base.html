@@ -207,13 +207,13 @@
     const SPOT_INACTIVITY_MINUTES = {{ spotInactivityMinutes | default(5) | int }};
     const AUTO_PAUSE_MEDIA_ENABLED = SPOT_INACTIVITY_MINUTES > 0;
     const ATHLETE_PLACEHOLDER_ENABLED = {% if athletePlaceholderEnabled | default(true) %}true{% else %}false{% endif %};
-    const UNCHANGED_TIMER_TIMEOUT_MS = Math.max(1, SPOT_INACTIVITY_MINUTES) * 60 * 1000;
+    const UNCHANGED_DATA_TIMEOUT_MS = Math.max(1, SPOT_INACTIVITY_MINUTES) * 60 * 1000;
     const RETRY_INTERVAL_MS = 10000;
     let lastDataAt = Date.now();
-    let lastTimerChangeAt = Date.now();
-    let lastTimerValue = null;
-    let lastPeriodValue = null;
+    let lastScoreboardChangeAt = Date.now();
+    let lastScoreboardSignature = null;
     let lastNamePositionsSignature = '';
+    const lastCompetitorBibs = { left: null, right: null };
     let fallbackActive = false;
     let fallbackReason = '';
     let pauseVideoActive = false;
@@ -340,7 +340,7 @@
     function exitPauseForLiveChange(reason) {
         pauseMediaGeneration += 1;
         lastDataAt = Date.now();
-        lastTimerChangeAt = Date.now();
+        lastScoreboardChangeAt = Date.now();
         if (pauseVideoActive) {
             hidePauseVideos();
         }
@@ -421,7 +421,7 @@
             if (reason === 'no_serial_data_timeout' && Date.now() - lastDataAt <= NO_SERIAL_TIMEOUT_MS) {
                 return;
             }
-            if (reason === 'unchanged_timer_timeout' && Date.now() - lastTimerChangeAt <= UNCHANGED_TIMER_TIMEOUT_MS) {
+            if (reason === 'unchanged_data_timeout' && Date.now() - lastScoreboardChangeAt <= UNCHANGED_DATA_TIMEOUT_MS) {
                 return;
             }
             if (pauseVideoList.length === 0) {
@@ -593,12 +593,17 @@
         const nameSelector = sideSelector(displaySide, '.nomeSX', '.nomeDX');
         const countrySelector = sideSelector(displaySide, '.countrySX', '.countryDX');
         const nation = (competitor.nation || '').trim().toUpperCase();
+        const previousNation = (document.querySelector(countrySelector)?.textContent || '').trim().toUpperCase();
+        const bib = (competitor.bib || '').trim();
+        const bibChanged = lastCompetitorBibs[displaySide] !== null && lastCompetitorBibs[displaySide] !== bib;
+        lastCompetitorBibs[displaySide] = bib;
 
         const previousNamePositionsSignature = lastNamePositionsSignature || namePositionsSignature();
         currentAthleteNames[displaySide] = (competitor.name || '').trim();
         const nextNamePositionsSignature = namePositionsSignature();
-        if (previousNamePositionsSignature && nextNamePositionsSignature !== previousNamePositionsSignature) {
-            exitPauseForLiveChange('competitor_name_or_side_changed');
+        if ((previousNamePositionsSignature && nextNamePositionsSignature !== previousNamePositionsSignature)
+            || previousNation !== nation || bibChanged) {
+            exitPauseForLiveChange('competitor_changed');
         }
         lastNamePositionsSignature = nextNamePositionsSignature;
 
@@ -768,6 +773,10 @@
         });
     }
 
+    function scoreboardSignature(tabellone) {
+        return JSON.stringify(Object.keys(tabellone).sort().map((key) => [key, tabellone[key]]));
+    }
+
     socket.connect();
     refreshAthletePhotosFromPage();
 
@@ -860,21 +869,13 @@
 
     socket.on("punti_emit", function(tabellone) {
             const payload = tabellone.tabellone || {};
-            const timerValue = String(payload.timer || '').trim();
-            const periodValue = String(payload.PR || '').trim();
-            if (lastTimerValue === null) {
-                lastTimerValue = timerValue;
-                lastTimerChangeAt = Date.now();
-            } else if (timerValue !== lastTimerValue) {
-                lastTimerValue = timerValue;
-                exitPauseForLiveChange('timer_changed');
+            const nextSignature = scoreboardSignature(payload);
+            if (lastScoreboardSignature === null) {
+                lastScoreboardChangeAt = Date.now();
+            } else if (nextSignature !== lastScoreboardSignature) {
+                exitPauseForLiveChange('scoreboard_changed');
             }
-            if (lastPeriodValue === null) {
-                lastPeriodValue = periodValue;
-            } else if (periodValue !== lastPeriodValue) {
-                lastPeriodValue = periodValue;
-                exitPauseForLiveChange('period_changed');
-            }
+            lastScoreboardSignature = nextSignature;
             lastDataAt = Date.now();
             if (pauseVideoReason === 'no_serial_data_timeout') {
                 hidePauseVideos();
@@ -894,8 +895,8 @@
               showPauseVideos('no_serial_data_timeout');
               return;
           }
-          if (lastTimerValue !== null && (now - lastTimerChangeAt) > UNCHANGED_TIMER_TIMEOUT_MS) {
-              showPauseVideos('unchanged_timer_timeout');
+          if (lastScoreboardSignature !== null && (now - lastScoreboardChangeAt) > UNCHANGED_DATA_TIMEOUT_MS) {
+              showPauseVideos('unchanged_data_timeout');
           }
       }, 1000);
 
