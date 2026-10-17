@@ -518,11 +518,6 @@ disable_pcmanfm_usb_prompt() {
   local profile config_file config_tmp
   local profiles=("${KIOSK_PCMANFM_PROFILE}" "LXDE-pi" "LXDE" "rpd-x" "default")
 
-  if command -v pcmanfm >/dev/null 2>&1; then
-    pcmanfm --quit >/dev/null 2>&1 || true
-    sleep 0.4
-  fi
-
   for config_file in "${pcmanfm_dir}"/*/pcmanfm.conf; do
     [[ -e "${config_file}" ]] || continue
     profiles+=("$(basename "$(dirname "${config_file}")")")
@@ -554,9 +549,6 @@ disable_pcmanfm_usb_prompt() {
     fi
   done
 
-  if command -v pcmanfm >/dev/null 2>&1; then
-    pcmanfm --desktop --profile="${KIOSK_PCMANFM_PROFILE}" >/dev/null 2>&1 &
-  fi
 }
 
 launch_chromium_app_window() {
@@ -736,8 +728,8 @@ fi
 disable_x_power_save
 configure_mirrored_displays
 wait_for_http
-set_desktop_wallpaper
 disable_pcmanfm_usb_prompt
+set_desktop_wallpaper
 sleep "${CHROMIUM_START_DELAY_SEC}"
 
 if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]]; then
