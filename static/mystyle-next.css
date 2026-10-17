@@ -1040,3 +1040,14 @@
     height: 768px !important;
     object-fit: contain;
 }
+
+.videoPausa .pauseImage {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+    opacity: 0;
+    transition: opacity 600ms ease-in;
+}

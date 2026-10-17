@@ -202,9 +202,10 @@
     const pauseFallback = document.getElementById('pauseFallback');
     const pauseVideoContainer = document.getElementById('videoPausa');
     const pauseVideoPlayer = pauseVideoContainer ? pauseVideoContainer.querySelector('video') : null;
+    const pauseImage = document.getElementById('pauseImage');
     const NO_SERIAL_TIMEOUT_MS = 10000;
     const SPOT_INACTIVITY_MINUTES = {{ spotInactivityMinutes | default(5) | int }};
-    const AUTO_PAUSE_MEDIA_ENABLED = false;
+    const AUTO_PAUSE_MEDIA_ENABLED = SPOT_INACTIVITY_MINUTES > 0;
     const ATHLETE_PLACEHOLDER_ENABLED = {% if athletePlaceholderEnabled | default(true) %}true{% else %}false{% endif %};
     const UNCHANGED_TIMER_TIMEOUT_MS = Math.max(1, SPOT_INACTIVITY_MINUTES) * 60 * 1000;
     const RETRY_INTERVAL_MS = 10000;
@@ -219,6 +220,9 @@
     let pauseVideoReason = '';
     let pauseVideoList = [];
     let pauseVideoIndex = 0;
+    let pauseImageTimer = null;
+    let pauseMediaGeneration = 0;
+    let pauseMediaLoading = false;
     let athletePhotoMap = {};
     let athletePhotoMapPromise = null;
     let currentAthleteNames = { left: '', right: '' };
@@ -302,7 +306,7 @@
                 throw new Error(`HTTP ${response.status}`);
             }
             const payload = await response.json();
-            pauseVideoList = Array.isArray(payload.videos) ? payload.videos : [];
+            pauseVideoList = Array.isArray(payload.media) ? payload.media : (Array.isArray(payload.videos) ? payload.videos : []);
         } catch (error) {
             console.warn('Pause video list unavailable:', error && error.message ? error.message : error);
             pauseVideoList = [];
@@ -311,6 +315,9 @@
     }
 
     function hidePauseVideos() {
+        pauseMediaGeneration += 1;
+        clearTimeout(pauseImageTimer);
+        pauseImageTimer = null;
         pauseVideoActive = false;
         pauseVideoReason = '';
         if (pauseVideoContainer) {
@@ -323,9 +330,15 @@
             pauseVideoPlayer.removeAttribute('src');
             pauseVideoPlayer.load();
         }
+        if (pauseImage) {
+            pauseImage.style.opacity = '0';
+            pauseImage.style.display = 'none';
+            pauseImage.removeAttribute('src');
+        }
     }
 
     function exitPauseForLiveChange(reason) {
+        pauseMediaGeneration += 1;
         lastDataAt = Date.now();
         lastTimerChangeAt = Date.now();
         if (pauseVideoActive) {
@@ -343,11 +356,34 @@
         if (!pauseVideoActive || !pauseVideoPlayer || pauseVideoList.length === 0) {
             return;
         }
+        clearTimeout(pauseImageTimer);
+        pauseImageTimer = null;
         pauseVideoIndex = (index + pauseVideoList.length) % pauseVideoList.length;
         const nextVideo = pauseVideoList[pauseVideoIndex];
         if (!nextVideo || !nextVideo.src) {
             return;
         }
+        if (nextVideo.type === 'image') {
+            pauseVideoPlayer.pause();
+            pauseVideoPlayer.style.display = 'none';
+            if (pauseImage) {
+                pauseImage.style.opacity = '0';
+                pauseImage.style.display = 'block';
+                pauseImage.src = nextVideo.src;
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    if (pauseVideoActive) {
+                        pauseImage.style.opacity = '1';
+                    }
+                }));
+            }
+            pauseImageTimer = setTimeout(() => playPauseVideoAt(pauseVideoIndex + 1), 10000);
+            return;
+        }
+        if (pauseImage) {
+            pauseImage.style.opacity = '0';
+            pauseImage.style.display = 'none';
+        }
+        pauseVideoPlayer.style.display = 'block';
         if (pauseVideoPlayer.getAttribute('src') !== nextVideo.src) {
             pauseVideoPlayer.setAttribute('src', nextVideo.src);
             pauseVideoPlayer.load();
@@ -363,29 +399,44 @@
     }
 
     async function showPauseVideos(reason) {
-        if (!AUTO_PAUSE_MEDIA_ENABLED) {
+        if (!AUTO_PAUSE_MEDIA_ENABLED || pauseMediaLoading) {
             return;
         }
         if (pauseVideoActive) {
             return;
         }
-        if (!pauseVideoContainer || !pauseVideoPlayer) {
-            showPauseFallback(`pause_video_missing:${reason}`);
-            return;
+        pauseMediaLoading = true;
+        const generation = pauseMediaGeneration;
+        try {
+            if (!pauseVideoContainer || !pauseVideoPlayer) {
+                showPauseFallback(`pause_video_missing:${reason}`);
+                return;
+            }
+            if (pauseVideoList.length === 0) {
+                await loadPauseVideos();
+            }
+            if (generation !== pauseMediaGeneration) {
+                return;
+            }
+            if (reason === 'no_serial_data_timeout' && Date.now() - lastDataAt <= NO_SERIAL_TIMEOUT_MS) {
+                return;
+            }
+            if (reason === 'unchanged_timer_timeout' && Date.now() - lastTimerChangeAt <= UNCHANGED_TIMER_TIMEOUT_MS) {
+                return;
+            }
+            if (pauseVideoList.length === 0) {
+                showPauseFallback(`pause_video_empty:${reason}`);
+                return;
+            }
+            hidePauseFallback();
+            pauseVideoActive = true;
+            pauseVideoReason = reason || '';
+            pauseVideoContainer.style.display = 'block';
+            playPauseVideoAt(pauseVideoIndex);
+            console.warn('Pause videos ON:', reason);
+        } finally {
+            pauseMediaLoading = false;
         }
-        if (pauseVideoList.length === 0) {
-            await loadPauseVideos();
-        }
-        if (pauseVideoList.length === 0) {
-            showPauseFallback(`pause_video_empty:${reason}`);
-            return;
-        }
-        hidePauseFallback();
-        pauseVideoActive = true;
-        pauseVideoReason = reason || '';
-        pauseVideoContainer.style.display = 'block';
-        playPauseVideoAt(pauseVideoIndex);
-        console.warn('Pause videos ON:', reason);
     }
 
     if (pauseVideoPlayer) {
@@ -400,6 +451,13 @@
                 return;
             }
             playPauseVideoAt(pauseVideoIndex + 1);
+        });
+    }
+    if (pauseImage) {
+        pauseImage.addEventListener('error', () => {
+            if (pauseVideoActive) {
+                playPauseVideoAt(pauseVideoIndex + 1);
+            }
         });
     }
 

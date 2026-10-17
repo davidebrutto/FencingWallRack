@@ -7,3 +7,8 @@ video_state.json
 
 __pycache__/
 *.pyc
+
+# Imported manually from a USB stick; never overwrite during an UPDATE.
+static/pause-usb/
+static/.pause-usb-stage-*/
+static/.pause-usb-backup-*/

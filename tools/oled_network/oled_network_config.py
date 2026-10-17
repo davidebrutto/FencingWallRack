@@ -16,6 +16,7 @@ from gpiozero import Button
 from luma.core.interface.serial import spi
 from luma.oled.device import sh1106
 from PIL import Image, ImageDraw, ImageFont
+from pause_usb_import import import_pause_media
 
 try:
     import qrcode
@@ -95,13 +96,15 @@ DEFAULT_SPOT_INACTIVITY_MINUTES = env_int("OLED_DEFAULT_SPOT_INACTIVITY_MINUTES"
 SPOT_MIN_MINUTES = env_int("OLED_SPOT_MIN_MINUTES", 1)
 SPOT_MAX_MINUTES = env_int("OLED_SPOT_MAX_MINUTES", 60)
 SPOT_ENV_KEY = os.getenv("OLED_SPOT_ENV_KEY", "SPOT_INACTIVITY_MINUTES")
+PAUSE_SOURCE_ENV_KEY = "PAUSE_MEDIA_SOURCE"
 DEFAULT_ATHLETE_PLACEHOLDER_ENABLED = env_bool("OLED_DEFAULT_ATHLETE_PLACEHOLDER_ENABLED", True)
 ATHLETE_PLACEHOLDER_ENV_KEY = os.getenv("OLED_ATHLETE_PLACEHOLDER_ENV_KEY", "ATHLETE_PLACEHOLDER_ENABLED")
 PREFERRED_IFACE = os.getenv("NET_IFACE", "").strip()
 DISPLAY_PROFILES = ["ledwall", "sottopedana"]
-MAIN_MENU_ITEMS = ["NETWORK", "MODE", "SPOT", "AVATAR ATLETA", "MANUALE", "VERSIONE", "UPDATE", "REBOOT", "POWER OFF"]
+MAIN_MENU_ITEMS = ["NETWORK", "MODE", "PAUSA", "AVATAR ATLETA", "MANUALE", "VERSIONE", "UPDATE", "REBOOT", "POWER OFF"]
 MANUAL_URL = os.getenv("OLED_MANUAL_URL", "https://fencewall.sportlabweb.it/manuale")
 UPDATE_APP_DIR = os.getenv("OLED_UPDATE_APP_DIR", os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..")))
+PAUSE_USB_DIR = os.path.join(UPDATE_APP_DIR, "static", "pause-usb")
 FIRMWARE_VERSION_FILE = os.getenv("FENCEWALL_VERSION_FILE", os.path.join(UPDATE_APP_DIR, "VERSION"))
 FIRMWARE_VERSION_FALLBACK = os.getenv("FENCEWALL_VERSION", "1.0.3")
 UPDATE_GIT_TIMEOUT_SEC = env_int("OLED_UPDATE_GIT_TIMEOUT_SEC", 120)
@@ -363,6 +366,8 @@ def clamp_spot_minutes(value):
         minutes = int(value)
     except (TypeError, ValueError):
         minutes = DEFAULT_SPOT_INACTIVITY_MINUTES
+    if minutes <= 0:
+        return 0
     return max(SPOT_MIN_MINUTES, min(SPOT_MAX_MINUTES, minutes))
 
 
@@ -373,6 +378,18 @@ def load_spot_inactivity_minutes():
 
 def apply_spot_inactivity_minutes(minutes):
     return write_env_value(KIOSK_ENV_PATH, SPOT_ENV_KEY, str(clamp_spot_minutes(minutes)))
+
+
+def normalize_pause_source(value):
+    return "usb" if str(value).strip().lower() == "usb" else "remote"
+
+
+def load_pause_source():
+    return normalize_pause_source(read_env_value(KIOSK_ENV_PATH, PAUSE_SOURCE_ENV_KEY))
+
+
+def apply_pause_source(source):
+    return write_env_value(KIOSK_ENV_PATH, PAUSE_SOURCE_ENV_KEY, normalize_pause_source(source))
 
 
 def load_athlete_placeholder_enabled():
@@ -787,12 +804,14 @@ class OledNetworkApp:
         self.cfg = get_ipv4_config(self.iface)
         self.display_profile = load_kiosk_display_profile()
         self.spot_minutes = load_spot_inactivity_minutes()
+        self.pause_source = load_pause_source()
         self.athlete_placeholder_enabled = load_athlete_placeholder_enabled()
         self.update_lines = ["UPDATE", "Press to start"]
         self.update_reboot_available = False
         self.update_running = False
         self.menu_selected = 0
         self.network_selected = 0
+        self.spot_selected = 0
         self.editing = False
         self.ip_chars = ip_to_chars(self.cfg["ip"])
         self.netmask_chars = ip_to_chars(self.cfg["netmask"])
@@ -817,7 +836,7 @@ class OledNetworkApp:
         if self.screen == "mode":
             return ["display_profile"]
         if self.screen == "spot":
-            return ["spot_minutes"]
+            return ["spot_minutes", "pause_source", "pause_import"]
         if self.screen == "avatar":
             return ["athlete_placeholder"]
         return []
@@ -825,6 +844,8 @@ class OledNetworkApp:
     def current_selected_index(self):
         if self.screen == "network":
             return self.network_selected
+        if self.screen == "spot":
+            return self.spot_selected
         return 0
 
     def current_selected_field(self):
@@ -920,6 +941,7 @@ class OledNetworkApp:
         self.cfg = get_ipv4_config(self.iface)
         self.display_profile = load_kiosk_display_profile()
         self.spot_minutes = load_spot_inactivity_minutes()
+        self.pause_source = load_pause_source()
         self.athlete_placeholder_enabled = load_athlete_placeholder_enabled()
         self.ip_chars = ip_to_chars(self.cfg["ip"])
         self.netmask_chars = ip_to_chars(self.cfg["netmask"])
@@ -939,10 +961,18 @@ class OledNetworkApp:
         self.display_profile = DISPLAY_PROFILES[(current_index + delta) % len(DISPLAY_PROFILES)]
 
     def change_spot_minutes(self, delta):
-        self.spot_minutes = clamp_spot_minutes(self.spot_minutes + delta)
+        next_minutes = self.spot_minutes + delta
+        if self.spot_minutes == 0 and delta > 0:
+            next_minutes = SPOT_MIN_MINUTES if delta == 1 else max(SPOT_MIN_MINUTES, delta)
+        elif self.spot_minutes == SPOT_MIN_MINUTES and delta < 0:
+            next_minutes = 0
+        self.spot_minutes = clamp_spot_minutes(next_minutes)
 
     def toggle_athlete_placeholder(self):
         self.athlete_placeholder_enabled = not self.athlete_placeholder_enabled
+
+    def toggle_pause_source(self):
+        self.pause_source = "usb" if self.pause_source == "remote" else "remote"
 
     def toggle_network_mode(self):
         self.cfg["mode"] = "STATIC" if self.cfg.get("mode") == "DHCP" else "DHCP"
@@ -951,7 +981,9 @@ class OledNetworkApp:
         if field == "display_profile":
             return display_profile_label(self.display_profile)
         if field == "spot_minutes":
-            return f"{self.spot_minutes} min"
+            return "NO" if self.spot_minutes == 0 else f"{self.spot_minutes} min"
+        if field == "pause_source":
+            return "USB" if self.pause_source == "usb" else "INTERNET"
         if field == "athlete_placeholder":
             return "SI" if self.athlete_placeholder_enabled else "NO"
         if field == "mode":
@@ -967,6 +999,9 @@ class OledNetworkApp:
             return
         if field == "spot_minutes":
             self.change_spot_minutes(delta)
+            return
+        if field == "pause_source":
+            self.toggle_pause_source()
             return
         if field == "athlete_placeholder":
             self.toggle_athlete_placeholder()
@@ -988,6 +1023,9 @@ class OledNetworkApp:
             return
         if field == "spot_minutes":
             self.change_spot_minutes(delta)
+            return
+        if field == "pause_source":
+            self.toggle_pause_source()
             return
         if field == "athlete_placeholder":
             self.toggle_athlete_placeholder()
@@ -1013,7 +1051,7 @@ class OledNetworkApp:
         if not self.editing or self.current_selected_field() != field_name:
             return text, None, False
 
-        if field_name in ("display_profile", "spot_minutes", "athlete_placeholder", "mode"):
+        if field_name in ("display_profile", "spot_minutes", "pause_source", "athlete_placeholder", "mode"):
             return text, None, True
 
         cursor_offset = len(prefix) + self.cursor
@@ -1052,8 +1090,9 @@ class OledNetworkApp:
             self.enter_screen("network")
         elif item == "MODE":
             self.enter_screen("mode")
-        elif item == "SPOT":
+        elif item == "PAUSA":
             self.enter_screen("spot")
+            self.spot_selected = 0
         elif item == "AVATAR ATLETA":
             self.enter_screen("avatar")
         elif item == "MANUALE":
@@ -1074,7 +1113,10 @@ class OledNetworkApp:
         elif self.screen == "mode":
             self.save_mode()
         elif self.screen == "spot":
-            self.save_spot()
+            if self.current_selected_field() == "pause_import":
+                self.save_pause_usb_import()
+            else:
+                self.save_spot()
         elif self.screen == "avatar":
             self.save_avatar()
         elif self.screen == "update":
@@ -1134,11 +1176,30 @@ class OledNetworkApp:
         animation.start()
         try:
             changed = apply_spot_inactivity_minutes(self.spot_minutes)
+            changed = apply_pause_source(self.pause_source) or changed
             self.spot_minutes = load_spot_inactivity_minutes()
+            self.pause_source = load_pause_source()
             self.editing = False
             self.status = "Saved"
             if changed:
                 restart_kiosk_service()
+        except Exception as exc:
+            self.status = f"ERR {exc}"[:21]
+        finally:
+            stop_animation.set()
+            animation.join(timeout=1)
+            self.mark_activity()
+
+    def save_pause_usb_import(self):
+        stop_animation = threading.Event()
+        animation = threading.Thread(target=self.saving_animation, args=(stop_animation, "Import USB"), daemon=True)
+        animation.start()
+        try:
+            count = import_pause_media(PAUSE_USB_DIR)
+            apply_pause_source("usb")
+            self.pause_source = "usb"
+            self.status = f"Importati {count} file"[:21]
+            restart_kiosk_service()
         except Exception as exc:
             self.status = f"ERR {exc}"[:21]
         finally:
@@ -1242,6 +1303,8 @@ class OledNetworkApp:
         if event == "k3_hold":
             if self.screen in ("manual", "version", "update", "reboot", "poweroff"):
                 return
+            if self.screen == "spot" and self.current_selected_field() == "pause_import":
+                return
             self.editing = True
             if self.screen == "network" and self.current_selected_field() != "mode" and self.cfg.get("mode") == "DHCP":
                 self.cfg["mode"] = "STATIC"
@@ -1266,6 +1329,11 @@ class OledNetworkApp:
                     self.move_cursor(-1)
                 elif event == "right":
                     self.move_cursor(1)
+            elif self.screen == "spot":
+                if event == "up":
+                    self.spot_selected = (self.spot_selected - 1) % 3
+                elif event == "down":
+                    self.spot_selected = (self.spot_selected + 1) % 3
             return
 
         step = 5 if self.screen == "spot" and event in ("left", "right") else 1
@@ -1368,13 +1436,16 @@ class OledNetworkApp:
         image = Image.new("1", (WIDTH, HEIGHT), 0)
         draw = ImageDraw.Draw(image)
         mode = "*" if self.editing else " "
-        line, cursor, blink = self.field_text_and_cursor("spot_minutes", ">AFTER ", self.display_value_for_field("spot_minutes"))
+        minutes_line, minutes_cursor, minutes_blink = self.field_text_and_cursor(
+            "spot_minutes", ">" if self.spot_selected == 0 else " ", f"DOPO {self.display_value_for_field('spot_minutes')}")
+        source_line, source_cursor, source_blink = self.field_text_and_cursor(
+            "pause_source", ">" if self.spot_selected == 1 else " ", f"FONTE {self.display_value_for_field('pause_source')}")
         lines = [
-            (f"SPOT {mode}", None, False),
-            (line, cursor, blink),
-            (f"Range {SPOT_MIN_MINUTES}-{SPOT_MAX_MINUTES} min"[:21], None, False),
-            ("K3 hold EDIT", None, False),
-            ("K2 SAVE", None, False),
+            (f"PAUSA {mode}", None, False),
+            (minutes_line, minutes_cursor, minutes_blink),
+            (source_line, source_cursor, source_blink),
+            ((">" if self.spot_selected == 2 else " ") + "IMPORTA USB K2", None, False),
+            ("K3 EDIT / K2 OK", None, False),
             (self.status, None, False),
         ]
         for idx, (text, cursor_offset, blink_line) in enumerate(lines):

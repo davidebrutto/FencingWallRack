@@ -1,0 +1,9 @@
+# Pausa da USB
+
+Preparare una chiavetta con una cartella `PAUSA` nella directory principale. Inserire in `PAUSA` i video (`.mp4`, `.webm`, `.mov`, `.m4v`, `.ogg`) e/o le immagini (`.jpg`, `.jpeg`, `.png`, `.webp`) da mostrare, senza sottocartelle. L'ordine di riproduzione segue il nome dei file: usare prefissi come `01-`, `02-` per controllarlo. Ogni immagine resta visibile per 10 secondi, con una breve dissolvenza; i video vengono riprodotti fino alla fine. Se non ci sono file validi, si usa `pausa.jpg`.
+
+Sul display OLED aprire **PAUSA**. Selezionare **DOPO** per impostare i minuti o **NO** per disattivare la pausa automatica. Selezionare **FONTE** per scegliere `INTERNET` oppure `USB`: tenere premuto il pulsante rosso per 3 secondi per modificare, usare il joystick e premere il pulsante bianco per salvare. Per importare, lasciare inserita la chiavetta, selezionare **IMPORTA USB K2** e premere il pulsante bianco. Attendere il messaggio `Importati N file` prima di rimuoverla.
+
+L'importazione sostituisce **solo i precedenti file importati da USB** nella cache locale `static/pause-usb`. I video provenienti dal portale rimangono separati. Importare una cartella vuota o interrompere una copia non cancella la cache precedente. Dopo un'importazione riuscita, la sorgente passa automaticamente a `USB` e il servizio kiosk si riavvia per usare i nuovi file. La chiavetta non serve piu' dopo l'importazione e non viene letta agli avvii successivi. Per tornare ai video del portale, impostare **FONTE INTERNET** e salvare.
+
+La chiavetta deve essere montata dal sistema nella normale directory `/media`, `/run/media` o `/mnt`. La copia richiede spazio libero sul FENCEWALL sufficiente per tutti i file, oltre a un margine di sicurezza di 50 MB.

@@ -51,18 +51,21 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 const AUTH_DB_FILE = path.join(__dirname, 'instance', 'db.sqlite');
 const VIDEO_UPLOAD_DIR = path.join(__dirname, 'static', 'uploads', 'videos');
 const PAUSE_VIDEO_DIR = path.join(__dirname, 'static', 'pause-videos');
+const PAUSE_USB_DIR = path.join(__dirname, 'static', 'pause-usb');
 const ATHLETE_PHOTO_DIR = path.join(__dirname, 'static', 'athlete-photos');
 const VIDEO_STATE_FILE = path.join(__dirname, 'video_state.json');
 const MAX_VIDEO_UPLOAD_MB = Number(process.env.MAX_VIDEO_UPLOAD_MB || 500);
 const MAX_PHOTO_UPLOAD_MB = Number(process.env.MAX_PHOTO_UPLOAD_MB || 20);
 const ATHLETE_SERIAL_NAME_LENGTH = Number(process.env.ATHLETE_SERIAL_NAME_LENGTH || 20);
 const ALLOWED_VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogg']);
+const ALLOWED_PAUSE_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const ALLOWED_PHOTO_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const REMOTE_ASSET_BASE_URL = String(process.env.REMOTE_ASSET_BASE_URL || '').replace(/\/+$/, '');
 const REMOTE_VIDEO_MANIFEST_PATH = process.env.REMOTE_VIDEO_MANIFEST_PATH || '/pause-videos/manifest.json';
 const REMOTE_PHOTO_MANIFEST_PATH = process.env.REMOTE_PHOTO_MANIFEST_PATH || '/athlete-photos/manifest.json';
 const REMOTE_ASSET_TIMEOUT_MS = Number(process.env.REMOTE_ASSET_TIMEOUT_MS || 15000);
-const SPOT_INACTIVITY_MINUTES = clampNumber(process.env.SPOT_INACTIVITY_MINUTES, 5, 1, 240);
+const SPOT_INACTIVITY_MINUTES = clampNumber(process.env.SPOT_INACTIVITY_MINUTES, 5, 0, 240);
+const PAUSE_MEDIA_SOURCE = String(process.env.PAUSE_MEDIA_SOURCE || 'remote').toLowerCase() === 'usb' ? 'usb' : 'remote';
 const ATHLETE_PLACEHOLDER_ENABLED = envBool(process.env.ATHLETE_PLACEHOLDER_ENABLED, true);
 const PAUSE_VIDEO_TRANSCODE = envBool(process.env.PAUSE_VIDEO_TRANSCODE, true);
 const PAUSE_VIDEO_MAX_WIDTH = clampNumber(process.env.PAUSE_VIDEO_MAX_WIDTH, 768, 320, 3840);
@@ -227,6 +230,27 @@ function listPauseVideos() {
     .map((file) => ({
       filename: file,
       src: `/static/pause-videos/${file}`,
+    }));
+}
+
+function listPauseMedia() {
+  const dir = PAUSE_MEDIA_SOURCE === 'usb' ? PAUSE_USB_DIR : PAUSE_VIDEO_DIR;
+  const urlPrefix = PAUSE_MEDIA_SOURCE === 'usb' ? '/static/pause-usb' : '/static/pause-videos';
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .filter((filename) => {
+      const ext = path.extname(filename).toLowerCase();
+      return ALLOWED_VIDEO_EXTENSIONS.has(ext) || ALLOWED_PAUSE_IMAGE_EXTENSIONS.has(ext);
+    })
+    .sort((a, b) => a.localeCompare(b, 'it', { numeric: true }))
+    .map((filename) => ({
+      filename,
+      src: `${urlPrefix}/${encodeURIComponent(filename)}`,
+      type: ALLOWED_PAUSE_IMAGE_EXTENSIONS.has(path.extname(filename).toLowerCase()) ? 'image' : 'video',
     }));
 }
 
@@ -1247,7 +1271,8 @@ app.get('/api/scores', (req, res) => {
 });
 
 app.get('/api/pause-videos', (req, res) => {
-  res.json({ videos: listPauseVideos() });
+  const media = listPauseMedia();
+  res.json({ media, videos: media });
 });
 
 app.get('/api/runtime-config', (req, res) => {
@@ -1999,7 +2024,11 @@ async function prepareRemoteAssetsOnStartup() {
 
   console.log(`Remote assets enabled: ${REMOTE_ASSET_BASE_URL}`);
   removeManagedFiles(ATHLETE_PHOTO_DIR, ALLOWED_PHOTO_EXTENSIONS);
-  await syncPauseVideosFromRemote();
+  if (PAUSE_MEDIA_SOURCE === 'remote') {
+    await syncPauseVideosFromRemote();
+  } else {
+    console.log('Pause media source: USB cache; remote pause video sync skipped');
+  }
   await loadRemotePhotoManifest(true);
 }
 
