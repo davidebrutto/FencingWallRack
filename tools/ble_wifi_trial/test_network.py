@@ -22,6 +22,7 @@ class NetworkTrialTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             network.connect("Gara", "password123")
         self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args.args[0], ["nmcli", "-g", "NAME", "connection", "show"])
 
     @patch("network.subprocess.run")
     def test_nmcli_error_does_not_expose_credentials(self, run):

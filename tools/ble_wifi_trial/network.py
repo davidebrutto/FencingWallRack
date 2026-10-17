@@ -36,7 +36,7 @@ def connect(ssid, password):
                     step="verifica wlan0").stdout
     if not existing:
         raise NetworkStepError("Interfaccia wlan0 non disponibile")
-    profiles = _run(["nmcli", "-g", "connection.id", "connection", "show"],
+    profiles = _run(["nmcli", "-g", "NAME", "connection", "show"],
                     step="elenco profili").stdout.splitlines()
     if PROFILE in profiles:
         raise NetworkStepError("Profilo di prova gia presente; rimuoverlo prima")
