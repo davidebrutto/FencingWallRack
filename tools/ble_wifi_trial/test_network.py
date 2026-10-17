@@ -1,4 +1,5 @@
 import unittest
+import subprocess
 from unittest.mock import patch
 
 import network
@@ -21,6 +22,13 @@ class NetworkTrialTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             network.connect("Gara", "password123")
         self.assertEqual(run.call_count, 2)
+
+    @patch("network.subprocess.run")
+    def test_nmcli_error_does_not_expose_credentials(self, run):
+        run.side_effect = subprocess.CalledProcessError(4, ["nmcli", "secret"], stderr="secret")
+        with self.assertRaises(network.NetworkStepError) as error:
+            network._run(["nmcli", "secret"], step="attivazione Wi-Fi")
+        self.assertEqual(str(error.exception), "attivazione Wi-Fi: nmcli codice 4")
 
 
 if __name__ == "__main__":

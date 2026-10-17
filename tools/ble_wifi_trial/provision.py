@@ -11,7 +11,7 @@ import dbus.mainloop.glib
 import dbus.service
 from gi.repository import GLib
 
-from network import connect, validate
+from network import NetworkStepError, connect, validate
 
 
 BLUEZ = "org.bluez"
@@ -133,11 +133,12 @@ class Trial:
         self.status = "READY"
 
     def write(self, uuid, value):
+        if self.status != "READY":
+            print("BLE: tentativo terminato; riavviare il programma per riprovare", flush=True)
+            raise TrialError("Trial already used")
         field = {SSID_UUID: "SSID", PASS_UUID: "password", GO_UUID: "conferma"}.get(uuid)
         if field:
             print("BLE: Write ricevuto per " + field, flush=True)
-        if self.status != "READY":
-            raise TrialError("Trial already used")
         if uuid == SSID_UUID:
             if not value or len(value.encode("utf-8")) > 32:
                 print("BLE: SSID non valido", flush=True)
@@ -166,10 +167,12 @@ class Trial:
             connect(self.ssid, self.password)
             self.status = "CONNECTED"
             print("Wi-Fi collegato. Profilo di prova creato; Ethernet invariata.", flush=True)
+        except NetworkStepError as exc:
+            self.status = "FAILED"
+            print("Collegamento Wi-Fi non riuscito: " + str(exc), flush=True)
         except Exception:
             self.status = "FAILED"
-            # No SSID/password or raw subprocess errors in the terminal.
-            print("Collegamento Wi-Fi non riuscito; verifica nmcli e rete.", flush=True)
+            print("Collegamento Wi-Fi non riuscito: errore inatteso (dettagli omessi).", flush=True)
         finally:
             self.password = None
 
