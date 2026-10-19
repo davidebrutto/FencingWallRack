@@ -736,10 +736,14 @@
         const redCardsSX = cardCount(tabellone.D);
         setLightStateIfChanged('statoDXbig', statoDX);
         setLightStateIfChanged('statoSXbig', statoSX);
-        setSelectorColorIfChanged('.nomeDX', statoDX === 'white' ? '#000000' : '#ffffff');
-        setSelectorColorIfChanged('.scoreDX', statoDX === 'white' ? '#000000' : '#ffffff');
-        setSelectorColorIfChanged('.nomeSX', statoSX === 'white' ? '#000000' : '#ffffff');
-        setSelectorColorIfChanged('.scoreSX', statoSX === 'white' ? '#000000' : '#ffffff');
+        const dxNameSelector = IS_REAR_VIEW ? '.nomeSX' : '.nomeDX';
+        const dxScoreSelector = IS_REAR_VIEW ? '.scoreSX' : '.scoreDX';
+        const sxNameSelector = IS_REAR_VIEW ? '.nomeDX' : '.nomeSX';
+        const sxScoreSelector = IS_REAR_VIEW ? '.scoreDX' : '.scoreSX';
+        setSelectorColorIfChanged(dxNameSelector, statoDX === 'white' ? '#000000' : '#ffffff');
+        setSelectorColorIfChanged(dxScoreSelector, statoDX === 'white' ? '#000000' : '#ffffff');
+        setSelectorColorIfChanged(sxNameSelector, statoSX === 'white' ? '#000000' : '#ffffff');
+        setSelectorColorIfChanged(sxScoreSelector, statoSX === 'white' ? '#000000' : '#ffffff');
 
         setColorIfChanged('timerText', timerColorFromMode(tabellone.timerMode));
         setTextIfChanged('timerText', String(tabellone.timer || '').trim());
