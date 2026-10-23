@@ -919,6 +919,19 @@ app.get('/', (req, res) => {
   });
 });
 
+app.get('/monitor', (req, res) => {
+  res.render('index.html', {
+    scores: buildInitialDisplayScores(loadScores()),
+    miapath: __dirname,
+    instancepath: path.join(__dirname, 'instance'),
+    colori: buildColori(),
+    monitorView: true,
+    bodyClass: 'monitor-view',
+    spotInactivityMinutes: SPOT_INACTIVITY_MINUTES,
+    athletePlaceholderEnabled: ATHLETE_PLACEHOLDER_ENABLED,
+  });
+});
+
 app.get('/rear', (req, res) => {
   const scores = buildRearScores(buildInitialDisplayScores(loadScores()));
   res.render('index.html', {

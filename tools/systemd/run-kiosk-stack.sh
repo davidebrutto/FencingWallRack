@@ -26,6 +26,13 @@ KIOSK_UNDERFLOOR_LEFT_A_PROFILE_DIR="${KIOSK_UNDERFLOOR_LEFT_A_PROFILE_DIR:-${KI
 KIOSK_UNDERFLOOR_LEFT_B_PROFILE_DIR="${KIOSK_UNDERFLOOR_LEFT_B_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-underfloor-left-b}"
 KIOSK_UNDERFLOOR_RIGHT_A_PROFILE_DIR="${KIOSK_UNDERFLOOR_RIGHT_A_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-underfloor-right-a}"
 KIOSK_UNDERFLOOR_RIGHT_B_PROFILE_DIR="${KIOSK_UNDERFLOOR_RIGHT_B_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-underfloor-right-b}"
+KIOSK_MONITOR_1_PROFILE_DIR="${KIOSK_MONITOR_1_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-monitor-1}"
+KIOSK_MONITOR_2_PROFILE_DIR="${KIOSK_MONITOR_2_PROFILE_DIR:-${KIOSK_HOME}/.config/chrome-monitor-2}"
+KIOSK_MONITOR_URL="${KIOSK_MONITOR_URL:-${KIOSK_URL%/}/monitor}"
+KIOSK_MONITOR_PRIMARY_OUTPUT="${KIOSK_MONITOR_PRIMARY_OUTPUT:-}"
+KIOSK_MONITOR_SECONDARY_OUTPUT="${KIOSK_MONITOR_SECONDARY_OUTPUT:-}"
+MONITOR_PRIMARY_GEOMETRY=""
+MONITOR_SECONDARY_GEOMETRY=""
 
 case "${KIOSK_DISPLAY_PROFILE}" in
   ledwall|LEDWALL)
@@ -49,6 +56,11 @@ case "${KIOSK_DISPLAY_PROFILE}" in
     KIOSK_UNDERFLOOR_RIGHT_A_GEOMETRY="${KIOSK_UNDERFLOOR_RIGHT_A_GEOMETRY:-30,422,1536,96}"
     KIOSK_UNDERFLOOR_RIGHT_B_GEOMETRY="${KIOSK_UNDERFLOOR_RIGHT_B_GEOMETRY:-30,618,1152,96}"
     KIOSK_WALLPAPER="${KIOSK_UNDERFLOOR_WALLPAPER:-${KIOSK_WALLPAPER:-}}"
+    ;;
+  monitor|MONITOR)
+    KIOSK_DISPLAY_PROFILE="monitor"
+    KIOSK_SCALE=1
+    KIOSK_WALLPAPER="${KIOSK_MONITOR_WALLPAPER:-${KIOSK_LEDWALL_WALLPAPER:-${KIOSK_WALLPAPER:-}}}"
     ;;
   *)
     echo "KIOSK_DISPLAY_PROFILE non valido: ${KIOSK_DISPLAY_PROFILE}" >&2
@@ -81,10 +93,20 @@ CHROME_UNDERFLOOR_LEFT_A_PID=""
 CHROME_UNDERFLOOR_LEFT_B_PID=""
 CHROME_UNDERFLOOR_RIGHT_A_PID=""
 CHROME_UNDERFLOOR_RIGHT_B_PID=""
+CHROME_MONITOR_1_PID=""
+CHROME_MONITOR_2_PID=""
 LAST_CHROME_PID=""
 
 cleanup() {
   set +e
+  if [[ -n "${CHROME_MONITOR_1_PID}" ]] && kill -0 "${CHROME_MONITOR_1_PID}" 2>/dev/null; then
+    kill "${CHROME_MONITOR_1_PID}" 2>/dev/null
+    wait "${CHROME_MONITOR_1_PID}" 2>/dev/null
+  fi
+  if [[ -n "${CHROME_MONITOR_2_PID}" ]] && kill -0 "${CHROME_MONITOR_2_PID}" 2>/dev/null; then
+    kill "${CHROME_MONITOR_2_PID}" 2>/dev/null
+    wait "${CHROME_MONITOR_2_PID}" 2>/dev/null
+  fi
   if [[ -n "${CHROME_UNDERFLOOR_LEFT_A_PID}" ]] && kill -0 "${CHROME_UNDERFLOOR_LEFT_A_PID}" 2>/dev/null; then
     kill "${CHROME_UNDERFLOOR_LEFT_A_PID}" 2>/dev/null
     wait "${CHROME_UNDERFLOOR_LEFT_A_PID}" 2>/dev/null
@@ -170,6 +192,9 @@ array_contains() {
 }
 
 configure_mirrored_displays() {
+  if [[ "${KIOSK_DISPLAY_PROFILE}" == "monitor" ]]; then
+    return 0
+  fi
   if [[ "${KIOSK_MIRROR_DISPLAYS}" != "1" ]]; then
     return 0
   fi
@@ -239,6 +264,55 @@ configure_mirrored_displays() {
   fi
 }
 
+monitor_output_geometry() {
+  local output="$1" mode
+  mode="$(xrandr --query | awk -v name="${output}" '$1 == name && $2 == "connected" { for (i = 3; i <= NF; i++) if ($i ~ /^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+$/) { print $i; exit } }')"
+  if [[ "${mode}" =~ ^([0-9]+)x([0-9]+)\+([0-9]+)\+([0-9]+)$ ]]; then
+    printf '%s,%s,%s,%s\n' "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+  fi
+}
+
+configure_monitor_displays() {
+  command -v xrandr >/dev/null 2>&1 || { echo "MONITOR richiede xrandr" >&2; return 1; }
+  local query primary secondary output
+  local outputs=()
+  query="$(xrandr --query)" || return 1
+  while IFS= read -r output; do
+    [[ -n "${output}" ]] && outputs+=("${output}")
+  done < <(printf '%s\n' "${query}" | awk '$2 == "connected" {print $1}')
+  (( ${#outputs[@]} > 0 )) || { echo "MONITOR: nessuna uscita HDMI connessa" >&2; return 1; }
+
+  if [[ -n "${KIOSK_MONITOR_PRIMARY_OUTPUT}" ]] && array_contains "${KIOSK_MONITOR_PRIMARY_OUTPUT}" "${outputs[@]}"; then
+    primary="${KIOSK_MONITOR_PRIMARY_OUTPUT}"
+  else
+    primary="${outputs[0]}"
+    for output in "${outputs[@]}"; do
+      if [[ "${output}" == HDMI-1 || "${output}" == HDMI-A-1 ]]; then primary="${output}"; break; fi
+    done
+  fi
+  secondary=""
+  if [[ -n "${KIOSK_MONITOR_SECONDARY_OUTPUT}" ]] && [[ "${KIOSK_MONITOR_SECONDARY_OUTPUT}" != "${primary}" ]] && array_contains "${KIOSK_MONITOR_SECONDARY_OUTPUT}" "${outputs[@]}"; then
+    secondary="${KIOSK_MONITOR_SECONDARY_OUTPUT}"
+  else
+    for output in "${outputs[@]}"; do
+      if [[ "${output}" != "${primary}" ]]; then secondary="${output}"; break; fi
+    done
+  fi
+
+  if [[ -n "${secondary}" ]]; then
+    xrandr --output "${primary}" --primary --auto --pos 0x0 --output "${secondary}" --auto --right-of "${primary}" || return 1
+  else
+    xrandr --output "${primary}" --primary --auto --pos 0x0 || return 1
+  fi
+  MONITOR_PRIMARY_GEOMETRY="$(monitor_output_geometry "${primary}")"
+  [[ -n "${MONITOR_PRIMARY_GEOMETRY}" ]] || { echo "MONITOR: geometria non trovata per ${primary}" >&2; return 1; }
+  if [[ -n "${secondary}" ]]; then
+    MONITOR_SECONDARY_GEOMETRY="$(monitor_output_geometry "${secondary}")"
+    [[ -n "${MONITOR_SECONDARY_GEOMETRY}" ]] || { echo "MONITOR: geometria non trovata per ${secondary}" >&2; return 1; }
+  fi
+  echo "MONITOR: ${primary}=${MONITOR_PRIMARY_GEOMETRY} ${secondary:-non connesso}=${MONITOR_SECONDARY_GEOMETRY:-n/a}"
+}
+
 wait_for_http() {
   wait_for_http_url "${KIOSK_URL}"
 }
@@ -299,6 +373,7 @@ wait_for_window_id() {
 configure_window() {
   local class_name="$1"
   local geometry="$2"
+  local fullscreen="${3:-0}"
   local window_id=""
   local attempt=0
 
@@ -327,6 +402,9 @@ configure_window() {
     attempt=$((attempt + 1))
     sleep 0.5
   done
+  if [[ "${fullscreen}" == "1" ]]; then
+    wmctrl -x -r "${class_name}" -b add,fullscreen || true
+  fi
 }
 
 pcmanfm_wallpaper_mode() {
@@ -694,6 +772,20 @@ launch_underfloor_windows() {
   echo "Chromium sottopedana DX B avviato PID=${CHROME_UNDERFLOOR_RIGHT_B_PID}"
 }
 
+launch_monitor_windows() {
+  wait_for_http_url "${KIOSK_MONITOR_URL}"
+  launch_chromium_app_window "${KIOSK_MONITOR_URL}" "${KIOSK_MONITOR_1_PROFILE_DIR}" "kiosk_monitor_1" "${MONITOR_PRIMARY_GEOMETRY}" "1"
+  CHROME_MONITOR_1_PID="${LAST_CHROME_PID}"
+  configure_window "kiosk_monitor_1" "${MONITOR_PRIMARY_GEOMETRY}" "1" &
+
+  if [[ -n "${MONITOR_SECONDARY_GEOMETRY}" ]]; then
+    launch_chromium_app_window "${KIOSK_MONITOR_URL}" "${KIOSK_MONITOR_2_PROFILE_DIR}" "kiosk_monitor_2" "${MONITOR_SECONDARY_GEOMETRY}" "1"
+    CHROME_MONITOR_2_PID="${LAST_CHROME_PID}"
+    configure_window "kiosk_monitor_2" "${MONITOR_SECONDARY_GEOMETRY}" "1" &
+  fi
+  echo "Chromium MONITOR avviato: HDMI1=${CHROME_MONITOR_1_PID} HDMI2=${CHROME_MONITOR_2_PID:-non connesso}"
+}
+
 launch_single_window() {
   mkdir -p "${CHROMIUM_PROFILE_DIR}"
   # Prevent stale instances from stacking black overlay windows.
@@ -726,6 +818,9 @@ if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]] && [[ -S "/run/user/$(id -u)/bus" ]]
 fi
 disable_x_power_save
 configure_mirrored_displays
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "monitor" ]]; then
+  configure_monitor_displays
+fi
 wait_for_http
 disable_pcmanfm_usb_prompt
 set_desktop_wallpaper
@@ -733,6 +828,8 @@ sleep "${CHROMIUM_START_DELAY_SEC}"
 
 if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]]; then
   launch_underfloor_windows
+elif [[ "${KIOSK_DISPLAY_PROFILE}" == "monitor" ]]; then
+  launch_monitor_windows
 elif [[ "${KIOSK_WINDOW_MODE}" == "dual" ]]; then
   launch_dual_windows
 else
@@ -742,6 +839,12 @@ fi
 set +e
 if [[ "${KIOSK_DISPLAY_PROFILE}" == "sottopedana" ]]; then
   wait -n "${NODE_PID}" "${CHROME_UNDERFLOOR_LEFT_A_PID}" "${CHROME_UNDERFLOOR_LEFT_B_PID}" "${CHROME_UNDERFLOOR_RIGHT_A_PID}" "${CHROME_UNDERFLOOR_RIGHT_B_PID}"
+elif [[ "${KIOSK_DISPLAY_PROFILE}" == "monitor" ]]; then
+  if [[ -n "${CHROME_MONITOR_2_PID}" ]]; then
+    wait -n "${NODE_PID}" "${CHROME_MONITOR_1_PID}" "${CHROME_MONITOR_2_PID}"
+  else
+    wait -n "${NODE_PID}" "${CHROME_MONITOR_1_PID}"
+  fi
 elif [[ "${KIOSK_WINDOW_MODE}" == "dual" ]]; then
   wait -n "${NODE_PID}" "${CHROME_LEFT_PID}" "${CHROME_RIGHT_PID}"
 else
@@ -754,15 +857,21 @@ if ! kill -0 "${NODE_PID}" 2>/dev/null; then
   echo "Node terminato, richiesto restart service" >&2
 fi
 
-if [[ "${KIOSK_DISPLAY_PROFILE}" != "sottopedana" ]] && [[ "${KIOSK_WINDOW_MODE}" == "single" ]] && ! kill -0 "${CHROME_PID}" 2>/dev/null; then
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "monitor" ]] && ! kill -0 "${CHROME_MONITOR_1_PID}" 2>/dev/null; then
+  echo "Chromium monitor HDMI1 terminato, richiesto restart service" >&2
+fi
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "monitor" ]] && [[ -n "${CHROME_MONITOR_2_PID}" ]] && ! kill -0 "${CHROME_MONITOR_2_PID}" 2>/dev/null; then
+  echo "Chromium monitor HDMI2 terminato, richiesto restart service" >&2
+fi
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "ledwall" ]] && [[ "${KIOSK_WINDOW_MODE}" == "single" ]] && ! kill -0 "${CHROME_PID}" 2>/dev/null; then
   echo "Chromium terminato, richiesto restart service" >&2
 fi
 
-if [[ "${KIOSK_DISPLAY_PROFILE}" != "sottopedana" ]] && [[ "${KIOSK_WINDOW_MODE}" == "dual" ]] && ! kill -0 "${CHROME_LEFT_PID}" 2>/dev/null; then
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "ledwall" ]] && [[ "${KIOSK_WINDOW_MODE}" == "dual" ]] && ! kill -0 "${CHROME_LEFT_PID}" 2>/dev/null; then
   echo "Chromium sinistro terminato, richiesto restart service" >&2
 fi
 
-if [[ "${KIOSK_DISPLAY_PROFILE}" != "sottopedana" ]] && [[ "${KIOSK_WINDOW_MODE}" == "dual" ]] && ! kill -0 "${CHROME_RIGHT_PID}" 2>/dev/null; then
+if [[ "${KIOSK_DISPLAY_PROFILE}" == "ledwall" ]] && [[ "${KIOSK_WINDOW_MODE}" == "dual" ]] && ! kill -0 "${CHROME_RIGHT_PID}" 2>/dev/null; then
   echo "Chromium destro terminato, richiesto restart service" >&2
 fi
 
