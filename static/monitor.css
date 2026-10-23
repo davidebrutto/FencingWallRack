@@ -3,6 +3,11 @@ body.monitor-view {
     background: #000;
 }
 
+body.monitor-view,
+body.monitor-view * {
+    cursor: none !important;
+}
+
 body.monitor-view .container,
 body.monitor-view .content {
     width: 100vw;

@@ -6,6 +6,7 @@ selezionare `MONITOR` e salvare con K2. Il FENCEWALL si riavvia.
 In questa modalita le uscite HDMI sono **estese**, non clonate: su ogni monitor
 collegato si apre un browser senza barre, sulla stessa pagina `/monitor`.
 Se e collegato solo il primo monitor, viene aperta una sola finestra.
+Il puntatore del mouse viene nascosto soltanto nella modalita `MONITOR`.
 
 Il sistema legge automaticamente con `xrandr` risoluzione e posizione di ogni
 monitor. Non serve scegliere 16:9 o 4:3 dall'OLED: la grafica viene adattata
