@@ -31,6 +31,7 @@ KIOSK_MONITOR_2_PROFILE_DIR="${KIOSK_MONITOR_2_PROFILE_DIR:-${KIOSK_HOME}/.confi
 KIOSK_MONITOR_URL="${KIOSK_MONITOR_URL:-${KIOSK_URL%/}/monitor}"
 KIOSK_MONITOR_PRIMARY_OUTPUT="${KIOSK_MONITOR_PRIMARY_OUTPUT:-}"
 KIOSK_MONITOR_SECONDARY_OUTPUT="${KIOSK_MONITOR_SECONDARY_OUTPUT:-}"
+KIOSK_MONITOR_HIDE_CURSOR="${KIOSK_MONITOR_HIDE_CURSOR:-1}"
 MONITOR_PRIMARY_GEOMETRY=""
 MONITOR_SECONDARY_GEOMETRY=""
 
@@ -95,10 +96,15 @@ CHROME_UNDERFLOOR_RIGHT_A_PID=""
 CHROME_UNDERFLOOR_RIGHT_B_PID=""
 CHROME_MONITOR_1_PID=""
 CHROME_MONITOR_2_PID=""
+HIDE_CURSOR_PID=""
 LAST_CHROME_PID=""
 
 cleanup() {
   set +e
+  if [[ -n "${HIDE_CURSOR_PID}" ]] && kill -0 "${HIDE_CURSOR_PID}" 2>/dev/null; then
+    kill "${HIDE_CURSOR_PID}" 2>/dev/null
+    wait "${HIDE_CURSOR_PID}" 2>/dev/null
+  fi
   if [[ -n "${CHROME_MONITOR_1_PID}" ]] && kill -0 "${CHROME_MONITOR_1_PID}" 2>/dev/null; then
     kill "${CHROME_MONITOR_1_PID}" 2>/dev/null
     wait "${CHROME_MONITOR_1_PID}" 2>/dev/null
@@ -820,6 +826,10 @@ disable_x_power_save
 configure_mirrored_displays
 if [[ "${KIOSK_DISPLAY_PROFILE}" == "monitor" ]]; then
   configure_monitor_displays
+  if [[ "${KIOSK_MONITOR_HIDE_CURSOR}" == "1" ]]; then
+    python3 "${APP_DIR}/tools/systemd/hide-x11-cursor.py" &
+    HIDE_CURSOR_PID=$!
+  fi
 fi
 wait_for_http
 disable_pcmanfm_usb_prompt

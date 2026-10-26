@@ -6,7 +6,10 @@ selezionare `MONITOR` e salvare con K2. Il FENCEWALL si riavvia.
 In questa modalita le uscite HDMI sono **estese**, non clonate: su ogni monitor
 collegato si apre un browser senza barre, sulla stessa pagina `/monitor`.
 Se e collegato solo il primo monitor, viene aperta una sola finestra.
-Il puntatore del mouse viene nascosto soltanto nella modalita `MONITOR`.
+Il puntatore del mouse viene nascosto a livello X11 soltanto nella modalita
+`MONITOR`, anche quando e collegato un solo schermo. Per mostrarlo di nuovo
+durante la diagnostica, impostare `KIOSK_MONITOR_HIDE_CURSOR=0` in
+`/etc/default/fencingwallrack-kiosk` e riavviare il servizio kiosk.
 
 Il sistema legge automaticamente con `xrandr` risoluzione e posizione di ogni
 monitor. Non serve scegliere 16:9 o 4:3 dall'OLED: la grafica viene adattata
