@@ -131,26 +131,23 @@
     if (!activeForm) return;
     useButton.disabled = true;
     status.textContent = 'Caricamento foto...';
-    canvas.toBlob(async (blob) => {
+    canvas.toBlob((blob) => {
       if (modal.hidden) return;
       try {
         if (!blob) throw new Error('Foto non disponibile');
-        const data = new FormData(activeForm);
-        data.set('replacement_photo', blob, 'foto-atleta.jpg');
-        const response = await fetch(activeForm.action || window.location.href, {
-          method: 'POST',
-          body: data,
-          credentials: 'same-origin',
-        });
-        if (!response.ok || !response.redirected) {
-          const page = new DOMParser().parseFromString(await response.text(), 'text/html');
-          const message = page.querySelector('.alert-error')?.textContent?.trim();
-          throw new Error(message || 'Il server non ha confermato il caricamento.');
-        }
-        window.location.assign(response.url);
+        const input = activeForm.querySelector('input[name="replacement_photo"]');
+        if (!input) throw new Error('Campo foto non disponibile. Ricarica la pagina.');
+        const files = new DataTransfer();
+        files.items.add(new File([blob], 'foto-atleta.jpg', { type: 'image/jpeg' }));
+        input.files = files.files;
+        if (input.files.length !== 1) throw new Error('Impossibile preparare la foto. Riprova o scegli un file.');
+
+        // Invia il modulo esistente: il server gestisce risposta, errori e riduzione come per un file scelto.
+        if (activeForm.requestSubmit) activeForm.requestSubmit();
+        else activeForm.submit();
       } catch (exc) {
         useButton.disabled = false;
-        showError(exc.message || 'Impossibile caricare la foto. Riprova o scegli un file.');
+        showError(exc.message || 'Impossibile inviare la foto. Riprova o scegli un file.');
       }
     }, 'image/jpeg', 0.9);
   });

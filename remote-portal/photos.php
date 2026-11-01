@@ -593,7 +593,7 @@ body.camera-open { overflow: hidden; }
     </div>
   </div>
 </div>
-<script src="/assets/photo-camera.js"></script>
+<script src="/assets/photo-camera.js?v=20261101-native-upload"></script>
 HTML;
 echo <<<'HTML'
 <script>
