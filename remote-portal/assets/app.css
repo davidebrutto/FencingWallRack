@@ -272,10 +272,10 @@ body.camera-open { overflow: hidden; }
 .camera-guide {
   position: absolute;
   z-index: 1;
-  top: 12%;
-  left: 22%;
-  width: 56%;
-  height: 65%;
+  top: 16%;
+  left: 29%;
+  width: 42%;
+  height: 47%;
   border: 3px solid #fff;
   border-radius: 50%;
   box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .34), 0 0 14px rgba(0, 0, 0, .7);
