@@ -440,7 +440,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($photo) {
             try {
                 replace_photo_file($photo, $_FILES['replacement_photo'] ?? []);
-                redirect_to('/photos.php');
+                // Un URL nuovo forza la PWA a rileggere la pagina dopo il caricamento.
+                redirect_to('/photos.php?updated=' . $id . '&refresh=' . bin2hex(random_bytes(8)));
             } catch (Throwable $exc) {
                 $error = $exc->getMessage();
             }
@@ -459,6 +460,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$updatedPhotoId = (int) ($_GET['updated'] ?? 0);
+$refreshToken = (string) ($_GET['refresh'] ?? '');
+if (!preg_match('/^[a-f0-9]{16}$/', $refreshToken)) {
+    $refreshToken = '';
+}
 $photos = db()->query('SELECT * FROM photos ORDER BY athlete_name ASC, id DESC')->fetchAll();
 render_header('Foto atleti', $user);
 echo '<section class="card"><h1>Foto atleti</h1>';
@@ -490,6 +496,10 @@ echo '<div class="search-box"><label for="photoSearch">Cerca foto</label><input 
 echo '<div class="media-list" id="photoList">';
 foreach ($photos as $photo) {
     $url = public_asset_url('photo', $photo['filename']);
+    $url .= '&v=' . rawurlencode((string) ($photo['updated_at'] ?? '') . '-' . (string) $photo['size_bytes']);
+    if ((int) $photo['id'] === $updatedPhotoId && $refreshToken !== '') {
+        $url .= '&refresh=' . $refreshToken;
+    }
     $flagOverride = (string) ($photo['flag_override'] ?? '');
     $flagLabel = $flagOverride !== '' ? $flagOverride : 'BANDIERA STANDARD';
     $isPlaceholder = !empty($photo['is_placeholder']);
