@@ -512,6 +512,69 @@ if (!$photos) {
 echo '<p class="empty-filter-message" id="photoSearchEmpty" hidden>Nessuna foto trovata con questa ricerca.</p>';
 echo '</div></section>';
 echo <<<'HTML'
+<style>
+/* Keep the camera usable even when an installed PWA still has an older app.css. */
+body.camera-open { overflow: hidden; }
+#athleteCamera[hidden], #athleteCamera [hidden] { display: none !important; }
+#athleteCamera {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(8, 18, 28, .88);
+}
+#athleteCamera .camera-panel {
+  width: min(100%, 480px);
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  border-radius: 18px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+}
+#athleteCamera .camera-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#athleteCamera .camera-heading h2 { margin: 0; font-size: 20px; }
+#athleteCamera .camera-help { margin: 10px 0; color: #667085; }
+#athleteCamera .camera-stage {
+  position: relative;
+  width: min(100%, 384px, 48vh);
+  aspect-ratio: 4 / 5;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #101418;
+}
+#athleteCamera .camera-stage video,
+#athleteCamera .camera-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#athleteCamera .camera-guide {
+  position: absolute;
+  z-index: 1;
+  top: 12%;
+  left: 22%;
+  width: 56%;
+  height: 65%;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .34), 0 0 14px rgba(0, 0, 0, .7);
+  pointer-events: none;
+}
+#athleteCamera .camera-status,
+#athleteCamera .camera-error { margin: 10px 0 0; min-height: 20px; text-align: center; }
+#athleteCamera .camera-error { color: #a31414; font-weight: 700; }
+#athleteCamera .camera-actions { display: flex; gap: 8px; margin-top: 12px; }
+#athleteCamera .camera-actions .btn { flex: 1; }
+@media (max-width: 760px) {
+  #athleteCamera .camera-actions { flex-direction: column; }
+}
+</style>
 <div class="camera-modal" id="athleteCamera" role="dialog" aria-modal="true" aria-labelledby="cameraTitle" hidden>
   <div class="camera-panel">
     <div class="camera-heading"><h2 id="cameraTitle">Foto atleta</h2><button class="btn btn-camera-close" type="button" data-camera-close>Chiudi</button></div>
