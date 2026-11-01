@@ -502,7 +502,7 @@ foreach ($photos as $photo) {
     echo '<form class="inline-form" method="post"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="rename"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="text" name="athlete_name" value="' . e($photo['athlete_name']) . '">';
     render_flag_select('flag_override', $flagOverride);
     echo '<button class="btn">Salva</button></form>';
-    echo '<form class="inline-form replace-photo-form" method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="replace_photo"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.webp" required><button class="btn btn-ok">Sostituisci foto</button></form>';
+    echo '<form class="inline-form replace-photo-form" method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="replace_photo"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.webp" required><button class="btn btn-camera camera-trigger" type="button" data-athlete="' . e($photo['athlete_name']) . '" hidden>Scatta con guida</button><button class="btn btn-ok">Sostituisci foto</button></form>';
     echo '<form method="post" onsubmit="return confirm(\'Eliminare questa foto?\')"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><button class="btn btn-danger">Elimina</button></form>';
     echo '</div></div>';
 }
@@ -511,6 +511,27 @@ if (!$photos) {
 }
 echo '<p class="empty-filter-message" id="photoSearchEmpty" hidden>Nessuna foto trovata con questa ricerca.</p>';
 echo '</div></section>';
+echo <<<'HTML'
+<div class="camera-modal" id="athleteCamera" role="dialog" aria-modal="true" aria-labelledby="cameraTitle" hidden>
+  <div class="camera-panel">
+    <div class="camera-heading"><h2 id="cameraTitle">Foto atleta</h2><button class="btn btn-camera-close" type="button" data-camera-close>Chiudi</button></div>
+    <p class="camera-help">Tieni il telefono verticale e centra il viso nell'ovale.</p>
+    <div class="camera-stage" id="cameraStage">
+      <video id="cameraVideo" autoplay muted playsinline></video>
+      <div class="camera-guide" aria-hidden="true"></div>
+      <canvas id="cameraCanvas" hidden></canvas>
+    </div>
+    <p class="camera-status" id="cameraStatus" role="status" aria-live="polite"></p>
+    <p class="camera-error" id="cameraError" role="alert" hidden></p>
+    <div class="camera-actions">
+      <button class="btn" id="cameraCapture" type="button" disabled>Scatta foto</button>
+      <button class="btn btn-camera" id="cameraRetake" type="button" hidden>Riprova</button>
+      <button class="btn btn-ok" id="cameraUse" type="button" hidden>Usa questa foto</button>
+    </div>
+  </div>
+</div>
+<script src="/assets/photo-camera.js"></script>
+HTML;
 echo <<<'HTML'
 <script>
 (() => {
