@@ -604,6 +604,22 @@ body.camera-open { overflow: hidden; }
   </div>
 </div>
 <script src="/assets/photo-camera.js?v=20261101-native-upload"></script>
+<script>
+document.querySelectorAll('#photoList .photo-preview').forEach((image) => {
+  let attempts = 0;
+  function retry() {
+    if (attempts >= 3) return;
+    attempts += 1;
+    setTimeout(() => {
+      const url = new URL(image.src, window.location.href);
+      url.searchParams.set('preview_retry', `${Date.now()}-${attempts}`);
+      image.src = url.href;
+    }, attempts * 500);
+  }
+  image.addEventListener('error', retry);
+  if (image.complete && image.naturalWidth === 0) retry();
+});
+</script>
 HTML;
 echo <<<'HTML'
 <script>

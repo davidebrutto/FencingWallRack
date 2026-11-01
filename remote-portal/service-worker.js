@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fencewall-media-v1';
+const CACHE_NAME = 'fencewall-media-v2';
 const CORE_ASSETS = [
   '/',
   '/dashboard.php',
@@ -30,14 +30,25 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') {
     return;
   }
+  const url = new URL(request.url);
+  if (url.origin === self.location.origin && url.pathname === '/asset.php' && url.searchParams.get('type') === 'photo') {
+    return;
+  }
 
   event.respondWith(
     fetch(request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => undefined);
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => undefined);
+        }
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match('/dashboard.php')))
+      .catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        if (request.mode === 'navigate') return (await caches.match('/dashboard.php')) || Response.error();
+        return Response.error();
+      })
   );
 });
