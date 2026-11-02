@@ -8,6 +8,7 @@
     <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='underfloor-next.css')}}"/>
     <script type="text/javascript" src="/socket.io/socket.io.js"></script>
     <script type="text/javascript" src="/static/noc-to-flag.js"></script>
+    <script type="text/javascript" src="/static/underfloor-pause.js"></script>
 </head>
 <body class="underfloor underfloor-{{ side }} underfloor-segment-{{ segment }}">
     <main class="underfloor-viewport" data-side="{{ side }}" data-segment="{{ segment }}">
@@ -68,6 +69,10 @@
                 </div>
             </section>
             {% endif %}
+            <div class="uf-pause-overlay" id="ufPauseOverlay" hidden aria-label="Immagini pausa">
+                <div class="uf-pause-slide"></div>
+                <div class="uf-pause-slide"></div>
+            </div>
         </div>
     </main>
     <script>
@@ -79,6 +84,7 @@
             transports: ['websocket'],
             upgrade: false
         });
+        setupUnderfloorPause(socket, {{ spotInactivityMinutes | default(0) | int }});
 
         function setTextIfChanged(id, value) {
             const el = document.getElementById(id);

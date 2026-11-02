@@ -25,11 +25,13 @@ class PauseUsbImportTests(unittest.TestCase):
             with patch("pause_usb_import.subprocess.run") as run:
                 run.side_effect = lambda command, **kwargs: Path(command[-1]).write_bytes(b"optimized")
                 self.assertEqual(import_pause_media(destination, [source.parent]), 2)
-                self.assertIn("libx264", run.call_args.args[0])
-                self.assertEqual(run.call_count, 1)
-            self.assertEqual(sorted(path.name for path in destination.iterdir()), ["01-intro.mp4", "02-photo.jpg"])
+                self.assertIn("libx264", run.call_args_list[0].args[0])
+                self.assertEqual(run.call_count, 2)
+                self.assertIn("scale=-1:96:flags=lanczos", run.call_args.args[0])
+            self.assertEqual(sorted(path.name for path in destination.iterdir()), ["01-intro.mp4", "02-photo.jpg", "underfloor"])
             self.assertEqual((destination / "01-intro.mp4").read_bytes(), b"optimized")
             self.assertEqual((destination / "02-photo.jpg").read_bytes(), b"image")
+            self.assertEqual((destination / "underfloor" / "02-photo.jpg.jpg").read_bytes(), b"optimized")
 
     def test_converts_other_video_formats_without_overwriting_same_named_mp4(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -59,6 +61,21 @@ class PauseUsbImportTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "Conversione video fallita"):
                     import_pause_media(destination, [source.parent])
             self.assertEqual((destination / "old.mp4").read_bytes(), b"old")
+
+    def test_image_conversion_failure_keeps_previous_cache(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "stick" / "PAUSA"
+            source.mkdir(parents=True)
+            (source / "new.jpg").write_bytes(b"image")
+            destination = root / "pause-usb"
+            destination.mkdir()
+            (destination / "old.jpg").write_bytes(b"old")
+
+            with patch("pause_usb_import.subprocess.run", side_effect=CalledProcessError(1, "ffmpeg")):
+                with self.assertRaisesRegex(RuntimeError, "Conversione immagine fallita"):
+                    import_pause_media(destination, [source.parent])
+            self.assertEqual((destination / "old.jpg").read_bytes(), b"old")
 
     def test_empty_folder_keeps_previous_cache(self):
         with tempfile.TemporaryDirectory() as temp:

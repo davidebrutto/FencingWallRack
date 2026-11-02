@@ -47,6 +47,31 @@ body {
         linear-gradient(180deg, #050505 0%, #000000 48%, #050505 100%);
 }
 
+.uf-pause-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    width: 2688px;
+    height: 96px;
+    overflow: hidden;
+    background: #000;
+}
+
+.uf-pause-overlay[hidden] {
+    display: none;
+}
+
+.uf-pause-slide {
+    position: absolute;
+    inset: 0;
+    background-color: #000;
+    background-repeat: repeat-x;
+    background-position: 0 0;
+    background-size: auto 96px;
+    transform: translateY(100%);
+}
+
 .underfloor-segment-b .underfloor-canvas {
     transform: translateX(-1344px);
 }

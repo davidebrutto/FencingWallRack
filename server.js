@@ -247,11 +247,19 @@ function listPauseMedia() {
       return ALLOWED_VIDEO_EXTENSIONS.has(ext) || ALLOWED_PAUSE_IMAGE_EXTENSIONS.has(ext);
     })
     .sort((a, b) => a.localeCompare(b, 'it', { numeric: true }))
-    .map((filename) => ({
-      filename,
-      src: `${urlPrefix}/${encodeURIComponent(filename)}`,
-      type: ALLOWED_PAUSE_IMAGE_EXTENSIONS.has(path.extname(filename).toLowerCase()) ? 'image' : 'video',
-    }));
+    .map((filename) => {
+      const isImage = ALLOWED_PAUSE_IMAGE_EXTENSIONS.has(path.extname(filename).toLowerCase());
+      return {
+        filename,
+        src: `${urlPrefix}/${encodeURIComponent(filename)}`,
+        type: isImage ? 'image' : 'video',
+        ...(PAUSE_MEDIA_SOURCE === 'usb' && isImage
+          ? { underfloorSrc: fs.existsSync(path.join(dir, 'underfloor', `${filename}.jpg`))
+            ? `${urlPrefix}/underfloor/${encodeURIComponent(`${filename}.jpg`)}`
+            : `${urlPrefix}/${encodeURIComponent(filename)}` }
+          : {}),
+      };
+    });
 }
 
 function listAthletePhotos() {
@@ -965,6 +973,7 @@ app.get('/underfloor-:side(left|right)-:segment(a|b)', (req, res) => {
     segment,
     segmentLabel: segment.toUpperCase(),
     viewportWidth: underfloorViewportWidth(side, segment),
+    spotInactivityMinutes: SPOT_INACTIVITY_MINUTES,
   });
 });
 

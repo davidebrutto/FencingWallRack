@@ -14,6 +14,7 @@ MEDIA_EXTENSIONS = {".mp4", ".webm", ".mov", ".m4v", ".ogg", ".jpg", ".jpeg", ".
 VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov", ".m4v", ".ogg"}
 MOUNT_PREFIXES = ("/media/", "/run/media/", "/mnt/")
 VIDEO_FILTER = "scale=w='min(768,iw)':h='min(432,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2"
+UNDERFLOOR_IMAGE_FILTER = "scale=-1:96:flags=lanczos"
 
 
 def optimize_video(source, destination):
@@ -32,6 +33,21 @@ def optimize_video(source, destination):
         detail = (exc.stderr or "").strip() or str(exc)
         print(f"FFmpeg import USB {source.name}: {detail[-2000:]}", file=sys.stderr, flush=True)
         raise RuntimeError(f"Conversione video fallita: {source.name}") from exc
+
+
+def optimize_underfloor_image(source, destination):
+    command = [
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(source),
+        "-vf", UNDERFLOOR_IMAGE_FILTER, "-frames:v", "1", "-q:v", "3", str(destination),
+    ]
+    try:
+        subprocess.run(command, capture_output=True, text=True, check=True, timeout=120)
+    except FileNotFoundError as exc:
+        raise RuntimeError("ffmpeg mancante") from exc
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        detail = (exc.stderr or "").strip() or str(exc)
+        print(f"FFmpeg immagine USB {source.name}: {detail[-2000:]}", file=sys.stderr, flush=True)
+        raise RuntimeError(f"Conversione immagine fallita: {source.name}") from exc
 
 
 def mounted_usb_roots():
@@ -85,6 +101,7 @@ def import_pause_media(destination, roots=None):
     moved_old = False
     try:
         stage.chmod(0o755)
+        underfloor_dir = stage / "underfloor"
         used_names = set()
         original_mp4_names = {file.name for file in files if file.suffix.lower() == ".mp4"}
         for file in files:
@@ -101,6 +118,10 @@ def import_pause_media(destination, roots=None):
             else:
                 copied = stage / file.name
                 shutil.copyfile(file, copied)
+                underfloor_dir.mkdir(mode=0o755, exist_ok=True)
+                optimized = underfloor_dir / f"{file.name}.jpg"
+                optimize_underfloor_image(file, optimized)
+                optimized.chmod(0o644)
             copied.chmod(0o644)
             used_names.add(copied.name)
         if destination.exists():

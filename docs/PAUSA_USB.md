@@ -6,4 +6,10 @@ Sul display OLED aprire **PAUSA**. Selezionare **DOPO** per impostare i minuti o
 
 L'importazione sostituisce **solo i precedenti file importati da USB** nella cache locale `static/pause-usb`. I video provenienti dal portale rimangono separati. Importare una cartella vuota o interrompere una copia o una conversione non cancella la cache precedente. Se `ffmpeg` manca o un video non puo' essere convertito, l'OLED mostra un errore e mantiene i file precedenti. Dopo un'importazione riuscita, la sorgente passa automaticamente a `USB` e il servizio kiosk si riavvia per usare i nuovi file. La chiavetta non serve piu' dopo l'importazione e non viene letta agli avvii successivi. Per tornare ai video del portale, impostare **FONTE INTERNET** e salvare.
 
+## Sottopedana
+
+Con la sorgente `USB`, le immagini vengono mostrate su entrambi i sottopedana, sinistro e destro. Per ogni immagine l'importazione conserva l'originale per il ledwall e crea una copia alta 96 px, con proporzioni inalterate, in `static/pause-usb/underfloor`. Ogni copia viene ripetuta orizzontalmente lungo l'intero sottopedana. Le quattro finestre usano gli stessi intervalli di 10 secondi: la nuova immagine entra dal basso e la precedente esce verso l'alto. La pausa usa l'impostazione **DOPO/NO** dell'OLED e termina quando cambiano i dati del tabellone o riprende la seriale.
+
+I video USB continuano a essere importati e riprodotti sul ledwall. La loro visualizzazione sul sottopedana non e' ancora attiva: se la cartella contiene solo video, il sottopedana resta sul tabellone. Dopo un aggiornamento software, ripetere una volta **IMPORTA USB K2** per creare le copie ottimizzate delle immagini gia' presenti; fino a quel momento il sottopedana puo' usare gli originali.
+
 La chiavetta deve essere montata dal sistema nella normale directory `/media`, `/run/media` o `/mnt`. La copia richiede spazio libero sul FENCEWALL sufficiente per tutti i file, oltre a un margine di sicurezza di 50 MB.
