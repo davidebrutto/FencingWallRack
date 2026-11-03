@@ -3,8 +3,11 @@ window.setupUnderfloorPause = function setupUnderfloorPause(socket, inactivityMi
     if (!overlay || inactivityMinutes <= 0) return;
 
     const slides = Array.from(overlay.querySelectorAll('.uf-pause-slide'));
+    const tileStrips = slides.map((slide) => slide.querySelector('.uf-pause-tiles'));
     const imageDurationMs = 10000;
     const transitionMs = 650;
+    const stripWidth = 2688;
+    const stripHeight = 96;
     const noSerialTimeoutMs = 10000;
     const unchangedTimeoutMs = inactivityMinutes * 60000;
     let images = [];
@@ -29,10 +32,21 @@ window.setupUnderfloorPause = function setupUnderfloorPause(socket, inactivityMi
     function preload(src) {
         return new Promise((resolve, reject) => {
             const image = new Image();
-            image.onload = resolve;
+            image.onload = () => resolve(image);
             image.onerror = reject;
             image.src = src;
         });
+    }
+
+    function completeImagesWidth(image) {
+        const imageWidth = image.naturalWidth * stripHeight / image.naturalHeight;
+        if (!Number.isFinite(imageWidth) || imageWidth <= 0 || imageWidth > stripWidth) return 0;
+        return Math.floor(stripWidth / imageWidth) * imageWidth;
+    }
+
+    function setSlideImage(slideIndex, src, width) {
+        tileStrips[slideIndex].style.width = `${width}px`;
+        tileStrips[slideIndex].style.backgroundImage = imageUrl(src);
     }
 
     function hide() {
@@ -43,10 +57,10 @@ window.setupUnderfloorPause = function setupUnderfloorPause(socket, inactivityMi
         clearTimeout(nextTimer);
         clearTimeout(cleanupTimer);
         overlay.hidden = true;
-        slides.forEach((slide) => {
+        slides.forEach((slide, index) => {
             slide.style.transition = 'none';
             slide.style.transform = 'translateY(100%)';
-            slide.style.backgroundImage = 'none';
+            tileStrips[index].style.backgroundImage = 'none';
         });
     }
 
@@ -70,19 +84,23 @@ window.setupUnderfloorPause = function setupUnderfloorPause(socket, inactivityMi
         const index = currentImageIndex();
         if (index === visibleIndex) return;
         const token = generation;
+        let image;
         try {
-            await preload(images[index]);
+            image = await preload(images[index]);
         } catch (_) {
             return;
         }
         if (!active || token !== generation) return;
+        const width = completeImagesWidth(image);
+        if (!width) return;
 
         clearTimeout(cleanupTimer);
+        const outgoingIndex = visibleSlide;
         const outgoing = slides[visibleSlide];
         const incoming = slides[1 - visibleSlide];
         incoming.style.transition = 'none';
         incoming.style.transform = 'translateY(100%)';
-        incoming.style.backgroundImage = imageUrl(images[index]);
+        setSlideImage(1 - visibleSlide, images[index], width);
         incoming.style.zIndex = '2';
         outgoing.style.zIndex = '1';
         void incoming.offsetHeight;
@@ -100,7 +118,7 @@ window.setupUnderfloorPause = function setupUnderfloorPause(socket, inactivityMi
             if (!active || token !== generation) return;
             outgoing.style.transition = 'none';
             outgoing.style.transform = 'translateY(100%)';
-            outgoing.style.backgroundImage = 'none';
+            tileStrips[outgoingIndex].style.backgroundImage = 'none';
         }, transitionMs + 50);
     }
 
@@ -129,13 +147,15 @@ window.setupUnderfloorPause = function setupUnderfloorPause(socket, inactivityMi
                 return;
             }
             const index = currentImageIndex();
-            await preload(images[index]);
+            const image = await preload(images[index]);
             if (token !== generation || !stillInactive(pauseReason)) return;
+            const width = completeImagesWidth(image);
+            if (!width) throw new Error(`Immagine troppo larga per il sottopedana: ${images[index]}`);
             visibleSlide = 0;
             visibleIndex = index;
             slides[0].style.transition = 'none';
             slides[0].style.transform = 'translateY(0)';
-            slides[0].style.backgroundImage = imageUrl(images[index]);
+            setSlideImage(0, images[index], width);
             slides[0].style.zIndex = '2';
             slides[1].style.zIndex = '1';
             overlay.hidden = false;

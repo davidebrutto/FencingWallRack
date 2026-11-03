@@ -4,6 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../static/underfloor-pause.js'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '../static/underfloor-next.css'), 'utf8');
 
 function createWindow(minutes) {
   let now = 0;
@@ -11,12 +12,20 @@ function createWindow(minutes) {
   const timers = new Map();
   const intervals = [];
   const handlers = {};
-  const slides = [{ style: {}, offsetHeight: 96 }, { style: {}, offsetHeight: 96 }];
+  const tiles = [{ style: {} }, { style: {} }];
+  const slides = tiles.map((tile) => ({ style: {}, offsetHeight: 96, querySelector: () => tile }));
   const overlay = { hidden: true, querySelectorAll: () => slides };
   const socket = { on(event, handler) { handlers[event] = handler; }, emit(event, value) { handlers[event]?.(value); } };
   const window = {};
   class FakeDate extends Date { static now() { return now; } }
-  class FakeImage { set src(value) { this._src = value; queueMicrotask(() => this.onload?.()); } }
+  class FakeImage {
+    set src(value) {
+      this._src = value;
+      this.naturalWidth = value.endsWith('01.jpg') ? 500 : 300;
+      this.naturalHeight = value.endsWith('01.jpg') ? 192 : 96;
+      queueMicrotask(() => this.onload?.());
+    }
+  }
   vm.runInNewContext(source, {
     window, document: { getElementById: () => overlay }, Image: FakeImage,
     Date: FakeDate, JSON, console,
@@ -32,7 +41,7 @@ function createWindow(minutes) {
   });
   window.setupUnderfloorPause(socket, minutes);
   return {
-    overlay, slides, socket, intervals,
+    overlay, slides, tiles, socket, intervals,
     tick(time) {
       now = time;
       for (const fn of intervals) fn();
@@ -45,18 +54,22 @@ function createWindow(minutes) {
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 (async () => {
+  assert.match(css, /body\.underfloor-left \.uf-pause-tiles\s*\{[^}]*left:\s*auto;[^}]*right:\s*0;/);
+  assert.match(css, /\.uf-pause-tiles\s*\{[^}]*left:\s*0;/);
   const windows = Array.from({ length: 4 }, () => createWindow(1));
   for (const win of windows) win.socket.emit('punti_emit', { tabellone: { timer: '3:00', XX: '0' } });
   for (const win of windows) win.tick(11000);
   await flush();
   for (const win of windows) {
     assert.equal(win.overlay.hidden, false);
-    assert.match(win.slides[0].style.backgroundImage, /02\.jpg/);
+    assert.match(win.tiles[0].style.backgroundImage, /02\.jpg/);
+    assert.equal(win.tiles[0].style.width, '2400px');
   }
   for (const win of windows) win.tick(20020);
   await flush();
   for (const win of windows) {
-    assert.match(win.slides[1].style.backgroundImage, /01\.jpg/);
+    assert.match(win.tiles[1].style.backgroundImage, /01\.jpg/);
+    assert.equal(win.tiles[1].style.width, '2500px');
     assert.equal(win.slides[1].style.transform, 'translateY(0)');
     assert.equal(win.slides[0].style.transform, 'translateY(-100%)');
     win.socket.emit('punti_emit', { tabellone: { timer: '2:59', XX: '0' } });

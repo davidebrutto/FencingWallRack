@@ -66,10 +66,22 @@ body {
     position: absolute;
     inset: 0;
     background-color: #000;
+    transform: translateY(100%);
+}
+
+.uf-pause-tiles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 96px;
     background-repeat: repeat-x;
     background-position: 0 0;
     background-size: auto 96px;
-    transform: translateY(100%);
+}
+
+body.underfloor-left .uf-pause-tiles {
+    left: auto;
+    right: 0;
 }
 
 .underfloor-segment-b .underfloor-canvas {
