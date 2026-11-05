@@ -1,5 +1,9 @@
 # Pausa da USB
 
+## Immagini distribuite con UPDATE OLED
+
+Il repository include anche un pacchetto di immagini in `static/pause-bundle/PAUSA`. Al primo avvio dopo l'UPDATE, il kiosk lo importa una sola volta nella cache `static/pause-usb` usando esattamente la stessa funzione dell'importazione da chiavetta: conserva gli originali e produce le copie proporzionali alte 96 px per il sottopedana. La precedente cache USB viene sostituita. Per mostrarle, selezionare `PAUSA > FONTE USB` sull'OLED. Un'importazione USB successiva puo' comunque sostituire il pacchetto, senza che venga ripristinato a ogni avvio.
+
 Preparare una chiavetta con una cartella `PAUSA` nella directory principale. Inserire in `PAUSA` i video (`.mp4`, `.webm`, `.mov`, `.m4v`, `.ogg`) e/o le immagini (`.jpg`, `.jpeg`, `.png`, `.webp`) da mostrare, senza sottocartelle. L'ordine di riproduzione segue il nome dei file: usare prefissi come `01-`, `02-` per controllarlo. Ogni immagine resta visibile per 10 secondi, con una breve dissolvenza; i video vengono riprodotti fino alla fine. Se non ci sono file validi, si usa `pausa.jpg`.
 
 Sul display OLED aprire **PAUSA**. Selezionare **DOPO** per impostare i minuti o **NO** per disattivare la pausa automatica. Selezionare **FONTE** per scegliere `INTERNET` oppure `USB`: tenere premuto il pulsante rosso per 3 secondi per modificare, usare il joystick e premere il pulsante bianco per salvare. Per importare, lasciare inserita la chiavetta, selezionare **IMPORTA USB K2** e premere il pulsante bianco. I video vengono convertiti localmente in MP4 H.264, come quelli del portale: l'operazione puo' richiedere alcuni minuti. Attendere il messaggio `Importati N file` prima di rimuovere la chiavetta.

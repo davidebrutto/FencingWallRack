@@ -814,6 +814,11 @@ launch_single_window() {
 }
 
 cd "${APP_DIR}"
+if [[ -d "${APP_DIR}/static/pause-bundle/PAUSA" ]]; then
+  if ! python3 "${APP_DIR}/tools/oled_network/install_pause_bundle.py"; then
+    echo "Pacchetto pausa non installato; avvio kiosk senza interromperlo" >&2
+  fi
+fi
 npm start &
 NODE_PID=$!
 echo "Node avviato PID=${NODE_PID}"
