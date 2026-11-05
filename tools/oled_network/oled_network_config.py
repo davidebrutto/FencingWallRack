@@ -100,7 +100,7 @@ PAUSE_SOURCE_ENV_KEY = "PAUSE_MEDIA_SOURCE"
 DEFAULT_ATHLETE_PLACEHOLDER_ENABLED = env_bool("OLED_DEFAULT_ATHLETE_PLACEHOLDER_ENABLED", True)
 ATHLETE_PLACEHOLDER_ENV_KEY = os.getenv("OLED_ATHLETE_PLACEHOLDER_ENV_KEY", "ATHLETE_PLACEHOLDER_ENABLED")
 PREFERRED_IFACE = os.getenv("NET_IFACE", "").strip()
-DISPLAY_PROFILES = ["ledwall", "sottopedana"]
+DISPLAY_PROFILES = ["ledwall", "sottopedana", "monitor"]
 MAIN_MENU_ITEMS = ["NETWORK", "MODE", "PAUSA", "AVATAR ATLETA", "MANUALE", "VERSIONE", "UPDATE", "REBOOT", "POWER OFF"]
 MANUAL_URL = os.getenv("OLED_MANUAL_URL", "https://fencewall.sportlabweb.it/manuale")
 UPDATE_APP_DIR = os.getenv("OLED_UPDATE_APP_DIR", os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..")))
@@ -293,11 +293,13 @@ def normalize_display_profile(value):
     value = (value or "").strip().lower()
     if value in ("sottopedana", "underfloor", "pedana"):
         return "sottopedana"
+    if value == "monitor":
+        return "monitor"
     return "ledwall"
 
 
 def display_profile_label(value):
-    return "SOTTOPEDANA" if normalize_display_profile(value) == "sottopedana" else "LEDWALL"
+    return {"ledwall": "LEDWALL", "sottopedana": "SOTTOPEDANA", "monitor": "MONITOR"}[normalize_display_profile(value)]
 
 
 def read_env_value(path, key):

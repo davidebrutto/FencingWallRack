@@ -7,6 +7,9 @@
     <title>{% block title %}Scherma Score App{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="/static/logo.jpg">
     <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='mystyle-next.css')}}"/>
+    {% if monitorView %}
+    <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='monitor.css')}}"/>
+    {% endif %}
     {% if rearView %}
     <link type="text/css" rel="stylesheet" href="{{url_for('static', filename='rear-next.css')}}"/>
     {% endif %}
@@ -188,6 +191,9 @@
         <img src="/static/pausa.jpg" alt="Pausa" style="width:100%; height:100%; object-fit:contain; background:#000;" />
     </div>
 </body>
+{% if monitorView %}
+<script type="application/javascript" src="/static/monitor-fit.js"></script>
+{% endif %}
 <script type="application/javascript" src="/static/noc-to-flag.js"></script>
 <script type="application/javascript">
     const IS_REAR_VIEW = {% if rearView %}true{% else %}false{% endif %};

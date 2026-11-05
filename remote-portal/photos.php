@@ -440,7 +440,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($photo) {
             try {
                 replace_photo_file($photo, $_FILES['replacement_photo'] ?? []);
-                redirect_to('/photos.php');
+                // Un URL nuovo forza la PWA a rileggere la pagina dopo il caricamento.
+                redirect_to('/photos.php?updated=' . $id . '&refresh=' . bin2hex(random_bytes(8)));
             } catch (Throwable $exc) {
                 $error = $exc->getMessage();
             }
@@ -459,6 +460,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$updatedPhotoId = (int) ($_GET['updated'] ?? 0);
+$refreshToken = (string) ($_GET['refresh'] ?? '');
+if (!preg_match('/^[a-f0-9]{16}$/', $refreshToken)) {
+    $refreshToken = '';
+}
 $photos = db()->query('SELECT * FROM photos ORDER BY athlete_name ASC, id DESC')->fetchAll();
 render_header('Foto atleti', $user);
 echo '<section class="card"><h1>Foto atleti</h1>';
@@ -490,6 +496,10 @@ echo '<div class="search-box"><label for="photoSearch">Cerca foto</label><input 
 echo '<div class="media-list" id="photoList">';
 foreach ($photos as $photo) {
     $url = public_asset_url('photo', $photo['filename']);
+    $url .= '&v=' . rawurlencode((string) ($photo['updated_at'] ?? '') . '-' . (string) $photo['size_bytes']);
+    if ((int) $photo['id'] === $updatedPhotoId && $refreshToken !== '') {
+        $url .= '&refresh=' . $refreshToken;
+    }
     $flagOverride = (string) ($photo['flag_override'] ?? '');
     $flagLabel = $flagOverride !== '' ? $flagOverride : 'BANDIERA STANDARD';
     $isPlaceholder = !empty($photo['is_placeholder']);
@@ -502,7 +512,7 @@ foreach ($photos as $photo) {
     echo '<form class="inline-form" method="post"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="rename"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="text" name="athlete_name" value="' . e($photo['athlete_name']) . '">';
     render_flag_select('flag_override', $flagOverride);
     echo '<button class="btn">Salva</button></form>';
-    echo '<form class="inline-form replace-photo-form" method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="replace_photo"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.webp" required><button class="btn btn-ok">Sostituisci foto</button></form>';
+    echo '<form class="inline-form replace-photo-form" method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="replace_photo"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.webp" required><button class="btn btn-camera camera-trigger" type="button" data-athlete="' . e($photo['athlete_name']) . '" hidden>Scatta con guida</button><button class="btn btn-ok">Sostituisci foto</button></form>';
     echo '<form method="post" onsubmit="return confirm(\'Eliminare questa foto?\')"><input type="hidden" name="csrf" value="' . e(csrf_token()) . '"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' . (int) $photo['id'] . '"><button class="btn btn-danger">Elimina</button></form>';
     echo '</div></div>';
 }
@@ -511,6 +521,106 @@ if (!$photos) {
 }
 echo '<p class="empty-filter-message" id="photoSearchEmpty" hidden>Nessuna foto trovata con questa ricerca.</p>';
 echo '</div></section>';
+echo <<<'HTML'
+<style>
+/* Keep the camera usable even when an installed PWA still has an older app.css. */
+body.camera-open { overflow: hidden; }
+#athleteCamera[hidden], #athleteCamera [hidden] { display: none !important; }
+#athleteCamera {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(8, 18, 28, .88);
+}
+#athleteCamera .camera-panel {
+  width: min(100%, 480px);
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  border-radius: 18px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+}
+#athleteCamera .camera-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#athleteCamera .camera-heading h2 { margin: 0; font-size: 20px; }
+#athleteCamera .camera-help { margin: 10px 0; color: #667085; }
+#athleteCamera .camera-stage {
+  position: relative;
+  width: min(100%, 384px, 48vh);
+  aspect-ratio: 4 / 5;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #101418;
+}
+#athleteCamera .camera-stage video,
+#athleteCamera .camera-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#athleteCamera .camera-guide {
+  position: absolute;
+  z-index: 1;
+  top: 16%;
+  left: 29%;
+  width: 42%;
+  height: 47%;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .34), 0 0 14px rgba(0, 0, 0, .7);
+  pointer-events: none;
+}
+#athleteCamera .camera-status,
+#athleteCamera .camera-error { margin: 10px 0 0; min-height: 20px; text-align: center; }
+#athleteCamera .camera-error { color: #a31414; font-weight: 700; }
+#athleteCamera .camera-actions { display: flex; gap: 8px; margin-top: 12px; }
+#athleteCamera .camera-actions .btn { flex: 1; }
+@media (max-width: 760px) {
+  #athleteCamera .camera-actions { flex-direction: column; }
+}
+</style>
+<div class="camera-modal" id="athleteCamera" role="dialog" aria-modal="true" aria-labelledby="cameraTitle" hidden>
+  <div class="camera-panel">
+    <div class="camera-heading"><h2 id="cameraTitle">Foto atleta</h2><button class="btn btn-camera-close" type="button" data-camera-close>Chiudi</button></div>
+    <p class="camera-help">Tieni il telefono verticale e centra il viso nell'ovale.</p>
+    <div class="camera-stage" id="cameraStage">
+      <video id="cameraVideo" autoplay muted playsinline></video>
+      <div class="camera-guide" aria-hidden="true"></div>
+      <canvas id="cameraCanvas" hidden></canvas>
+    </div>
+    <p class="camera-status" id="cameraStatus" role="status" aria-live="polite"></p>
+    <p class="camera-error" id="cameraError" role="alert" hidden></p>
+    <div class="camera-actions">
+      <button class="btn" id="cameraCapture" type="button" disabled>Scatta foto</button>
+      <button class="btn btn-camera" id="cameraRetake" type="button" hidden>Riprova</button>
+      <button class="btn btn-ok" id="cameraUse" type="button" hidden>Usa questa foto</button>
+    </div>
+  </div>
+</div>
+<script src="/assets/photo-camera.js?v=20261101-native-upload"></script>
+<script>
+document.querySelectorAll('#photoList .photo-preview').forEach((image) => {
+  let attempts = 0;
+  function retry() {
+    if (attempts >= 3) return;
+    attempts += 1;
+    setTimeout(() => {
+      const url = new URL(image.src, window.location.href);
+      url.searchParams.set('preview_retry', `${Date.now()}-${attempts}`);
+      image.src = url.href;
+    }, attempts * 500);
+  }
+  image.addEventListener('error', retry);
+  if (image.complete && image.naturalWidth === 0) retry();
+});
+</script>
+HTML;
 echo <<<'HTML'
 <script>
 (() => {
