@@ -38,10 +38,10 @@ window.setupUnderfloorPause = function setupUnderfloorPause(socket, inactivityMi
         });
     }
 
-    function completeImagesWidth(image) {
+    function tiledImagesWidth(image) {
         const imageWidth = image.naturalWidth * stripHeight / image.naturalHeight;
-        if (!Number.isFinite(imageWidth) || imageWidth <= 0 || imageWidth > stripWidth) return 0;
-        return Math.floor(stripWidth / imageWidth) * imageWidth;
+        if (!Number.isFinite(imageWidth) || imageWidth <= 0) return 0;
+        return Math.ceil(stripWidth / imageWidth) * imageWidth;
     }
 
     function setSlideImage(slideIndex, src, width) {
@@ -91,7 +91,7 @@ window.setupUnderfloorPause = function setupUnderfloorPause(socket, inactivityMi
             return;
         }
         if (!active || token !== generation) return;
-        const width = completeImagesWidth(image);
+        const width = tiledImagesWidth(image);
         if (!width) return;
 
         clearTimeout(cleanupTimer);
@@ -149,7 +149,7 @@ window.setupUnderfloorPause = function setupUnderfloorPause(socket, inactivityMi
             const index = currentImageIndex();
             const image = await preload(images[index]);
             if (token !== generation || !stillInactive(pauseReason)) return;
-            const width = completeImagesWidth(image);
+            const width = tiledImagesWidth(image);
             if (!width) throw new Error(`Immagine troppo larga per il sottopedana: ${images[index]}`);
             visibleSlide = 0;
             visibleIndex = index;
