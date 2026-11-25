@@ -1,0 +1,21 @@
+# Managed by FENCEWALL OLED
+[Unit]
+Description=FENCEWALL early OLED boot indicator
+DefaultDependencies=no
+Wants=local-fs.target
+After=local-fs.target
+Before=basic.target fencingwallrack-oled-network.service shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=exec
+User=root
+Group=root
+WorkingDirectory=/home/fencewall/FencingWallRack
+EnvironmentFile=-/etc/default/fencingwallrack-oled-network
+ExecStart=/home/fencewall/FencingWallRack/.venv-oled/bin/python /home/fencewall/FencingWallRack/tools/oled_network/oled_boot_splash.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=basic.target

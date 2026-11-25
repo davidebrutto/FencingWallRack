@@ -16,7 +16,7 @@ from gpiozero import Button
 from luma.core.interface.serial import spi
 from luma.oled.device import sh1106
 from PIL import Image, ImageDraw, ImageFont
-from oled_early_boot import ensure_early_oled_service
+from oled_early_boot import ensure_early_oled_service, ensure_early_splash_service
 from pause_usb_import import import_pause_media
 
 try:
@@ -796,10 +796,11 @@ class OledNetworkApp:
         self.font = ImageFont.load_default()
         self.render_lock = threading.Lock()
         self.draw_startup()
-        try:
-            ensure_early_oled_service()
-        except Exception as exc:
-            print(f"OLED early boot setup error: {exc}", file=sys.stderr)
+        for setup in (ensure_early_oled_service, ensure_early_splash_service):
+            try:
+                setup()
+            except Exception as exc:
+                print(f"OLED early boot setup error: {exc}", file=sys.stderr)
         self.events = queue.Queue()
         self.running = True
         self.buttons = []

@@ -109,6 +109,7 @@ EOF_SERVICE
 write_oled_service() {
   log "Installo servizio OLED"
   cp "${APP_DIR}/tools/oled_network/fencingwallrack-oled-network.service" /etc/systemd/system/fencingwallrack-oled-network.service
+  cp "${APP_DIR}/tools/oled_network/fencingwallrack-oled-early-splash.service" /etc/systemd/system/fencingwallrack-oled-early-splash.service
 }
 
 install_env_files() {
@@ -263,6 +264,7 @@ enable_services() {
   systemctl daemon-reload
   systemctl enable fencingwallrack-kiosk.service
   systemctl enable fencingwallrack-oled-network.service
+  systemctl enable fencingwallrack-oled-early-splash.service
 }
 
 main() {
