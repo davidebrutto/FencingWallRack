@@ -16,6 +16,7 @@ from gpiozero import Button
 from luma.core.interface.serial import spi
 from luma.oled.device import sh1106
 from PIL import Image, ImageDraw, ImageFont
+from oled_early_boot import ensure_early_oled_service
 from pause_usb_import import import_pause_media
 
 try:
@@ -793,6 +794,12 @@ class OledNetworkApp:
         serial = spi(port=SPI_PORT, device=SPI_DEVICE, gpio_DC=GPIO_DC, gpio_RST=GPIO_RST)
         self.device = sh1106(serial, width=WIDTH, height=HEIGHT, rotate=ROTATE)
         self.font = ImageFont.load_default()
+        self.render_lock = threading.Lock()
+        self.draw_startup()
+        try:
+            ensure_early_oled_service()
+        except Exception as exc:
+            print(f"OLED early boot setup error: {exc}", file=sys.stderr)
         self.events = queue.Queue()
         self.running = True
         self.buttons = []
@@ -820,7 +827,6 @@ class OledNetworkApp:
         self.gw_chars = ip_to_chars(self.cfg["gateway"])
         self.cursor = 0
         self.status = ""
-        self.render_lock = threading.Lock()
         self.blink_on = True
         self.last_blink_at = time.monotonic()
         self.screen = "logo"
@@ -906,6 +912,14 @@ class OledNetworkApp:
             rotate_180 = getattr(getattr(Image, "Transpose", Image), "ROTATE_180")
             image = image.transpose(rotate_180)
         self.device.display(image)
+
+    def draw_startup(self):
+        image = Image.new("1", (WIDTH, HEIGHT), 0)
+        draw = ImageDraw.Draw(image)
+        draw.text((8, 14), "FENCEWALL", font=self.font, fill=255)
+        draw.text((8, 36), "AVVIO...", font=self.font, fill=255)
+        with self.render_lock:
+            self.display_image(image)
 
     def normalize_input_event(self, event):
         if not INPUT_FLIP_180:
@@ -1089,6 +1103,7 @@ class OledNetworkApp:
     def enter_selected_menu(self):
         item = MAIN_MENU_ITEMS[self.menu_selected]
         if item == "NETWORK":
+            self.refresh_iface()
             self.enter_screen("network")
         elif item == "MODE":
             self.enter_screen("mode")
